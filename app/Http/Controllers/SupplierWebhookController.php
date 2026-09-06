@@ -7,6 +7,7 @@ use App\Models\SupplierConfig;
 use App\Services\OrderService;
 use App\Services\ProviderFactory;
 use App\Suppliers\DigiflazzProvider;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +18,9 @@ use Illuminate\Support\Facades\DB;
  * Header: X-Hub-Signature: sha1=HMAC-SHA1(raw body, webhook secret),
  * X-Digiflazz-Event: create|update, User-Agent: Digiflazz-Hookshot.
  * Secret diatur di Digiflazz: Atur Koneksi > API > Webhook.
+ *
+ * VIPayment: POST JSON {data: {trxid, data, zone, service, status, note, price}}
+ * Header: X-Client-Signature = md5(API ID + API KEY). Whitelist IP 178.248.73.218.
  */
 class SupplierWebhookController extends Controller
 {
@@ -101,6 +105,80 @@ class SupplierWebhookController extends Controller
         });
 
         AuditLog::record('supplier.webhook.digiflazz', $config, [], ['ref_id' => $refId, 'status' => $status]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function vipReseller(Request $request)
+    {
+        $config = SupplierConfig::where('code', 'vip-reseller')->first();
+
+        if (! $config) {
+            return response()->json(['ok' => false, 'message' => 'Supplier vip-reseller belum dikonfigurasi'], 404);
+        }
+
+        $provider = ProviderFactory::supplierFor($config);
+
+        if (! $provider instanceof VipResellerProvider) {
+            return response()->json(['ok' => false, 'message' => 'Provider mismatch'], 500);
+        }
+
+        if (! $provider->verifyWebhook($request->header('X-Client-Signature'))) {
+            AuditLog::record('supplier.webhook.invalid_signature', $config, [], ['supplier' => 'vip-reseller']);
+
+            return response()->json(['ok' => false, 'reason' => 'invalid_signature'], 401);
+        }
+
+        $data = $request->input('data', $request->all());
+        $trxid = (string) ($data['trxid'] ?? '');
+        $status = (string) ($data['status'] ?? '');
+
+        if ($trxid === '') {
+            return response()->json(['ok' => false, 'reason' => 'missing_trxid'], 400);
+        }
+
+        $trx = \App\Models\Transaction::where('supplier_trx_id', $trxid)->first();
+
+        if (! $trx) {
+            return response()->json(['ok' => true, 'ignored' => true]);
+        }
+
+        DB::transaction(function () use ($trx, $data, $status) {
+            $locked = \App\Models\Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isFinal()) {
+                return;
+            }
+
+            $locked->supplier_status = strtolower($status);
+            $locked->payment_payload = array_merge($locked->payment_payload ?? [], [
+                'webhook_vip' => ['data' => $data, 'at' => now()->toDateTimeString()],
+            ]);
+
+            if (! empty($data['note'])) {
+                $locked->notes = trim(($locked->notes ?? '').' [VIP: '.$data['note'].']');
+            }
+
+            $mapped = VipResellerProvider::mapStatus($status);
+
+            if ($mapped === 'success') {
+                $locked->status = \App\Models\Transaction::STATUS_SUCCESS;
+            } elseif ($mapped === 'failed') {
+                $locked->status = \App\Models\Transaction::STATUS_FAILED;
+                if ($locked->payment_method === 'balance' && $locked->user_id && $locked->paid_at) {
+                    app(\App\Services\BalanceService::class)->credit(
+                        $locked->user,
+                        $locked->total_amount,
+                        \App\Models\BalanceMutation::TYPE_REFUND,
+                        'Refund '.$locked->invoice_code.' VIPayment gagal (webhook)',
+                        $locked->id
+                    );
+                }
+            }
+            $locked->save();
+        });
+
+        AuditLog::record('supplier.webhook.vip-reseller', $config, [], ['trxid' => $trxid, 'status' => $status]);
 
         return response()->json(['ok' => true]);
     }

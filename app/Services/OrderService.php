@@ -145,9 +145,7 @@ class OrderService
         foreach ($candidates as $supplier) {
             try {
                 $provider = ProviderFactory::supplierFor($supplier);
-                $target = $trx->target_zone
-                    ? $trx->target_user_id.'|'.$trx->target_zone
-                    : $trx->target_user_id;
+                $target = $trx->target_user_id;
 
                 $orderOptions = ['trx_id' => $trx->id];
 
@@ -158,9 +156,21 @@ class OrderService
                     $orderOptions['ref_id'] = 'AP-'.$trx->id;
                 }
 
+                if ($provider instanceof \App\Suppliers\VipResellerProvider) {
+                    // VIPayment game: zone dikirim TERPISAH via data_zone (dok game-feature).
+                    // Jangan digabung "id|zone" — server menolaknya.
+                    if ($trx->target_zone) {
+                        $orderOptions['zone'] = $trx->target_zone;
+                    }
+                } elseif ($trx->target_zone) {
+                    $target = $trx->target_user_id.'|'.$trx->target_zone;
+                }
+
                 $res = $provider->order($trx->product->supplier_code, $target, $orderOptions);
 
                 if (! ($res['result'] ?? false)) {
+                    $trx->notes = trim(($trx->notes ?? '').' ['.$supplier->code.': '.mb_substr((string) ($res['message'] ?? 'gagal'), 0, 120).']');
+                    $trx->save();
                     continue;
                 }
 
@@ -199,13 +209,12 @@ class OrderService
 
         // Digiflazz: cek status prepaid = topup ulang dengan ref_id yang sama,
         // butuh buyer_sku_code + customer_no asli.
+        // VIPayment: cek ke channel yang sama saat order; data balikan ARRAY.
         $statusOptions = [];
         if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
             $statusOptions = [
                 'buyer_sku_code' => $trx->product->supplier_code,
-                'customer_no' => $trx->target_zone
-                    ? $trx->target_user_id.'|'.$trx->target_zone
-                    : $trx->target_user_id,
+                'customer_no' => $trx->target_user_id,
             ];
         }
 
@@ -222,9 +231,10 @@ class OrderService
             $locked->supplier_status = $status;
             $locked->payment_payload = array_merge($locked->payment_payload ?? [], ['poll' => $res]);
 
+            // VIPayment: success | error ; Digiflazz: Sukses | Gagal (+ Pending menyesuaikan).
             if (in_array($status, ['success', 'sukses'], true)) {
                 $locked->status = Transaction::STATUS_SUCCESS;
-            } elseif (in_array($status, ['failed', 'gagal', 'batal'], true)) {
+            } elseif (in_array($status, ['failed', 'gagal', 'batal', 'error'], true)) {
                 $locked->status = Transaction::STATUS_FAILED;
                 if ($locked->payment_method === 'balance' && $locked->user_id) {
                     $this->balances->credit(

@@ -36,9 +36,26 @@ class SyncSupplierProducts implements ShouldQueue
             }
             $name = $row['name'] ?? $row['product_name'] ?? $row['service_name'] ?? $code;
             $game = $row['game'] ?? $row['brand'] ?? $row['category'] ?? $this->filters['game'] ?? $this->filters['brand'] ?? 'Lainnya';
-            $price = (int) ($row['price'] ?? $row['harga'] ?? 0);
-            $pricePremium = (int) ($row['price_premium'] ?? $row['harga_premium'] ?? $price);
-            $priceSpecial = (int) ($row['price_special'] ?? $row['harga_special'] ?? $price);
+            // VIPayment: price = {basic, premium, special} -> 3 tier modal sekaligus.
+            $priceNode = $row['price'] ?? $row['harga'] ?? 0;
+            if (is_array($priceNode)) {
+                $price = (int) ($priceNode['basic'] ?? 0);
+                $pricePremium = (int) ($priceNode['premium'] ?? $price);
+                $priceSpecial = (int) ($priceNode['special'] ?? $price);
+            } else {
+                $price = (int) $priceNode;
+                $pricePremium = (int) ($row['price_premium'] ?? $row['harga_premium'] ?? $price);
+                $priceSpecial = (int) ($row['price_special'] ?? $row['harga_special'] ?? $price);
+            }
+            if (isset($row['price_basic'])) {
+                $price = (int) $row['price_basic'];
+            }
+            if (isset($row['price_premium'])) {
+                $pricePremium = (int) $row['price_premium'];
+            }
+            if (isset($row['price_special'])) {
+                $priceSpecial = (int) $row['price_special'];
+            }
             $status = strtolower((string) ($row['status'] ?? 'available'));
             $inStock = ! in_array($status, ['kosong', 'empty', 'off', 'nonaktif'], true);
             if (array_key_exists('in_stock', $row)) {

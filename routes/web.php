@@ -28,6 +28,7 @@ Route::get('/api/invoice/{code}', [InvoiceController::class, 'api'])->name('invo
 
 Route::post('/webhook/payment/{gateway}', [WebhookController::class, 'gateway'])->name('webhook.payment');
 Route::post('/webhook/supplier/digiflazz', [SupplierWebhookController::class, 'digiflazz'])->name('webhook.supplier.digiflazz');
+Route::post('/webhook/supplier/vip-reseller', [SupplierWebhookController::class, 'vipReseller'])->name('webhook.supplier.vip-reseller');
 
 Route::get('/sitemap.xml', function () {
     $products = \App\Models\Product::where('is_active', true)->orderBy('game')->limit(1000)->get();
