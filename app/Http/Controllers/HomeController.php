@@ -33,8 +33,18 @@ class HomeController extends Controller
         $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
         $totalProducts = Product::available()->count();
         $totalGames = Product::available()->distinct()->count('game');
+        // Flash sale: 8 produk termurah yang stok tersedia.
+        $flashSale = Product::available()->orderBy('price_guest')->limit(8)->get();
+        // Trending: 8 game dengan produk terbanyak.
+        $trending = Product::query()
+            ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+            ->available()
+            ->groupBy('game')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames'));
+        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'flashSale', 'trending'));
     }
 
     public function game(string $game)
