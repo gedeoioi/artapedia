@@ -6,6 +6,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SupplierWebhookController;
 use App\Http\Controllers\TopupController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,7 @@ Route::get('/cek-invoice/hasil', [InvoiceController::class, 'show'])->name('invo
 Route::get('/api/invoice/{code}', [InvoiceController::class, 'api'])->name('invoice.api');
 
 Route::post('/webhook/payment/{gateway}', [WebhookController::class, 'gateway'])->name('webhook.payment');
+Route::post('/webhook/supplier/digiflazz', [SupplierWebhookController::class, 'digiflazz'])->name('webhook.supplier.digiflazz');
 
 Route::get('/sitemap.xml', function () {
     $products = \App\Models\Product::where('is_active', true)->orderBy('game')->limit(1000)->get();

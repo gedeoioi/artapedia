@@ -43,7 +43,7 @@ class ArtaPediaSeeder extends Seeder
             'is_active' => false,
             'is_sandbox' => true,
             'priority' => 1,
-            'credentials' => [],
+            'credentials' => ['username' => '', 'api_key' => '', 'webhook_secret' => ''],
         ]);
         SupplierConfig::firstOrCreate(['code' => 'toko-voucher'], [
             'name' => 'TokoVoucher',

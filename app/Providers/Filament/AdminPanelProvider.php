@@ -27,6 +27,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName(fn () => \App\Models\SiteSetting::get('site_name', 'ArtaPedia'))
+            ->brandLogo(fn () => \App\Models\SiteSetting::logoUrl())
+            ->favicon(fn () => \App\Models\SiteSetting::faviconUrl())
             ->colors([
                 'primary' => Color::Amber,
             ])

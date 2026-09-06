@@ -118,6 +118,11 @@ class PaymentService
                 return $trx;
             }
 
+            // Expired: jangan proses jadi paid walau gateway telat kirim callback.
+            if ($trx->status === Transaction::STATUS_EXPIRED) {
+                return $trx;
+            }
+
             $trx->status = Transaction::STATUS_PAID;
             $trx->paid_at = now();
             $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['callback' => $raw]);
@@ -140,6 +145,85 @@ class PaymentService
             }
 
             return $trx;
+        });
+    }
+
+    public function pollGatewayStatus(int $transactionId): ?Transaction
+    {
+        $trx = Transaction::with('invoice')->find($transactionId);
+        if (! $trx || $trx->payment_method === 'balance' || ! $trx->payment_reference) {
+            return $trx;
+        }
+
+        if ($trx->isFinal() || $trx->status !== Transaction::STATUS_PENDING) {
+            return $trx;
+        }
+
+        if ($trx->invoice && $trx->invoice->expired_at && $trx->invoice->expired_at->isPast()) {
+            return $this->expireTransaction($trx->id);
+        }
+
+        $gateway = ProviderFactory::gatewayByCode($trx->payment_gateway_code);
+        if (! $gateway) {
+            return $trx;
+        }
+
+        try {
+            $result = $gateway->checkStatus($trx->payment_reference);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $trx;
+        }
+
+        $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['poll_gateway' => $result]);
+        $trx->save();
+
+        if (($result['status'] ?? '') === 'paid') {
+            return $this->markPaid($trx->payment_reference, $trx->payment_gateway_code, $result['raw'] ?? []);
+        }
+
+        if (($result['status'] ?? '') === 'expired') {
+            return $this->expireTransaction($trx->id);
+        }
+
+        return $trx->fresh();
+    }
+
+    public function expireOverdueInvoices(): int
+    {
+        $ids = Invoice::where('status', 'pending')
+            ->whereNotNull('expired_at')
+            ->where('expired_at', '<', now())
+            ->limit(100)
+            ->pluck('transaction_id');
+
+        $count = 0;
+        foreach ($ids as $id) {
+            $this->expireTransaction($id);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    public function expireTransaction(int $transactionId): ?Transaction
+    {
+        return DB::transaction(function () use ($transactionId) {
+            $trx = Transaction::whereKey($transactionId)->lockForUpdate()->first();
+            if (! $trx || $trx->isFinal()) {
+                return $trx;
+            }
+
+            if (in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
+                return $trx;
+            }
+
+            $trx->status = Transaction::STATUS_EXPIRED;
+            $trx->save();
+            $trx->invoice()->update(['status' => 'expired']);
+
+            return $trx->fresh();
         });
     }
 }

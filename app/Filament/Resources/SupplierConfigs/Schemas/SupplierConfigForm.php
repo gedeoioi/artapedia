@@ -33,9 +33,9 @@ class SupplierConfigForm
                     ->default(0),
                 KeyValue::make('credentials')
                     ->columnSpanFull()
-                    ->keyLabel('Key (cth: api_id, api_key, base_url)')
+                    ->keyLabel('Key')
                     ->valueLabel('Value')
-                    ->helperText('Tersimpan terenkripsi. VIP Reseller: api_id + api_key, sign = md5(api_id + api_key).'),
+                    ->helperText('Tersimpan terenkripsi. VIP Reseller: api_id + api_key (sign = md5(api_id + api_key)). Digiflazz: username + api_key + webhook_secret (opsional, untuk verifikasi webhook) + base_url (opsional).'),
                 TextInput::make('cached_balance')
                     ->required()
                     ->numeric()

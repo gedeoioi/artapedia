@@ -114,12 +114,28 @@ class OrderService
     {
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
-        if (in_array($trx->status, [Transaction::STATUS_SUCCESS, Transaction::STATUS_FAILED], true)) {
+        if (in_array($trx->status, [Transaction::STATUS_SUCCESS, Transaction::STATUS_FAILED, Transaction::STATUS_EXPIRED], true)) {
             return $trx;
         }
 
-        $trx->status = Transaction::STATUS_PROCESSING;
-        $trx->save();
+        // Idempotency: kalau supplier_trx_id sudah ada, JANGAN order ulang.
+        // Cukup kembalikan — status final ditentukan oleh pollStatus().
+        if ($trx->supplier_trx_id) {
+            return $trx;
+        }
+
+        // Atomic claim: hanya 1 worker yang boleh meneruskan ke order HTTP.
+        // Mencegah double-order ke supplier saat 2 job/cron berjalan bersamaan.
+        $claimed = Transaction::whereKey($trx->id)
+            ->whereNull('supplier_trx_id')
+            ->whereIn('status', [Transaction::STATUS_PENDING, Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING])
+            ->update(['status' => Transaction::STATUS_PROCESSING, 'supplier_status' => 'claiming_order']);
+
+        if (! $claimed) {
+            return $trx->fresh();
+        }
+
+        $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
         $candidates = SupplierConfig::activeOrdered();
         if ($preferredSupplierId) {
@@ -133,7 +149,16 @@ class OrderService
                     ? $trx->target_user_id.'|'.$trx->target_zone
                     : $trx->target_user_id;
 
-                $res = $provider->order($trx->product->supplier_code, $target, ['trx_id' => $trx->id]);
+                $orderOptions = ['trx_id' => $trx->id];
+
+                if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
+                    // Digiflazz: ref_id HARUS unik & stabil per transaksi.
+                    // Retry / cek status memakai ref_id yang sama -> tidak double charge.
+                    // Format: AP-{trx_id} (huruf/angka, aman untuk Digiflazz).
+                    $orderOptions['ref_id'] = 'AP-'.$trx->id;
+                }
+
+                $res = $provider->order($trx->product->supplier_code, $target, $orderOptions);
 
                 if (! ($res['result'] ?? false)) {
                     continue;
@@ -171,7 +196,20 @@ class OrderService
         }
 
         $provider = ProviderFactory::supplierFor($trx->supplier);
-        $res = $provider->checkStatus($trx->supplier_trx_id);
+
+        // Digiflazz: cek status prepaid = topup ulang dengan ref_id yang sama,
+        // butuh buyer_sku_code + customer_no asli.
+        $statusOptions = [];
+        if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
+            $statusOptions = [
+                'buyer_sku_code' => $trx->product->supplier_code,
+                'customer_no' => $trx->target_zone
+                    ? $trx->target_user_id.'|'.$trx->target_zone
+                    : $trx->target_user_id,
+            ];
+        }
+
+        $res = $provider->checkStatus($trx->supplier_trx_id, $statusOptions);
         $status = strtolower($res['data']['status'] ?? $res['status'] ?? '');
 
         return DB::transaction(function () use ($trx, $status, $res) {

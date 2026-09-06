@@ -119,4 +119,61 @@ class BalanceSafetyTest extends TestCase
         $sum = BalanceMutation::where('user_id', $user->id)->sum('amount');
         $this->assertEquals(100000 + $sum, $fresh->balance);
     }
+
+    public function test_dispatch_tidak_order_ulang_ke_supplier(): void
+    {
+        [$supplier, $product] = $this->seedBasics();
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-DISP-1', 'product_id' => $product->id,
+            'supplier_config_id' => $supplier->id,
+            'payment_gateway_code' => 'balance', 'target_user_id' => '123',
+            'quantity' => 1, 'cost_price' => 10000, 'sell_price' => 12000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 12000, 'profit' => 2000,
+            'payment_method' => 'balance', 'status' => 'processing',
+            'supplier_trx_id' => 'SUP-EXISTING-1', 'supplier_status' => 'processing',
+        ]);
+
+        $result = app(OrderService::class)->dispatchToSupplier($trx->id);
+
+        $this->assertEquals('SUP-EXISTING-1', $result->supplier_trx_id);
+    }
+
+    public function test_callback_telat_tidak_menghidupkan_invoice_expired(): void
+    {
+        [$supplier, $product] = $this->seedBasics();
+        $user = User::factory()->create(['balance' => 0, 'level' => 'biasa']);
+
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-EXP-1', 'user_id' => $user->id, 'product_id' => $product->id,
+            'payment_gateway_code' => 'xendit', 'target_user_id' => 'TOPUP',
+            'quantity' => 1, 'cost_price' => 0, 'sell_price' => 50000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 50000, 'profit' => 0,
+            'payment_method' => 'xendit', 'payment_reference' => 'TOPUP-EXP-1',
+            'status' => 'expired', 'meta' => ['kind' => 'topup'],
+        ]);
+
+        $payments = app(PaymentService::class);
+        $result = $payments->markPaid('TOPUP-EXP-1', 'xendit', ['late' => true]);
+
+        $this->assertEquals('expired', $result->status);
+        $this->assertEquals(0, $user->fresh()->balance);
+        $this->assertEquals(0, BalanceMutation::where('transaction_id', $trx->id)->count());
+    }
+
+    public function test_expire_menolak_trx_yang_sudah_paid(): void
+    {
+        [$supplier, $product] = $this->seedBasics();
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-PAID-1', 'product_id' => $product->id,
+            'payment_gateway_code' => 'xendit', 'target_user_id' => '123',
+            'quantity' => 1, 'cost_price' => 10000, 'sell_price' => 12000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 12000, 'profit' => 2000,
+            'payment_method' => 'xendit', 'payment_reference' => 'PAY-PAID-1',
+            'status' => 'paid', 'paid_at' => now(),
+        ]);
+
+        $result = app(PaymentService::class)->expireTransaction($trx->id);
+
+        $this->assertEquals('paid', $result->status);
+    }
 }

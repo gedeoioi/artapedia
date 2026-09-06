@@ -23,8 +23,11 @@ class HomeController extends Controller
 
         $icons = GameIcon::whereIn('game_name', $games->pluck('game'))->get()->keyBy('game_name');
         $popular = Product::where('is_active', true)->orderByDesc('id')->limit(8)->get();
+        $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
+        $totalProducts = Product::where('is_active', true)->count();
+        $totalGames = Product::where('is_active', true)->distinct()->count('game');
 
-        return view('home', compact('games', 'icons', 'popular', 'q'));
+        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames'));
     }
 
     public function game(string $game)

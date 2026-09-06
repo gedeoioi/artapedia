@@ -16,6 +16,10 @@ class SupplierConfig extends Model
         'credentials',
         'cached_balance',
         'last_sync_at',
+        'last_test_at',
+        'last_test_ok',
+        'last_test_summary',
+        'last_test_log',
     ];
 
     protected function casts(): array
@@ -26,6 +30,8 @@ class SupplierConfig extends Model
             'credentials' => 'encrypted:array',
             'last_sync_at' => 'datetime',
             'cached_balance' => 'integer',
+            'last_test_at' => 'datetime',
+            'last_test_ok' => 'boolean',
         ];
     }
 
