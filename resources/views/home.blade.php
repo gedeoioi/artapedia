@@ -8,6 +8,39 @@
     $tagline = \App\Models\SiteSetting::get('site_tagline', 'Topup game, pulsa & PPOB');
 @endphp
 
+<!-- SLIDE BANNER -->
+@if(($banners ?? collect())->isNotEmpty())
+<section class="mb-8" x-data="{ i: 0, total: {{ $banners->count() }} }" x-init="setInterval(() => { i = (i + 1) % total }, 5000)">
+    <div class="relative overflow-hidden card" style="border-radius:16px">
+        @foreach($banners as $idx => $b)
+            <div x-show="i === {{ $idx }}" x-transition.opacity.duration.500ms class="w-full">
+                @if($b->imageUrl())
+                    <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block">
+                        <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-40 md:h-64 object-cover">
+                    </a>
+                @else
+                    <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block flash-grad p-6 md:p-10 text-white">
+                        <div class="font-extrabold text-xl md:text-3xl">{{ $b->title }}</div>
+                        @if($b->subtitle)<div class="text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
+                        @if($b->button_text)<span class="inline-block mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
+                    </a>
+                @endif
+            </div>
+        @endforeach
+        @if($banners->count() > 1)
+        <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+            @foreach($banners as $idx => $b)
+                <button @click="i = {{ $idx }}" :class="i === {{ $idx }} ? 'bg-white' : 'bg-white/40'" class="w-2 h-2" style="border-radius:999px" aria-label="Slide {{ $idx + 1 }}"></button>
+            @endforeach
+        </div>
+        <button @click="i = (i - 1 + total) % total" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px">&#8249;</button>
+        <button @click="i = (i + 1) % total" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px">&#8250;</button>
+        @endif
+    </div>
+    <div class="text-center mt-2 text-sm font-semibold" x-text="@js($banners->pluck('title')->values()) [i]"></div>
+</section>
+@endif
+
 <!-- FLASH SALE -->
 @if($flashSale->isNotEmpty())
 <section class="mb-8">

@@ -17,6 +17,7 @@
     <meta name="robots" content="index, follow">
     @if($favicon)<link rel="icon" href="{{ $favicon }}">@endif
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         :root { --primary: {{ $primary }}; --accent: {{ $accent }}; }
         body { background: #0f0f12; color: #f5f4f0; font-family: ui-sans-serif, system-ui, sans-serif; }

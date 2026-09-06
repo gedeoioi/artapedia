@@ -44,7 +44,9 @@ class HomeController extends Controller
             ->limit(8)
             ->get();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'flashSale', 'trending'));
+        $banners = \App\Models\Banner::activeOrdered();
+
+        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'flashSale', 'trending', 'banners'));
     }
 
     public function game(string $game)
