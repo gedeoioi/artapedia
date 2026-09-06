@@ -9,8 +9,12 @@ cd "$APP_DIR"
 echo "==> [1/7] Git pull"
 git pull --ff-only
 
+echo "==> [1b/7] Permission dulu (sebelum composer, agar package:discover bisa tulis log/cache)"
+sudo chown -R www-data:www-data storage bootstrap/cache || chown -R www-data:www-data storage bootstrap/cache || true
+sudo chmod -R 775 storage bootstrap/cache || chmod -R 775 storage bootstrap/cache || true
+
 echo "==> [2/7] Composer install (production)"
-composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
 echo "==> [3/7] NPM build (abaikan jika gagal / belum ada node_modules)"
 if command -v npm >/dev/null 2>&1; then
