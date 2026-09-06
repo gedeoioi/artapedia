@@ -14,7 +14,7 @@ class HomeController extends Controller
 
         $games = Product::query()
             ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
-            ->where('is_active', true)
+            ->available()
             ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
             ->groupBy('game')
             ->orderBy('game')
@@ -29,17 +29,17 @@ class HomeController extends Controller
                 $icons[$g->game] = $icon;
             }
         }
-        $popular = Product::where('is_active', true)->orderByDesc('id')->limit(8)->get();
+        $popular = Product::available()->orderByDesc('id')->limit(8)->get();
         $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
-        $totalProducts = Product::where('is_active', true)->count();
-        $totalGames = Product::where('is_active', true)->distinct()->count('game');
+        $totalProducts = Product::available()->count();
+        $totalGames = Product::available()->distinct()->count('game');
 
         return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames'));
     }
 
     public function game(string $game)
     {
-        $products = Product::where('game', $game)->where('is_active', true)->orderBy('price_guest')->get();
+        $products = Product::where('game', $game)->available()->orderBy('price_guest')->get();
         $icon = GameIcon::where('game_name', $game)->where('is_active', true)->first()
             ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 

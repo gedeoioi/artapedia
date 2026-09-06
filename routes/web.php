@@ -32,7 +32,7 @@ Route::post('/webhook/supplier/vip-reseller', [SupplierWebhookController::class,
 Route::post('/webhook/supplier/toko-voucher', [SupplierWebhookController::class, 'tokoVoucher'])->name('webhook.supplier.toko-voucher');
 
 Route::get('/sitemap.xml', function () {
-    $products = \App\Models\Product::where('is_active', true)->orderBy('game')->limit(1000)->get();
+    $products = \App\Models\Product::available()->orderBy('game')->limit(1000)->get();
 
     return response()->view('sitemap', compact('products'))->header('Content-Type', 'text/xml');
 })->name('sitemap');

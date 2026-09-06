@@ -14,6 +14,8 @@ class CheckoutController extends Controller
 {
     public function show(Product $product)
     {
+        abort_unless($product->is_active && $product->in_stock, 404);
+
         $gateways = PaymentGatewayConfig::activeOrdered();
 
         return view('checkout', compact('product', 'gateways'));
@@ -21,7 +23,7 @@ class CheckoutController extends Controller
 
     public function quote(Request $request, PaymentService $payments)
     {
-        $product = Product::findOrFail($request->get('product_id'));
+        $product = Product::available()->findOrFail($request->get('product_id'));
 
         return response()->json($payments->quote($product, $request->user(), $request->get('gateway_code', 'balance')));
     }
@@ -34,7 +36,7 @@ class CheckoutController extends Controller
             'zone_id' => 'nullable|string|max:32',
         ]);
 
-        $product = Product::findOrFail($data['product_id']);
+        $product = Product::available()->findOrFail($data['product_id']);
         $supplier = $product->supplier;
 
         if (! $supplier) {

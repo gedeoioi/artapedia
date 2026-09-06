@@ -57,6 +57,15 @@ class Product extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    /**
+     * Produk yang boleh tampil / dibeli customer:
+     * aktif DAN stok tersedia.
+     */
+    public function scopeAvailable($query)
+    {
+        return $query->where('is_active', true)->where('in_stock', true);
+    }
+
     public function iconUrl(): ?string
     {
         // 1. Override khusus produk ini (prioritas tertinggi).
