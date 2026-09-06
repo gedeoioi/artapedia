@@ -27,7 +27,7 @@ class SupplierConnectionTest extends TestCase
         $supplier = $this->makeSupplier();
 
         Http::fake([
-            'vip-reseller.co.id/api' => Http::sequence()
+            'vip-reseller.co.id/api*' => Http::sequence()
                 ->push(['result' => true, 'data' => ['balance' => 150000]])
                 ->push(['result' => true, 'data' => [
                     ['code' => 'ML-100', 'name' => 'ML 100', 'game' => 'ML', 'price' => 10000],
@@ -51,7 +51,7 @@ class SupplierConnectionTest extends TestCase
         $supplier = $this->makeSupplier();
 
         Http::fake([
-            'vip-reseller.co.id/api' => Http::response(['result' => false, 'message' => 'Invalid key'], 200),
+            'vip-reseller.co.id/api*' => Http::response(['result' => false, 'message' => 'Invalid key'], 200),
         ]);
 
         $result = app(SupplierConnectionTester::class)->test($supplier);
@@ -66,7 +66,7 @@ class SupplierConnectionTest extends TestCase
         $supplier = $this->makeSupplier();
 
         Http::fake([
-            'vip-reseller.co.id/api' => Http::response(null, 500),
+            'vip-reseller.co.id/api*' => Http::response(null, 500),
         ]);
 
         $result = app(SupplierConnectionTester::class)->test($supplier);
@@ -84,7 +84,7 @@ class SupplierConnectionTest extends TestCase
         $supplier = $this->makeSupplier();
 
         Http::fake([
-            'vip-reseller.co.id/api' => Http::response([
+            'vip-reseller.co.id/api*' => Http::response([
                 'result' => true,
                 'data' => ['balance' => 100, 'api_key' => 'RAHASIA123', 'nested' => ['secret' => 'TOKENXYZ']],
             ], 200),

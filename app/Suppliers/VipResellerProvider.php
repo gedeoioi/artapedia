@@ -18,12 +18,12 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
     protected function baseUrl(): string
     {
         if (! empty($this->credentials['base_url'])) {
-            return rtrim($this->credentials['base_url'], '/');
+            return rtrim($this->credentials['base_url'], '/').'/';
         }
 
-        return $this->sandbox
-            ? 'https://vip-reseller.co.id/api'
-            : 'https://vip-reseller.co.id/api';
+        // WAJIB trailing slash: https://vip-reseller.co.id/api (tanpa slash)
+        // redirect 301 via Cloudflare dan POST body hilang -> "No response".
+        return 'https://vip-reseller.co.id/api/';
     }
 
     protected function sign(): string
@@ -41,12 +41,36 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
 
     public function getBalance(): array
     {
-        $res = Http::asForm()->post($this->baseUrl(), array_merge(
-            $this->authParams(),
-            ['type' => 'balance']
-        ));
+        $res = $this->post(array_merge($this->authParams(), ['type' => 'balance']));
 
-        return $res->json() ?? ['result' => false, 'message' => 'No response'];
+        $json = $res['json'] ?? null;
+        if (! is_array($json) || ! array_key_exists('result', $json)) {
+            return ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-'), 'raw' => $res];
+        }
+
+        return $json;
+    }
+
+    protected function post(array $params, ?string $suffix = null): array
+    {
+        $url = $this->baseUrl().ltrim((string) ($suffix ?? ''), '/');
+
+        try {
+            $res = Http::asForm()->timeout(30)->post($url, $params);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => 'HTTP error: '.$e->getMessage(), 'url' => $url];
+        }
+
+        $body = (string) $res->body();
+        $json = $res->json();
+
+        return [
+            'ok' => $res->successful(),
+            'status' => $res->status(),
+            'json' => $json,
+            'preview' => mb_substr($body, 0, 200),
+            'url' => $url,
+        ];
     }
 
     public function getProducts(array $filters = []): array
@@ -63,14 +87,19 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
             $params['filter_code'] = $filters['code'];
         }
 
-        $res = Http::asForm()->post($this->baseUrl(), $params);
+        $res = $this->post($params);
+        $json = $res['json'] ?? null;
 
-        return $res->json() ?? ['result' => false, 'data' => []];
+        if (! is_array($json)) {
+            return ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-'), 'data' => []];
+        }
+
+        return $json;
     }
 
     public function order(string $productCode, string $target, array $options = []): array
     {
-        $res = Http::asForm()->post($this->baseUrl(), array_merge(
+        $res = $this->post(array_merge(
             $this->authParams(),
             [
                 'type' => 'order',
@@ -79,17 +108,21 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
             ]
         ));
 
-        return $res->json() ?? ['result' => false, 'message' => 'No response'];
+        $json = $res['json'] ?? null;
+
+        return is_array($json) ? $json : ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-')];
     }
 
     public function checkStatus(string $supplierTrxId): array
     {
-        $res = Http::asForm()->post($this->baseUrl(), array_merge(
+        $res = $this->post(array_merge(
             $this->authParams(),
             ['type' => 'status', 'trxid' => $supplierTrxId]
         ));
 
-        return $res->json() ?? ['result' => false, 'message' => 'No response'];
+        $json = $res['json'] ?? null;
+
+        return is_array($json) ? $json : ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-')];
     }
 
     public function checkNickname(string $gameCode, string $userId, ?string $zoneId = null): array
@@ -104,16 +137,18 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
             $params['additional_target'] = $zoneId;
         }
 
-        $res = Http::asForm()->post($this->baseUrl().'/game-feature', $params);
+        $res = $this->post($params, 'game-feature');
+        $json = $res['json'] ?? null;
 
-        return $res->json() ?? ['result' => false, 'message' => 'No response'];
+        return is_array($json) ? $json : ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-')];
     }
 
     public function getGames(array $filters = []): array
     {
         $params = array_merge($this->authParams(), ['type' => 'games-list']);
-        $res = Http::asForm()->post($this->baseUrl(), $params);
+        $res = $this->post($params);
+        $json = $res['json'] ?? null;
 
-        return $res->json() ?? ['result' => false, 'data' => []];
+        return is_array($json) ? $json : ['result' => false, 'message' => 'No response / bukan JSON: '.($res['preview'] ?? '-'), 'data' => []];
     }
 }
