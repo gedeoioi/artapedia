@@ -17,14 +17,18 @@
             @endif
             <div>
                 <h1 class="font-bold text-lg leading-tight">{{ $product->name }}</h1>
-                <div class="text-sm text-gray-500">{{ $product->game }}</div>
+                <div class="text-sm text-gray-500">{{ $product->game }} &bull; {{ $product->typeLabel() }}</div>
             </div>
         </div>
         <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form">
             @csrf
             <input type="hidden" name="product_id" value="{{ $product->id }}">
-            <label class="text-sm font-semibold">User ID / Tujuan</label>
-            <input name="target_user_id" id="target-uid" required class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 12345678" autocomplete="off">
+            @php $isGame = $product->product_type === 'game'; @endphp
+            <label class="text-sm font-semibold">{{ $product->targetLabel() }}</label>
+            <input name="target_user_id" id="target-uid" required class="card w-full px-3 py-2 mt-1 mb-2"
+                placeholder="{{ $isGame ? 'cth: 12345678' : 'cth: 081234567890' }}" autocomplete="off"
+                @unless($isGame) inputmode="tel" @endunless>
+            @if($isGame)
             <label class="text-sm font-semibold">Server / Zone <span class="muted font-normal">(opsional)</span></label>
             <input name="target_zone" id="zone" class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 1234" autocomplete="off">
             <div class="card p-3 mb-3 flex items-center gap-3" id="nick-box" style="border-style:dashed">
@@ -40,6 +44,7 @@
                 </div>
             </div>
             <input type="hidden" name="nickname" id="nickname">
+            @endif
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <div><label class="text-sm">No. HP</label><input name="buyer_phone" class="card w-full px-3 py-2 mt-1"></div>
                 <div><label class="text-sm">Email</label><input name="buyer_email" type="email" class="card w-full px-3 py-2 mt-1"></div>
@@ -93,6 +98,7 @@
 const quoteUrl = "{{ route('checkout.quote') }}";
 const nickUrl = "{{ route('checkout.nickname') }}";
 const productId = {{ $product->id }};
+const isGame = @js($product->product_type === 'game');
 const token = document.querySelector('meta[name=csrf-token]').content;
 async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
@@ -106,6 +112,7 @@ async function refreshQuote() {
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
 refreshQuote();
+if (isGame) {
 document.getElementById('btn-nick').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const label = document.getElementById('btn-nick-label');
@@ -148,9 +155,10 @@ document.getElementById('btn-nick').addEventListener('click', async (e) => {
     label.textContent = 'Cek Ulang';
     spinner.classList.add('hidden');
 });
-['target-uid', 'zone'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+['target-uid', 'zone'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
     document.getElementById('nickname').value = '';
     document.getElementById('btn-nick-label').textContent = 'Cek Nickname';
 }));
+} // end if (isGame)
 </script>
 @endsection

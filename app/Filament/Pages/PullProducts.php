@@ -38,6 +38,7 @@ class PullProducts extends Page implements HasTable, HasSchemas
 
     public ?array $data = [
         'supplier_id' => null,
+        'channel' => 'game',
         'filter_game' => null,
         'filter_status' => null,
     ];
@@ -65,11 +66,24 @@ class PullProducts extends Page implements HasTable, HasSchemas
                         $this->loadGames();
                         $this->resetTable();
                     }),
+                Select::make('channel')
+                    ->label('Jenis produk')
+                    ->options(['game' => 'Game (ID + Zone + cek nickname)', 'prepaid' => 'Pulsa / Paket Data / PPOB (nomor HP)'])
+                    ->default('game')
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($state) {
+                        $this->data['channel'] = $state;
+                        $this->data['filter_game'] = null;
+                        $this->form->fill($this->data);
+                        $this->loadGames();
+                        $this->resetTable();
+                    }),
                 Select::make('filter_game')
-                    ->label('Filter game / kategori (kosongkan = tarik SEMUA)')
+                    ->label('Filter game / operator (kosongkan = tarik SEMUA)')
                     ->options(fn () => $this->gameOptions)
                     ->searchable()
-                    ->placeholder('Semua game')
+                    ->placeholder('Semua')
                     ->live()
                     ->afterStateUpdated(function ($state) {
                         $this->data['filter_game'] = $state;
@@ -100,11 +114,12 @@ class PullProducts extends Page implements HasTable, HasSchemas
         }
 
         // Sumber 1 (utama): daftar game dari API supplier.
+        // Channel prepaid (pulsa/data) memakai filter category/brand juga.
         $apiError = null;
         try {
             $provider = ProviderFactory::supplierFor($supplier);
             if (method_exists($provider, 'getGames')) {
-                $res = $provider->getGames();
+                $res = $provider->getGames(['channel' => $this->data['channel'] ?? 'game']);
                 if (! ($res['result'] ?? false)) {
                     $apiError = (string) ($res['message'] ?? 'Gagal ambil daftar game dari supplier');
                 } else {
@@ -145,10 +160,18 @@ class PullProducts extends Page implements HasTable, HasSchemas
 
     protected function syncFilters(): array
     {
-        return array_filter([
+        $filters = array_filter([
             'game' => $this->data['filter_game'] ?? null,
             'status' => $this->data['filter_status'] ?? null,
         ]);
+        // Channel prepaid (pulsa/data/PPOB) diteruskan ke provider
+        // (Digiflazz: cmd=prepaid, VIP: /api/prepaid).
+        if (($this->data['channel'] ?? 'game') === 'prepaid') {
+            $filters['channel'] = 'prepaid';
+            $filters['cmd'] = 'prepaid';
+        }
+
+        return $filters;
     }
 
     protected function getHeaderActions(): array

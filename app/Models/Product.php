@@ -6,6 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
+    public const TYPE_GAME = 'game';
+    public const TYPE_PULSA = 'pulsa';
+    public const TYPE_DATA = 'data';
+    public const TYPE_PPOB = 'ppob';
+    public const TYPE_VOUCHER = 'voucher';
+    public const TYPE_EMONEY = 'emoney';
+
+    public const TYPES = [
+        self::TYPE_GAME => 'Game',
+        self::TYPE_PULSA => 'Pulsa',
+        self::TYPE_DATA => 'Paket Data',
+        self::TYPE_PPOB => 'PPOB',
+        self::TYPE_VOUCHER => 'Voucher',
+        self::TYPE_EMONEY => 'E-Money',
+    ];
+
     protected $fillable = [
         'supplier_config_id',
         'game_icon_id',
@@ -13,7 +29,9 @@ class Product extends Model
         'name',
         'game',
         'category',
+        'product_type',
         'nickname_check_code',
+        'input_schema',
         'cost_basic',
         'cost_premium',
         'cost_special',
@@ -39,6 +57,7 @@ class Product extends Model
             'price_guest' => 'integer',
             'price_biasa' => 'integer',
             'price_vip' => 'integer',
+            'input_schema' => 'array',
         ];
     }
 
@@ -104,5 +123,62 @@ class Product extends Model
             'biasa' => (int) $this->cost_premium,
             default => (int) $this->cost_basic,
         };
+    }
+
+    public function typeLabel(): string
+    {
+        return self::TYPES[$this->product_type] ?? ucfirst((string) $this->product_type);
+    }
+
+    public function needsNicknameCheck(): bool
+    {
+        return $this->product_type === self::TYPE_GAME;
+    }
+
+    public function targetLabel(): string
+    {
+        return match ($this->product_type) {
+            self::TYPE_PULSA, self::TYPE_DATA => 'Nomor HP',
+            self::TYPE_PPOB, self::TYPE_EMONEY => 'Nomor Tujuan / ID Pelanggan',
+            self::TYPE_VOUCHER => 'No. HP / Email (untuk kirim kode)',
+            default => 'User ID',
+        };
+    }
+
+    /**
+     * Tebak tipe produk dari category/brand/type supplier.
+     * Dipakai saat sync agar pulsa & paket data otomatis terpisah dari game.
+     */
+    public static function detectType(string $category, string $game, string $type, string $name): string
+    {
+        $hay = mb_strtolower(trim($category.' '.$game.' '.$type.' '.$name));
+
+        $match = function (array $keywords) use ($hay): bool {
+            foreach ($keywords as $kw) {
+                if ($kw !== '' && str_contains($hay, $kw)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        if ($match(['paket data', 'paket internet', 'data ', 'internet', 'kuota'])) {
+            return self::TYPE_DATA;
+        }
+        if ($match(['pulsa', 'pulsa reguler', 'pulsa transfer'])) {
+            return self::TYPE_PULSA;
+        }
+        if ($match(['pln', 'token listrik', 'pascabayar', 'pdam', 'bpjs', 'pbb', 'tagihan', 'multifinance', 'ppob'])) {
+            return self::TYPE_PPOB;
+        }
+        if ($match(['e-money', 'emoney', 'e money', 'saldo ', 'gopay', 'ovo', 'dana'])) {
+            return self::TYPE_EMONEY;
+        }
+        if ($match(['voucher', 'gift', 'google play', 'steam wallet', 'playstation', 'xbox', 'itunes', 'razer', 'garena shell', 'megaxus'])) {
+            return self::TYPE_VOUCHER;
+        }
+
+        return self::TYPE_GAME;
     }
 }

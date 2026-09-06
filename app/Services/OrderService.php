@@ -32,6 +32,15 @@ class OrderService
                 throw new \RuntimeException('Produk sedang kosong.');
             }
 
+            // Validasi format tujuan per tipe produk.
+            $target = trim((string) ($data['target_user_id'] ?? ''));
+            if (in_array($product->product_type, [Product::TYPE_PULSA, Product::TYPE_DATA], true)) {
+                $digits = preg_replace('/\D/', '', $target);
+                if (! preg_match('/^(08\d{8,12}|628\d{8,12})$/', $target) && ! preg_match('/^(08\d{8,12}|628\d{8,12})$/', (string) $digits)) {
+                    throw new \RuntimeException('Nomor HP tidak valid (cth: 081234567890).');
+                }
+            }
+
             $level = $user?->level ?? 'guest';
             $quote = $this->payments->quote($product, $user, $data['gateway_code'] ?? 'balance');
             $method = $data['gateway_code'] ?? 'balance';

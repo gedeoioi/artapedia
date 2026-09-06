@@ -85,6 +85,12 @@ class SyncSupplierProducts implements ShouldQueue
                     'name' => $name,
                     'game' => $game,
                     'category' => $row['category'] ?? 'game',
+                    'product_type' => \App\Models\Product::detectType(
+                        $row['category'] ?? '',
+                        $game,
+                        $row['type'] ?? '',
+                        $name
+                    ),
                     // Hubungkan ke icon kategori (by nama game persis).
                     // Ganti 1 icon di menu Game Icons -> semua produk kategori ini ikut berubah.
                     'game_icon_id' => \App\Models\GameIcon::firstOrCreate(
