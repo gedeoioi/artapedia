@@ -105,13 +105,15 @@ class TokoVoucherProvider implements SupplierProviderInterface
 
     /**
      * Daftar produk.
-     * - Tanpa filter: GET /member/produk/full (sekaligus kategori+operator+jenis+produk + logo + 3 tier harga)
-     * - Dengan filter game/kode: GET /produk/code?kode= (prefix, cth: FF / FF5 / ML)
+     * - Tanpa filter / filter game (nama operator, cth "Free Fire"):
+     *   GET /member/produk/full lalu saring lokal (endpoint search hanya paham
+     *   PREFIX KODE seperti FF/FF5/ML, bukan nama operator).
+     * - Filter kode eksplisit (['code'/'kode']): GET /produk/code?kode= (prefix).
      */
     public function getProducts(array $filters = []): array
     {
-        if (! empty($filters['game']) || ! empty($filters['code']) || ! empty($filters['kode'])) {
-            return $this->searchProducts((string) ($filters['game'] ?? $filters['code'] ?? $filters['kode']));
+        if (! empty($filters['code']) || ! empty($filters['kode'])) {
+            return $this->searchProducts((string) ($filters['code'] ?? $filters['kode']));
         }
 
         $json = $this->get('/member/produk/full', [
@@ -143,6 +145,13 @@ class TokoVoucherProvider implements SupplierProviderInterface
             $type = $types->get($row['jenis_id'] ?? null, []);
 
             $out[] = $this->normalizeRow($row, (array) $operator, (array) $category, (array) $type);
+        }
+
+        // Saring lokal: game = nama operator persis (dropdown Tarik Produk berisi
+        // nama operator dari getGames, bukan prefix kode).
+        if (! empty($filters['game'])) {
+            $want = strtolower(trim((string) $filters['game']));
+            $out = array_values(array_filter($out, fn ($r) => strtolower(trim((string) ($r['game'] ?? ''))) === $want));
         }
 
         if (! empty($filters['status']) && strtolower((string) $filters['status']) === 'available') {

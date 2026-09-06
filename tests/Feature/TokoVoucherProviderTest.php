@@ -88,9 +88,37 @@ class TokoVoucherProviderTest extends TestCase
                 'deskripsi' => 'd', 'price' => 2500, 'status' => 1]],
         ], 200)]);
 
-        $res = $this->provider()->getProducts(['game' => 'FF']);
+        $res = $this->provider()->getProducts(['code' => 'FF']);
 
         $this->assertTrue($res['result']);
+        $this->assertEquals('FF5', $res['data'][0]['code']);
+    }
+
+    public function test_filter_game_nama_operator_disaring_dari_full(): void
+    {
+        Http::fake(['api.tokovoucher.net/member/produk/full*' => Http::response([
+            'status' => 1, 'rc' => 200, 'message' => 'Data Found',
+            'data' => [
+                'category' => [['id' => 1, 'nama' => 'Topup Game']],
+                'operator' => [
+                    ['id' => 1, 'nama' => 'Free Fire', 'category_id' => 1, 'logo' => '', 'status' => 1],
+                    ['id' => 2, 'nama' => 'Mobile Legends', 'category_id' => 1, 'logo' => '', 'status' => 1],
+                ],
+                'jenis' => [],
+                'produk' => [
+                    ['id' => 1, 'kode_produk' => 'FF5', 'nama' => 'FF 5', 'deskripsi' => '',
+                        'price' => 1500, 'status' => 1, 'kategori_id' => 1, 'operator_id' => 1, 'jenis_id' => 0],
+                    ['id' => 2, 'kode_produk' => 'ML100', 'nama' => 'ML 100', 'deskripsi' => '',
+                        'price' => 9500, 'status' => 1, 'kategori_id' => 1, 'operator_id' => 2, 'jenis_id' => 0],
+                ],
+            ],
+        ], 200)]);
+
+        // Dropdown berisi NAMA operator -> harus difilter dari full, bukan search kode.
+        $res = $this->provider()->getProducts(['game' => 'Free Fire']);
+
+        $this->assertTrue($res['result']);
+        $this->assertCount(1, $res['data']);
         $this->assertEquals('FF5', $res['data'][0]['code']);
     }
 

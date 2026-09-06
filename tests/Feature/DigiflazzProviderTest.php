@@ -72,6 +72,25 @@ class DigiflazzProviderTest extends TestCase
         $this->assertTrue($row['in_stock']);
     }
 
+    public function test_filter_game_disaring_lokal_persis(): void
+    {
+        Http::fake(['api.digiflazz.com/*' => Http::response(['data' => [
+            ['product_name' => 'ML 100', 'category' => 'Games', 'brand' => 'Mobile Legends',
+                'type' => 'Umum', 'price' => 9500, 'buyer_sku_code' => 'ML100',
+                'buyer_product_status' => true, 'seller_product_status' => true],
+            ['product_name' => 'FF 5', 'category' => 'Games', 'brand' => 'Free Fire',
+                'type' => 'Umum', 'price' => 1500, 'buyer_sku_code' => 'FF5',
+                'buyer_product_status' => true, 'seller_product_status' => true],
+        ]], 200)]);
+
+        // Server mengembalikan semua brand (filter diabaikan) -> hasil harus hanya ML.
+        $res = $this->provider()->getProducts(['game' => 'Mobile Legends']);
+
+        $this->assertTrue($res['result']);
+        $this->assertCount(1, $res['data']);
+        $this->assertEquals('ML100', $res['data'][0]['code']);
+    }
+
     public function test_order_memakai_ref_id_stabil_dan_testing_flag(): void
     {
         Http::fake(['api.digiflazz.com/*' => Http::response(['data' => [

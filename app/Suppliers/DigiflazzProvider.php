@@ -137,6 +137,23 @@ class DigiflazzProvider implements SupplierProviderInterface
             if (! $normalized['code']) {
                 continue;
             }
+            // Server sering mengabaikan filter brand/category/type (delay 10-15 mnt),
+            // jadi saring lokal secara persis (case-insensitive).
+            if (! empty($filters['game']) && strcasecmp($normalized['game'], (string) $filters['game']) !== 0) {
+                continue;
+            }
+            if (! empty($filters['brand']) && strcasecmp($normalized['game'], (string) $filters['brand']) !== 0) {
+                continue;
+            }
+            if (! empty($filters['category']) && strcasecmp($normalized['category'], (string) $filters['category']) !== 0) {
+                continue;
+            }
+            if (! empty($filters['type']) && strcasecmp($normalized['type'], (string) $filters['type']) !== 0) {
+                continue;
+            }
+            if (! empty($filters['code']) && stripos($normalized['code'], (string) $filters['code']) === false) {
+                continue;
+            }
             // Digiflazz tidak punya param filter status -> saring lokal.
             if (! empty($filters['status']) && strtolower((string) $filters['status']) === 'available' && ! $normalized['in_stock']) {
                 continue;
