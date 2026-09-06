@@ -65,7 +65,7 @@
                         <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
                         <span class="min-w-0">
                             <span class="block text-sm font-semibold truncate">{{ $gw->name }}</span>
-                            <span class="block text-xs muted pay-fee" data-fee-for="{{ $gw->code }}">QRIS / VA / E-Wallet</span>
+                            <span class="block text-xs muted">QRIS / VA / E-Wallet</span>
                         </span>
                     </label>
                 @endforeach
@@ -103,9 +103,6 @@ async function refreshQuote() {
     document.getElementById('sum-sell').textContent = f(j.sell_price);
     document.getElementById('sum-fee').textContent = f(j.gateway_fee);
     document.getElementById('sum-total').textContent = f(j.total);
-    document.querySelectorAll('.pay-fee').forEach(el => {
-        if (el.dataset.feeFor === gw) el.textContent = 'Fee ' + f(j.gateway_fee);
-    });
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
 refreshQuote();
