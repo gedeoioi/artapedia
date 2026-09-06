@@ -44,23 +44,38 @@
                 <div><label class="text-sm">No. HP</label><input name="buyer_phone" class="card w-full px-3 py-2 mt-1"></div>
                 <div><label class="text-sm">Email</label><input name="buyer_email" type="email" class="card w-full px-3 py-2 mt-1"></div>
             </div>
-            <label class="text-sm font-semibold">Metode pembayaran</label>
-            <div class="grid gap-2 mt-1 mb-3" id="gateways">
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-7 h-7 flex items-center justify-center font-extrabold text-sm btn-primary" style="border-radius:999px">4</div>
+                <label class="font-semibold">Pilih Pembayaran</label>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-1 mb-3" id="gateways">
                 @auth
-                <label class="card p-3 flex items-center gap-2">
-                    <input type="radio" name="gateway_code" value="balance" checked>
-                    <span class="text-sm font-semibold">Saldo member</span>
-                    <span class="text-xs text-gray-500">Rp {{ number_format(auth()->user()->balance, 0, ',', '.') }}</span>
+                <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="balance">
+                    <input type="radio" name="gateway_code" value="balance" class="hidden" checked>
+                    <span class="pay-logo">W</span>
+                    <span class="min-w-0">
+                        <span class="block text-sm font-semibold truncate">Saldo Member</span>
+                        <span class="block text-xs muted">Rp {{ number_format(auth()->user()->balance, 0, ',', '.') }}</span>
+                    </span>
                 </label>
                 @endauth
                 @foreach($gateways as $gw)
-                    <label class="card p-3 flex items-center gap-2">
-                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" @guest checked @endguest>
-                        <span class="text-sm font-semibold">{{ $gw->name }}</span>
-                        <span class="text-xs text-gray-500">{{ $gw->code }}</span>
+                    <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="{{ $gw->code }}">
+                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" class="hidden" @guest @if($loop->first) checked @endif @endguest>
+                        <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
+                        <span class="min-w-0">
+                            <span class="block text-sm font-semibold truncate">{{ $gw->name }}</span>
+                            <span class="block text-xs muted pay-fee" data-fee-for="{{ $gw->code }}">QRIS / VA / E-Wallet</span>
+                        </span>
                     </label>
                 @endforeach
             </div>
+            <style>
+                .pay-card { border-width: 1.5px; }
+                .pay-card.pay-active { border-color: #f97316; background: rgba(249,115,22,.07); }
+                .pay-logo { width: 2.25rem; height: 2.25rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; background: #26262b; color: #fdba74; flex-shrink: 0; }
+                html[data-theme="light"] .pay-logo { background: #fff7ed; color: #c2570c; }
+            </style>
             <button class="card w-full py-2 font-bold" id="btn-bayar">Bayar</button>
         </form>
     </div>
@@ -81,12 +96,16 @@ const productId = {{ $product->id }};
 const token = document.querySelector('meta[name=csrf-token]').content;
 async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
+    document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
     const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, gateway_code: gw})});
     const j = await r.json();
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     document.getElementById('sum-sell').textContent = f(j.sell_price);
     document.getElementById('sum-fee').textContent = f(j.gateway_fee);
     document.getElementById('sum-total').textContent = f(j.total);
+    document.querySelectorAll('.pay-fee').forEach(el => {
+        if (el.dataset.feeFor === gw) el.textContent = 'Fee ' + f(j.gateway_fee);
+    });
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
 refreshQuote();
