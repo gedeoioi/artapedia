@@ -8,27 +8,6 @@
     $tagline = \App\Models\SiteSetting::get('site_tagline', 'Topup game, pulsa & PPOB');
 @endphp
 
-<!-- HERO -->
-<section class="hero-grad card p-6 md:p-10 mb-8 text-center">
-    <div class="inline-block text-xs font-semibold px-3 py-1 mb-3 badge-ok" style="border-radius: 999px;">
-        Topup game &amp; voucher termurah &bull; buka 24 jam
-    </div>
-    <h1 class="text-2xl md:text-4xl font-extrabold mb-2 leading-tight">Topup Game Favoritmu<br>dalam Hitungan Detik.</h1>
-    <p class="muted text-sm md:text-base mb-5">{{ $tagline }}. {{ $totalProducts }} produk dari {{ $totalGames }} game, pembayaran lengkap Indonesia.</p>
-    <form action="{{ route('home') }}" class="flex gap-2 max-w-xl mx-auto">
-        <input name="q" value="{{ $q }}" placeholder="Cari Mobile Legends, Free Fire, voucher..." class="card flex-1 px-4 py-3 text-sm" autofocus>
-        <button class="btn-primary px-6 py-3 text-sm">Cari</button>
-    </form>
-    @if($gateways->isNotEmpty())
-    <div class="flex flex-wrap justify-center gap-2 mt-4">
-        @foreach($gateways as $gw)
-            <span class="text-xs px-3 py-1 card muted">{{ $gw->name }}</span>
-        @endforeach
-        <span class="text-xs px-3 py-1 card muted">Saldo member</span>
-    </div>
-    @endif
-</section>
-
 <!-- FLASH SALE -->
 @if($flashSale->isNotEmpty())
 <section class="mb-8">
@@ -137,33 +116,6 @@
         <div><div class="font-semibold text-sm">Otomatis masuk</div><div class="text-xs muted">Diproses ke supplier, pantau via Cek Transaksi.</div></div>
     </div>
 </div>
-
-<!-- PRODUK TERBARU -->
-@if($popular->isNotEmpty())
-<div class="flex items-center justify-between mb-3">
-    <h2 class="font-bold text-lg">Produk Terbaru</h2>
-</div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-    @foreach($popular as $p)
-        @php $pIcon = $p->iconUrl(); @endphp
-        <a href="{{ route('checkout.show', $p) }}" class="card p-4 hover:border-orange-500 transition">
-            <div class="flex items-center gap-2 mb-2">
-                @if($pIcon)
-                    <img src="{{ $pIcon }}" class="w-8 h-8" style="border-radius:8px" alt="{{ $p->game }}" loading="lazy">
-                @endif
-                <div class="min-w-0">
-                    <div class="text-sm font-semibold truncate">{{ $p->name }}</div>
-                    <div class="text-xs muted">{{ $p->game }}</div>
-                </div>
-            </div>
-            <div class="flex items-center justify-between">
-                <div class="text-sm font-bold">Rp {{ number_format($p->price_guest, 0, ',', '.') }}</div>
-                <span class="text-xs px-2 py-1 badge-ok" style="border-radius:999px">Stok ada</span>
-            </div>
-        </a>
-    @endforeach
-</div>
-@endif
 
 <!-- CEK TRANSAKSI -->
 <div class="card p-5">
