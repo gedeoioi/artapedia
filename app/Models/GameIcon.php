@@ -17,4 +17,16 @@ class GameIcon extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    public function iconUrl(): ?string
+    {
+        if (! $this->icon_path) {
+            return null;
+        }
+        if (str_starts_with($this->icon_path, 'http')) {
+            return $this->icon_path;
+        }
+
+        return asset('storage/'.$this->icon_path);
+    }
 }

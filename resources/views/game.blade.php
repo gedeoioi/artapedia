@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="flex items-center gap-3 mb-4">
-    @php $catIcon = $icon?->icon_path ? asset('storage/'.$icon->icon_path) : null; @endphp
+    @php $catIcon = $icon?->iconUrl(); @endphp
     @if($catIcon)
         <img src="{{ $catIcon }}" class="w-14 h-14" style="border-radius:14px" alt="{{ $game }}">
     @endif

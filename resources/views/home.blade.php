@@ -54,7 +54,7 @@
 </div>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
     @forelse($games as $g)
-        @php $catIcon = ($icons[$g->game] ?? null)?->icon_path ? asset('storage/'.$icons[$g->game]->icon_path) : null; @endphp
+        @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
         <a href="{{ route('game.show', $g->game) }}" class="card p-4 hover:shadow-sm transition group">
             <div class="flex items-center gap-3">
                 @if($catIcon)

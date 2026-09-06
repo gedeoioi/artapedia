@@ -29,12 +29,19 @@ class DiagnoseIcons extends Command
         if ($games->isEmpty()) {
             $this->warn('(kosong — belum ada produk)');
         }
-        $iconNames = $icons->pluck('game_name')->all();
         foreach ($games as $g) {
-            $match = in_array($g, $iconNames, true) ? 'COCOK' : 'TIDAK-COCOK';
+            // Simulasi persis logika beranda: cocok persis + aktif, lalu case-insensitive + aktif.
+            $icon = GameIcon::where('game_name', $g)->where('is_active', true)->first()
+                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($g)])->where('is_active', true)->first();
             $count = Product::where('game', $g)->count();
             $linked = Product::where('game', $g)->whereNotNull('game_icon_id')->count();
-            $this->line("[$match] '$g' ($count produk, $linked terhubung)");
+            if (! $icon) {
+                $this->line("[TIDAK-ADA-ICON] '$g' ($count produk, $linked terhubung) — buat baris game_icons bernama persis ini lalu upload icon");
+                continue;
+            }
+            $fileOk = $icon->icon_path && Storage::disk('public')->exists($icon->icon_path);
+            $url = $icon->iconUrl() ?? '-';
+            $this->line(($fileOk ? '[OK] ' : '[FILE-HILANG] ')."'$g' -> {$icon->icon_path} ($url) [$count produk, $linked terhubung]");
         }
 
         $this->info('== SYMLINK ==');

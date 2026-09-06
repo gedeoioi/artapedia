@@ -21,16 +21,12 @@ class HomeController extends Controller
             ->limit(24)
             ->get();
 
-        $icons = GameIcon::whereIn('game_name', $games->pluck('game'))->get()->keyBy('game_name');
-        // Fallback case-insensitive: "MOBILE LEGENDS" (produk) vs "Mobile Legends" (icon).
-        if ($icons->count() < $games->count()) {
-            $extra = GameIcon::whereNotIn('game_name', $games->pluck('game'))->get();
-            foreach ($extra as $icon) {
-                foreach ($games as $g) {
-                    if (! isset($icons[$g->game]) && mb_strtolower($g->game) === mb_strtolower($icon->game_name)) {
-                        $icons[$g->game] = $icon;
-                    }
-                }
+        $icons = collect();
+        foreach ($games as $g) {
+            $icon = GameIcon::where('game_name', $g->game)->where('is_active', true)->first()
+                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($g->game)])->where('is_active', true)->first();
+            if ($icon) {
+                $icons[$g->game] = $icon;
             }
         }
         $popular = Product::where('is_active', true)->orderByDesc('id')->limit(8)->get();
@@ -44,7 +40,8 @@ class HomeController extends Controller
     public function game(string $game)
     {
         $products = Product::where('game', $game)->where('is_active', true)->orderBy('price_guest')->get();
-        $icon = GameIcon::where('game_name', $game)->first();
+        $icon = GameIcon::where('game_name', $game)->where('is_active', true)->first()
+            ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 
         return view('game', compact('products', 'game', 'icon'));
     }
