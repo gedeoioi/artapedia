@@ -3,8 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Jobs\SyncSupplierProducts;
+use App\Models\AuditLog;
 use App\Models\Product;
 use App\Models\SupplierConfig;
+use App\Models\Transaction;
 use App\Services\ProviderFactory;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -12,6 +14,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -19,8 +23,9 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 
-class PullProducts extends Page implements HasTable
+class PullProducts extends Page implements HasTable, HasSchemas
 {
+    use InteractsWithSchemas;
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowDownTray;
@@ -31,65 +36,105 @@ class PullProducts extends Page implements HasTable
 
     protected string $view = 'filament.pages.pull-products';
 
-    public ?int $supplier_id = null;
-
-    public ?string $filter_game = null;
-
-    public ?string $filter_status = null;
+    public ?array $data = [
+        'supplier_id' => null,
+        'filter_game' => null,
+        'filter_status' => null,
+    ];
 
     public array $gameOptions = [];
 
-    public array $lastResult = [];
+    public function mount(): void
+    {
+        $this->form->fill($this->data);
+    }
 
     public function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Select::make('supplier_id')
-                ->label('Supplier')
-                ->options(SupplierConfig::query()->pluck('name', 'id'))
-                ->required()
-                ->live()
-                ->afterStateUpdated(fn () => $this->loadGames()),
-            Select::make('filter_game')
-                ->label('Filter game (kosongkan = tarik SEMUA)')
-                ->options($this->gameOptions)
-                ->searchable()
-                ->placeholder('Semua game'),
-            TextInput::make('filter_status')
-                ->label('Filter status (opsional)')
-                ->placeholder('cth: available'),
-        ]);
+        return $schema
+            ->components([
+                Select::make('supplier_id')
+                    ->label('Supplier')
+                    ->options(SupplierConfig::query()->orderBy('priority')->pluck('name', 'id'))
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($state) {
+                        $this->data['supplier_id'] = $state;
+                        $this->data['filter_game'] = null;
+                        $this->form->fill($this->data);
+                        $this->loadGames();
+                        $this->resetTable();
+                    }),
+                Select::make('filter_game')
+                    ->label('Filter game / kategori (kosongkan = tarik SEMUA)')
+                    ->options(fn () => $this->gameOptions)
+                    ->searchable()
+                    ->placeholder('Semua game')
+                    ->live()
+                    ->afterStateUpdated(function ($state) {
+                        $this->data['filter_game'] = $state;
+                        $this->resetTable();
+                    }),
+                TextInput::make('filter_status')
+                    ->label('Filter status (opsional)')
+                    ->placeholder('cth: available')
+                    ->live(debounce: 500)
+                    ->afterStateUpdated(function ($state) {
+                        $this->data['filter_status'] = $state;
+                        $this->resetTable();
+                    }),
+            ])
+            ->statePath('data');
     }
 
     public function loadGames(): void
     {
         $this->gameOptions = [];
-        if (! $this->supplier_id) {
+        $supplierId = (int) ($this->data['supplier_id'] ?? 0);
+        if (! $supplierId) {
             return;
         }
-        $supplier = SupplierConfig::find($this->supplier_id);
+        $supplier = SupplierConfig::find($supplierId);
         if (! $supplier) {
             return;
         }
+
+        // Sumber 1 (utama): daftar game dari API supplier.
         try {
             $provider = ProviderFactory::supplierFor($supplier);
-            if (! method_exists($provider, 'getGames')) {
-                $games = Product::where('supplier_config_id', $supplier->id)
-                    ->distinct()->pluck('game', 'game')->toArray();
-                $this->gameOptions = $games;
-                return;
-            }
-            $res = $provider->getGames();
-            $rows = $res['data'] ?? [];
-            foreach ((array) $rows as $row) {
-                $name = is_array($row) ? ($row['name'] ?? $row['game'] ?? null) : (string) $row;
-                if ($name) {
-                    $this->gameOptions[$name] = $name;
+            if (method_exists($provider, 'getGames')) {
+                $res = $provider->getGames();
+                foreach ((array) ($res['data'] ?? []) as $row) {
+                    $name = is_array($row) ? ($row['name'] ?? $row['game'] ?? null) : (string) $row;
+                    if ($name) {
+                        $this->gameOptions[$name] = $name;
+                    }
                 }
             }
         } catch (\Throwable $e) {
             report($e);
         }
+
+        // Sumber 2 (fallback): game yang sudah pernah ditarik untuk supplier ini.
+        if (empty($this->gameOptions)) {
+            $this->gameOptions = Product::where('supplier_config_id', $supplier->id)
+                ->distinct()->orderBy('game')->pluck('game', 'game')->toArray();
+        }
+    }
+
+    protected function selectedSupplier(): ?SupplierConfig
+    {
+        $id = (int) ($this->data['supplier_id'] ?? 0);
+
+        return $id ? SupplierConfig::find($id) : null;
+    }
+
+    protected function syncFilters(): array
+    {
+        return array_filter([
+            'game' => $this->data['filter_game'] ?? null,
+            'status' => $this->data['filter_status'] ?? null,
+        ]);
     }
 
     protected function getHeaderActions(): array
@@ -97,38 +142,130 @@ class PullProducts extends Page implements HasTable
         return [
             Action::make('sync')
                 ->label('Tarik Sekarang')
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading(fn () => 'Tarik produk dari '.$this->selectedSupplier()?->name.'?')
+                ->modalDescription(fn () => $this->data['filter_game'] ?? null
+                    ? 'Hanya kategori "'.$this->data['filter_game'].'" yang ditarik (upsert, data lain aman).'
+                    : 'SEMUA produk supplier ini ditarik (upsert per supplier_code).')
                 ->action(function () {
-                    $supplier = SupplierConfig::findOrFail($this->supplier_id);
-                    $filters = array_filter([
-                        'game' => $this->filter_game,
-                        'status' => $this->filter_status,
+                    $supplier = $this->selectedSupplier();
+                    if (! $supplier) {
+                        Notification::make()->title('Pilih supplier dulu')->danger()->send();
+
+                        return;
+                    }
+
+                    $job = new SyncSupplierProducts($supplier->id, $this->syncFilters());
+                    $job->handle();
+                    $this->resetTable();
+
+                    $count = Product::where('supplier_config_id', $supplier->id)
+                        ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g))
+                        ->count();
+
+                    Notification::make()
+                        ->title('Sync selesai: '.$count.' produk'.($this->data['filter_game'] ?? null ? ' ('.$this->data['filter_game'].')' : ''))
+                        ->success()
+                        ->send();
+                }),
+            Action::make('removeProducts')
+                ->label('Hapus Produk')
+                ->icon(Heroicon::OutlinedTrash)
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Hapus produk yang ditarik?')
+                ->modalDescription(fn () => $this->removeDescription())
+                ->modalSubmitActionLabel('Ya, hapus')
+                ->action(function () {
+                    $supplier = $this->selectedSupplier();
+                    if (! $supplier) {
+                        Notification::make()->title('Pilih supplier dulu')->danger()->send();
+
+                        return;
+                    }
+
+                    $query = Product::where('supplier_config_id', $supplier->id)
+                        ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g));
+
+                    $ids = (clone $query)->pluck('id');
+                    $usedCount = Transaction::whereIn('product_id', $ids)->distinct('product_id')->count('product_id');
+
+                    // Proteksi: produk yang sudah punya transaksi TIDAK dihapus
+                    // (menghindari invoice yatim), hanya dinonaktifkan.
+                    $deletableIds = (clone $query)->whereNotIn('id', function ($q) {
+                        $q->select('product_id')->from('transactions')->whereNotNull('product_id');
+                    })->pluck('id');
+
+                    $deleted = Product::whereIn('id', $deletableIds)->delete();
+                    $deactivated = 0;
+                    if ($usedCount > 0) {
+                        $deactivated = Product::where('supplier_config_id', $supplier->id)
+                            ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g))
+                            ->whereIn('id', function ($q) {
+                                $q->select('product_id')->from('transactions')->whereNotNull('product_id');
+                            })
+                            ->update(['is_active' => false, 'in_stock' => false]);
+                    }
+
+                    AuditLog::record('products.bulk_remove', $supplier, [], [
+                        'game' => $this->data['filter_game'] ?? 'SEMUA',
+                        'deleted' => $deleted,
+                        'deactivated' => $deactivated,
                     ]);
 
-                    $job = new SyncSupplierProducts($supplier->id, $filters);
-                    $job->handle();
+                    $this->resetTable();
 
-                    $this->lastResult = Product::where('supplier_config_id', $supplier->id)
-                        ->when($this->filter_game, fn ($q) => $q->where('game', $this->filter_game))
-                        ->orderByDesc('id')->limit(50)->get()->toArray();
-
-                    Notification::make()->title('Sync selesai')->success()->send();
+                    Notification::make()
+                        ->title("Selesai: {$deleted} dihapus".($deactivated ? ", {$deactivated} dinonaktifkan (punya transaksi)" : ''))
+                        ->success()
+                        ->send();
                 }),
         ];
+    }
+
+    protected function removeDescription(): string
+    {
+        $supplier = $this->selectedSupplier();
+        $scope = ($this->data['filter_game'] ?? null)
+            ? 'kategori "'.$this->data['filter_game'].'" dari '.$supplier?->name
+            : 'SEMUA produk dari '.$supplier?->name;
+
+        return 'Hapus '.$scope.' agar bisa tarik ulang dari nol? '
+            .'Produk yang sudah punya transaksi TIDAK dihapus (hanya dinonaktifkan) agar invoice tetap valid.';
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query(Product::query()->where('supplier_config_id', $this->supplier_id ?? 0)->orderByDesc('id')->limit(50))
+            ->query(function () {
+                $query = Product::query()->orderByDesc('id')->limit(50);
+                $supplierId = (int) ($this->data['supplier_id'] ?? 0);
+                if ($supplierId) {
+                    $query->where('supplier_config_id', $supplierId);
+                }
+                if (! empty($this->data['filter_game'])) {
+                    $query->where('game', $this->data['filter_game']);
+                }
+
+                return $query;
+            })
             ->columns([
-                TextColumn::make('supplier_code')->searchable(),
-                TextColumn::make('name')->searchable(),
+                TextColumn::make('supplier_code')->searchable()->copyable(),
+                TextColumn::make('name')->searchable()->limit(40),
                 TextColumn::make('game'),
-                TextColumn::make('cost_basic')->money('IDR'),
-                TextColumn::make('cost_premium')->money('IDR'),
-                TextColumn::make('cost_special')->money('IDR'),
+                TextColumn::make('cost_basic')->numeric()->sortable(),
+                TextColumn::make('cost_premium')->numeric()->sortable(),
+                TextColumn::make('cost_special')->numeric()->sortable(),
                 TextColumn::make('in_stock')->badge()
-                    ->formatStateUsing(fn ($state) => $state ? 'Tersedia' : 'Kosong'),
-            ]);
+                    ->formatStateUsing(fn ($state) => $state ? 'Tersedia' : 'Kosong')
+                    ->color(fn ($state) => $state ? 'success' : 'danger'),
+            ])
+            ->emptyStateHeading('Belum ada produk')
+            ->emptyStateDescription(fn () => empty($this->data['supplier_id'])
+                ? 'Pilih supplier di atas untuk melihat produk.'
+                : 'Klik Tarik Sekarang untuk menarik produk dari supplier.')
+            ->paginated(false);
     }
 }
