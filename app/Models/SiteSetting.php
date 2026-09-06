@@ -61,15 +61,40 @@ class SiteSetting extends Model
     public static function logoUrl(): ?string
     {
         $path = static::get('logo_path');
+        if (! $path) {
+            return null;
+        }
 
-        return $path ? Storage::url($path) : null;
+        // File tersimpan di disk public (storage/app/public) -> URL /storage/...
+        // Pakai disk public eksplisit agar tidak tergantung FILESYSTEM_DISK.
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->url($path);
+        }
+
+        // Fallback: path absolut/URL penuh (misal dipindah manual ke public/).
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
     }
 
     public static function faviconUrl(): ?string
     {
         $path = static::get('favicon_path');
+        if (! $path) {
+            return null;
+        }
 
-        return $path ? Storage::url($path) : null;
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->url($path);
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
     }
 
     public static function theme(): string
