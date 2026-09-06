@@ -27,8 +27,8 @@
             <input name="target_user_id" required class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 12345678">
             <label class="text-sm font-semibold">Server / Zone (opsional)</label>
             <input name="target_zone" id="zone" class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 1234">
-            <div class="flex gap-2 mb-2">
-                <button type="button" id="btn-nick" class="card px-3 py-2 text-sm">Cek Nickname</button>
+            <div class="flex gap-2 mb-2 items-center">
+                <button type="button" id="btn-nick" class="btn-primary px-4 py-2 text-sm">Cek Nickname</button>
                 <span id="nick-result" class="text-sm text-gray-600"></span>
             </div>
             <input type="hidden" name="nickname" id="nickname">
@@ -82,12 +82,30 @@ async function refreshQuote() {
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
 refreshQuote();
-document.getElementById('btn-nick').addEventListener('click', async () => {
-    const uid = document.querySelector('input[name=target_user_id]').value;
-    const zone = document.getElementById('zone').value;
-    const r = await fetch(nickUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, user_id: uid, zone_id: zone})});
-    const j = await r.json();
-    document.getElementById('nick-result').textContent = j.ok ? JSON.stringify(j.data).slice(0, 120) : (j.message || 'Gagal');
+document.getElementById('btn-nick').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const uid = document.querySelector('input[name=target_user_id]').value.trim();
+    const zone = document.getElementById('zone').value.trim();
+    const box = document.getElementById('nick-result');
+    if (!uid) { box.textContent = 'Isi User ID dulu.'; return; }
+    btn.disabled = true;
+    btn.textContent = 'Mengecek...';
+    box.textContent = '';
+    try {
+        const r = await fetch(nickUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, user_id: uid, zone_id: zone})});
+        const j = await r.json();
+        if (j.ok && j.nickname) {
+            box.innerHTML = '✅ <b>' + j.nickname.replace(/</g, '&lt;') + '</b>' + (j.country?.name ? ' (' + j.country.name.replace(/</g, '&lt;') + ')' : '');
+            document.getElementById('nickname').value = j.nickname;
+        } else {
+            box.textContent = '❌ ' + (j.message || 'Nickname tidak ditemukan.');
+            document.getElementById('nickname').value = '';
+        }
+    } catch (err) {
+        box.textContent = '❌ Gagal menghubungi server.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Cek Nickname';
 });
 </script>
 @endsection

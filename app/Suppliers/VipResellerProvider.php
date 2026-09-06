@@ -312,7 +312,43 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
      * Cek nickname: POST /api/game-feature type=get-nickname,
      * code = kode nickname (lihat .../api/nickname-game-code.txt),
      * target = user ID, additional_target = zone ID.
+     *
+     * Kode resmi (params = yang wajib diisi):
+     * - mobile-legends (MLBB): userId + zoneId
+     * - mobile-legends-region (MLBB region, min saldo 100rb): userId + zoneId
+     * - free-fire (FF & FF Max): userId saja
+     * - pubgm: userId saja | valorant: userId saja
+     * - genshin-impact: userId + zone | honkai-star-rail: userId + zone
+     * - pointblank: userId saja
      */
+    public const NICKNAME_CODES = [
+        'mobile-legends' => ['games' => ['mobile legends', 'mlbb', 'mobile legends a', 'mobile legends b', 'mobile legends gift'], 'needs_zone' => true],
+        'mobile-legends-region' => ['games' => [], 'needs_zone' => true],
+        'free-fire' => ['games' => ['free fire', 'free fire max', 'free fire global', 'free fire max global'], 'needs_zone' => false],
+        'pubgm' => ['games' => ['pubg mobile', 'pubg mobile (global)', 'pubg mobile (id)', 'pubg : new state mobile'], 'needs_zone' => false],
+        'valorant' => ['games' => ['valorant'], 'needs_zone' => false],
+        'genshin-impact' => ['games' => ['genshin impact'], 'needs_zone' => true],
+        'honkai-star-rail' => ['games' => ['honkai star rail'], 'needs_zone' => true],
+        'pointblank' => ['games' => ['point blank', 'point blank (id)', 'voucher pb zepetto'], 'needs_zone' => false],
+    ];
+
+    public static function guessNicknameCode(string $gameName): ?string
+    {
+        $lower = mb_strtolower(trim($gameName));
+        foreach (self::NICKNAME_CODES as $code => $meta) {
+            if (in_array($lower, $meta['games'], true)) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    public static function nicknameNeedsZone(string $code): bool
+    {
+        return (bool) (self::NICKNAME_CODES[$code]['needs_zone'] ?? true);
+    }
+
     public function checkNickname(string $gameCode, string $userId, ?string $zoneId = null): array
     {
         $params = array_merge($this->authParams(), [
@@ -331,7 +367,16 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
             return ['result' => false, 'message' => $json['message'] ?? 'Nickname tidak ditemukan', 'raw' => $json];
         }
 
-        return ['result' => true, 'data' => $json['data'] ?? null, 'country' => $json['country'] ?? null, 'raw' => $json];
+        $nickname = $json['data'] ?? null;
+        $country = $json['country'] ?? null;
+
+        return [
+            'result' => true,
+            'nickname' => is_string($nickname) ? $nickname : null,
+            'country' => $country,
+            'data' => $nickname,
+            'raw' => $json,
+        ];
     }
 
     public function getGames(array $filters = []): array

@@ -120,12 +120,38 @@ class VipResellerProviderTest extends TestCase
             'result' => true, 'data' => 'Itacimo', 'message' => 'Success.',
         ], 200)]);
 
-        $res = $this->provider()->checkNickname('MLBB', '136216325', '2685');
+        $res = $this->provider()->checkNickname('mobile-legends', '136216325', '2685');
 
         $this->assertTrue($res['result']);
-        $this->assertEquals('Itacimo', $res['data']);
+        $this->assertEquals('Itacimo', $res['nickname']);
         Http::assertSent(fn ($req) => ($req->data()['type'] ?? '') === 'get-nickname'
+            && ($req->data()['code'] ?? '') === 'mobile-legends'
+            && ($req->data()['target'] ?? '') === '136216325'
             && ($req->data()['additional_target'] ?? '') === '2685');
+    }
+
+    public function test_check_nickname_dengan_region(): void
+    {
+        Http::fake(['vip-reseller.co.id/api/game-feature' => Http::response([
+            'result' => true, 'data' => 'Itacimo',
+            'country' => ['code' => 'ID', 'name' => 'Indonesia'], 'message' => 'Success.',
+        ], 200)]);
+
+        $res = $this->provider()->checkNickname('mobile-legends', '136216325', '2685');
+
+        $this->assertEquals('Itacimo', $res['nickname']);
+        $this->assertEquals('Indonesia', $res['country']['name']);
+    }
+
+    public function test_guess_nickname_code_dari_nama_game(): void
+    {
+        $this->assertEquals('mobile-legends', VipResellerProvider::guessNicknameCode('MOBILE LEGENDS'));
+        $this->assertEquals('mobile-legends', VipResellerProvider::guessNicknameCode('Mobile Legends B'));
+        $this->assertEquals('free-fire', VipResellerProvider::guessNicknameCode('Free Fire Max'));
+        $this->assertEquals('pubgm', VipResellerProvider::guessNicknameCode('PUBG MOBILE'));
+        $this->assertNull(VipResellerProvider::guessNicknameCode('Steam Wallet'));
+        $this->assertTrue(VipResellerProvider::nicknameNeedsZone('mobile-legends'));
+        $this->assertFalse(VipResellerProvider::nicknameNeedsZone('free-fire'));
     }
 
     public function test_webhook_vip_sukses_dan_duplicate_aman(): void

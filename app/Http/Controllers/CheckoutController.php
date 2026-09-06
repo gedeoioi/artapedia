@@ -49,13 +49,39 @@ class CheckoutController extends Controller
             return response()->json(['ok' => false, 'message' => 'Cek nickname tidak didukung supplier ini.'], 422);
         }
 
-        if (! $product->nickname_check_code) {
-            return response()->json(['ok' => false, 'message' => 'Produk belum dipetakan ke kode nickname.'], 422);
+        // Kode nickname: pakai mapping produk dulu, fallback tebak dari nama game
+        // (daftar resmi .../api/nickname-game-code.txt).
+        $code = $product->nickname_check_code;
+        if (! $code && $provider instanceof \App\Suppliers\VipResellerProvider) {
+            $code = \App\Suppliers\VipResellerProvider::guessNicknameCode($product->game);
         }
 
-        $res = $provider->checkNickname($product->nickname_check_code, $data['user_id'], $data['zone_id'] ?? null);
+        if (! $code) {
+            return response()->json(['ok' => false, 'message' => 'Produk belum dipetakan ke kode nickname. Isi kolom nickname_check_code di admin.'], 422);
+        }
 
-        return response()->json(['ok' => (bool) ($res['result'] ?? false), 'data' => $res]);
+        // Validasi zone untuk game yang mewajibkannya (ML, Genshin, HSR).
+        if ($provider instanceof \App\Suppliers\VipResellerProvider
+            && \App\Suppliers\VipResellerProvider::nicknameNeedsZone($code)
+            && empty($data['zone_id'])) {
+            return response()->json(['ok' => false, 'message' => 'Zone / Server wajib diisi untuk game ini.'], 422);
+        }
+
+        $res = $provider->checkNickname($code, $data['user_id'], $data['zone_id'] ?? null);
+
+        if (! ($res['result'] ?? false)) {
+            return response()->json(['ok' => false, 'message' => $res['message'] ?? 'Nickname tidak ditemukan. Periksa User ID / Zone.'], 422);
+        }
+
+        $nickname = $res['nickname'] ?? (is_string($res['data'] ?? null) ? $res['data'] : null);
+        $country = $res['country'] ?? null;
+
+        return response()->json([
+            'ok' => true,
+            'nickname' => $nickname,
+            'country' => $country,
+            'message' => $nickname ? 'Nickname: '.$nickname.(is_array($country) && isset($country['name']) ? ' ('.$country['name'].')' : '') : 'Ditemukan',
+        ]);
     }
 
     public function store(Request $request, OrderService $orders)
