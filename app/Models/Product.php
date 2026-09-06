@@ -69,7 +69,9 @@ class Product extends Model
         }
         // 3. Fallback: cari icon kategori by NAMA game (untuk produk lama
         //    yang tersync sebelum relasi game_icon_id diisi).
-        $icon = GameIcon::where('game_name', $this->game)->where('is_active', true)->first();
+        //    Pencocokan case-insensitive: "MOBILE LEGENDS" cocok dengan "Mobile Legends".
+        $icon = GameIcon::where('game_name', $this->game)->where('is_active', true)->first()
+            ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($this->game)])->where('is_active', true)->first();
         if ($icon?->icon_path) {
             return $this->publicUrl($icon->icon_path);
         }

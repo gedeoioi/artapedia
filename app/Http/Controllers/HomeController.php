@@ -22,6 +22,17 @@ class HomeController extends Controller
             ->get();
 
         $icons = GameIcon::whereIn('game_name', $games->pluck('game'))->get()->keyBy('game_name');
+        // Fallback case-insensitive: "MOBILE LEGENDS" (produk) vs "Mobile Legends" (icon).
+        if ($icons->count() < $games->count()) {
+            $extra = GameIcon::whereNotIn('game_name', $games->pluck('game'))->get();
+            foreach ($extra as $icon) {
+                foreach ($games as $g) {
+                    if (! isset($icons[$g->game]) && mb_strtolower($g->game) === mb_strtolower($icon->game_name)) {
+                        $icons[$g->game] = $icon;
+                    }
+                }
+            }
+        }
         $popular = Product::where('is_active', true)->orderByDesc('id')->limit(8)->get();
         $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
         $totalProducts = Product::where('is_active', true)->count();
