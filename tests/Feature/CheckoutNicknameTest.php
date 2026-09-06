@@ -30,6 +30,31 @@ class CheckoutNicknameTest extends TestCase
         ], $over));
     }
 
+    protected function makeDigiflazzProduct(array $over = []): Product
+    {
+        $s = SupplierConfig::create([
+            'code' => 'digiflazz', 'name' => 'Digiflazz',
+            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
+            'credentials' => ['username' => 'U', 'api_key' => 'K'],
+        ]);
+        // VIP tetap aktif sebagai pengecek nickname universal.
+        SupplierConfig::create([
+            'code' => 'vip-reseller', 'name' => 'VIP',
+            'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
+            'credentials' => ['api_id' => 'ID', 'api_key' => 'KEY'],
+        ]);
+
+        return Product::create(array_merge([
+            'supplier_config_id' => $s->id, 'supplier_code' => 'ML100',
+            'name' => 'ML 100', 'game' => 'MOBILE LEGENDS',
+            'cost_basic' => 100, 'cost_premium' => 100, 'cost_special' => 100,
+            'price_guest' => 120, 'price_biasa' => 115, 'price_vip' => 110,
+            'is_active' => true, 'in_stock' => true,
+        ], $over));
+    }
+
     public function test_tebak_kode_otomatis_dari_nama_game(): void
     {
         $this->makeProduct(['nickname_check_code' => null]);
@@ -89,5 +114,46 @@ class CheckoutNicknameTest extends TestCase
 
         $res->assertStatus(422);
         $this->assertStringContainsString('ID tidak ditemukan', $res->json('message'));
+    }
+
+    public function test_produk_digiflazz_dicek_via_vip(): void
+    {
+        $p = $this->makeDigiflazzProduct();
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response([
+            'result' => true, 'data' => 'Itacimo', 'message' => 'Success.',
+        ], 200)]);
+
+        $res = $this->postJson('/checkout/check-nickname', [
+            'product_id' => $p->id, 'user_id' => '136216325', 'zone_id' => '2685',
+        ]);
+
+        $res->assertOk();
+        $res->assertJson(['ok' => true, 'nickname' => 'Itacimo', 'via' => 'vip-reseller']);
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'vip-reseller.co.id'));
+    }
+
+    public function test_tanpa_vip_aktif_pesan_jelas(): void
+    {
+        $s = SupplierConfig::create([
+            'code' => 'digiflazz', 'name' => 'Digiflazz',
+            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
+            'credentials' => ['username' => 'U', 'api_key' => 'K'],
+        ]);
+        $p = Product::create([
+            'supplier_config_id' => $s->id, 'supplier_code' => 'ML100',
+            'name' => 'ML 100', 'game' => 'MOBILE LEGENDS',
+            'cost_basic' => 100, 'cost_premium' => 100, 'cost_special' => 100,
+            'price_guest' => 120, 'price_biasa' => 115, 'price_vip' => 110,
+            'is_active' => true, 'in_stock' => true,
+        ]);
+
+        $res = $this->postJson('/checkout/check-nickname', [
+            'product_id' => $p->id, 'user_id' => '136216325', 'zone_id' => '2685',
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('VIPayment', $res->json('message'));
     }
 }

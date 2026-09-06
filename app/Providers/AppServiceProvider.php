@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 use App\Services\BalanceService;
+use App\Services\NicknameService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 
@@ -18,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BalanceService::class);
         $this->app->singleton(PaymentService::class);
         $this->app->singleton(OrderService::class);
+        $this->app->singleton(NicknameService::class);
     }
 
     /**
