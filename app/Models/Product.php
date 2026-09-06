@@ -59,14 +59,31 @@ class Product extends Model
 
     public function iconUrl(): ?string
     {
+        // 1. Override khusus produk ini (prioritas tertinggi).
         if ($this->image_path) {
-            return asset('storage/'.$this->image_path);
+            return $this->publicUrl($this->image_path);
         }
+        // 2. Icon kategori via relasi (diisi otomatis saat sync).
         if ($this->gameIcon?->icon_path) {
-            return asset('storage/'.$this->gameIcon->icon_path);
+            return $this->publicUrl($this->gameIcon->icon_path);
+        }
+        // 3. Fallback: cari icon kategori by NAMA game (untuk produk lama
+        //    yang tersync sebelum relasi game_icon_id diisi).
+        $icon = GameIcon::where('game_name', $this->game)->where('is_active', true)->first();
+        if ($icon?->icon_path) {
+            return $this->publicUrl($icon->icon_path);
         }
 
         return null;
+    }
+
+    protected function publicUrl(string $path): string
+    {
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
     }
 
     public function costForLevel(string $level): int

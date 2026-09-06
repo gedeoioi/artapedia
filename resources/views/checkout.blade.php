@@ -10,8 +10,16 @@
 
 <div class="grid md:grid-cols-2 gap-4">
     <div class="card p-5">
-        <h1 class="font-bold text-lg">{{ $product->name }}</h1>
-        <div class="text-sm text-gray-500 mb-4">{{ $product->game }}</div>
+        <div class="flex items-center gap-3 mb-4">
+            @php $pIcon = $product->iconUrl(); @endphp
+            @if($pIcon)
+                <img src="{{ $pIcon }}" class="w-12 h-12" style="border-radius:12px" alt="{{ $product->game }}">
+            @endif
+            <div>
+                <h1 class="font-bold text-lg leading-tight">{{ $product->name }}</h1>
+                <div class="text-sm text-gray-500">{{ $product->game }}</div>
+            </div>
+        </div>
         <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form">
             @csrf
             <input type="hidden" name="product_id" value="{{ $product->id }}">

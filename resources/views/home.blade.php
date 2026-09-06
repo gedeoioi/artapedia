@@ -54,10 +54,11 @@
 </div>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
     @forelse($games as $g)
+        @php $catIcon = ($icons[$g->game] ?? null)?->icon_path ? asset('storage/'.$icons[$g->game]->icon_path) : null; @endphp
         <a href="{{ route('game.show', $g->game) }}" class="card p-4 hover:shadow-sm transition group">
             <div class="flex items-center gap-3">
-                @if(($icons[$g->game] ?? null)?->icon_path)
-                    <img src="{{ asset('storage/'.$icons[$g->game]->icon_path) }}" class="w-12 h-12 rounded" style="border-radius:12px" alt="{{ $g->game }}">
+                @if($catIcon)
+                    <img src="{{ $catIcon }}" class="w-12 h-12" style="border-radius:12px" alt="{{ $g->game }}">
                 @else
                     <div class="w-12 h-12 flex items-center justify-center font-bold text-lg btn-primary">{{ mb_substr($g->game, 0, 1) }}</div>
                 @endif
@@ -86,9 +87,17 @@
 </div>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
     @foreach($popular as $p)
+        @php $pIcon = $p->iconUrl(); @endphp
         <a href="{{ route('checkout.show', $p) }}" class="card p-4 hover:shadow-sm transition">
-            <div class="text-sm font-semibold truncate">{{ $p->name }}</div>
-            <div class="text-xs text-gray-500 mb-2">{{ $p->game }}</div>
+            <div class="flex items-center gap-2 mb-2">
+                @if($pIcon)
+                    <img src="{{ $pIcon }}" class="w-8 h-8" style="border-radius:8px" alt="{{ $p->game }}" loading="lazy">
+                @endif
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold truncate">{{ $p->name }}</div>
+                    <div class="text-xs text-gray-500">{{ $p->game }}</div>
+                </div>
+            </div>
             <div class="flex items-center justify-between">
                 <div class="text-sm font-bold">Rp {{ number_format($p->price_guest, 0, ',', '.') }}</div>
                 @if($p->in_stock)
