@@ -46,6 +46,14 @@ class BannerForm
                     ->default(0)
                     ->required()
                     ->helperText('Kecil = tampil duluan.'),
+                TextInput::make('duration_seconds')
+                    ->label('Lama tampil per slide (detik)')
+                    ->numeric()
+                    ->minValue(2)
+                    ->maxValue(60)
+                    ->default(5)
+                    ->required()
+                    ->helperText('Berapa detik banner ini tampil sebelum geser otomatis.'),
                 Toggle::make('is_active')
                     ->label('Aktif')
                     ->required(),

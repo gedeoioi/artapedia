@@ -27,6 +27,9 @@ class BannersTable
                 TextColumn::make('sort_order')
                     ->label('Urutan')
                     ->sortable(),
+                TextColumn::make('duration_seconds')
+                    ->label('Durasi (dtk)')
+                    ->sortable(),
                 ToggleColumn::make('is_active')
                     ->label('Aktif'),
                 TextColumn::make('updated_at')

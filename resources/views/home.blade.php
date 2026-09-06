@@ -10,34 +10,46 @@
 
 <!-- SLIDE BANNER -->
 @if(($banners ?? collect())->isNotEmpty())
-<section class="mb-8" x-data="{ i: 0, total: {{ $banners->count() }} }" x-init="setInterval(() => { i = (i + 1) % total }, 5000)">
+<section class="mb-8"
+    x-data="{
+        i: 0,
+        total: {{ $banners->count() }},
+        durations: @js($banners->map(fn ($b) => max(2, (int) ($b->duration_seconds ?? 5)) * 1000)->values()),
+        timer: null,
+        go(n) { this.i = (n + this.total) % this.total; this.restart(); },
+        next() { this.go(this.i + 1); },
+        prev() { this.go(this.i - 1); },
+        restart() { clearTimeout(this.timer); this.timer = setTimeout(() => this.next(), this.durations[this.i] ?? 5000); }
+    }"
+    x-init="restart()">
     <div class="relative overflow-hidden card" style="border-radius:16px">
-        @foreach($banners as $idx => $b)
-            <div x-show="i === {{ $idx }}" x-transition.opacity.duration.500ms class="w-full">
-                @if($b->imageUrl())
-                    <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block">
-                        <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-40 md:h-64 object-cover">
-                    </a>
-                @else
-                    <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block flash-grad p-6 md:p-10 text-white">
-                        <div class="font-extrabold text-xl md:text-3xl">{{ $b->title }}</div>
-                        @if($b->subtitle)<div class="text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
-                        @if($b->button_text)<span class="inline-block mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
-                    </a>
-                @endif
-            </div>
-        @endforeach
+        <div class="flex transition-transform duration-700 ease-in-out" :style="'transform: translateX(-' + (i * 100) + '%); width: ' + (total * 100) + '%'">
+            @foreach($banners as $b)
+                <div class="shrink-0" style="width: {{ 100 / max(1, $banners->count()) }}%">
+                    @if($b->imageUrl())
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block" aria-label="{{ $b->title }}">
+                            <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-40 md:h-64 object-cover" draggable="false">
+                        </a>
+                    @else
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block flash-grad p-6 md:p-10 text-white" aria-label="{{ $b->title }}">
+                            <div class="font-extrabold text-xl md:text-3xl">{{ $b->title }}</div>
+                            @if($b->subtitle)<div class="text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
+                            @if($b->button_text)<span class="inline-block mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
+                        </a>
+                    @endif
+                </div>
+            @endforeach
+        </div>
         @if($banners->count() > 1)
         <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
             @foreach($banners as $idx => $b)
-                <button @click="i = {{ $idx }}" :class="i === {{ $idx }} ? 'bg-white' : 'bg-white/40'" class="w-2 h-2" style="border-radius:999px" aria-label="Slide {{ $idx + 1 }}"></button>
+                <button @click="go({{ $idx }})" :class="i === {{ $idx }} ? 'bg-white w-6' : 'bg-white/40 w-2'" class="h-2 transition-all" style="border-radius:999px" aria-label="Slide {{ $idx + 1 }}"></button>
             @endforeach
         </div>
-        <button @click="i = (i - 1 + total) % total" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px">&#8249;</button>
-        <button @click="i = (i + 1) % total" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px">&#8250;</button>
+        <button @click="prev()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px" aria-label="Sebelumnya">&#8249;</button>
+        <button @click="next()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white w-8 h-8" style="border-radius:999px" aria-label="Berikutnya">&#8250;</button>
         @endif
     </div>
-    <div class="text-center mt-2 text-sm font-semibold" x-text="@js($banners->pluck('title')->values()) [i]"></div>
 </section>
 @endif
 
@@ -67,16 +79,16 @@
     <h2 class="font-bold text-lg">Semua Kategori</h2>
     @if($q)<a href="{{ route('home') }}" class="text-xs underline">Reset pencarian</a>@endif
 </div>
-<div class="grid grid-cols-4 md:grid-cols-8 gap-3 mb-8">
-    @forelse($games as $g)
+<div class="grid grid-cols-5 gap-2 mb-4" id="category-grid">
+    @forelse($games as $idx => $g)
         @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-        <a href="{{ route('game.show', $g->game) }}" class="card p-3 hover:border-orange-500 transition flex flex-col items-center text-center gap-2">
+        <a href="{{ route('game.show', $g->game) }}" data-cat-item @if($idx >= 20) class="hidden" @endif class="card p-2 hover:border-orange-500 transition flex flex-col items-center text-center gap-1.5">
             @if($catIcon)
-                <img src="{{ $catIcon }}" class="w-14 h-14 object-cover" style="border-radius:14px" alt="{{ $g->game }}" loading="lazy">
+                <img src="{{ $catIcon }}" class="w-12 h-12 object-cover" style="border-radius:12px" alt="{{ $g->game }}" loading="lazy">
             @else
-                <div class="w-14 h-14 flex items-center justify-center font-bold text-xl btn-primary" style="border-radius:14px">{{ mb_substr($g->game, 0, 1) }}</div>
+                <div class="w-12 h-12 flex items-center justify-center font-bold text-lg btn-primary" style="border-radius:12px">{{ mb_substr($g->game, 0, 1) }}</div>
             @endif
-            <div class="text-xs font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
+            <div class="text-[11px] font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
         </a>
     @empty
         <div class="card p-6 text-sm muted col-span-full text-center">
@@ -85,6 +97,13 @@
         </div>
     @endforelse
 </div>
+@if(($hasMoreCategories ?? false) && !$q)
+<div class="text-center mb-8">
+    <a href="{{ route('categories.index') }}" class="btn-primary inline-block px-6 py-2.5 text-sm">Lihat Selengkapnya</a>
+</div>
+@else
+<div class="mb-8"></div>
+@endif
 
 <!-- CARA ORDER -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">

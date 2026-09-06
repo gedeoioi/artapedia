@@ -12,14 +12,17 @@ class HomeController extends Controller
     {
         $q = trim((string) $request->get('q', ''));
 
-        $games = Product::query()
+        $gamesQuery = Product::query()
             ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
             ->available()
             ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
             ->groupBy('game')
-            ->orderBy('game')
-            ->limit(24)
-            ->get();
+            ->orderBy('game');
+
+        $totalCategories = (clone $gamesQuery)->get()->count();
+        // Grid 5 kolom x 4 baris = 20 kategori. Sisanya via tombol Lihat Selengkapnya.
+        $games = (clone $gamesQuery)->limit(20)->get();
+        $hasMoreCategories = $totalCategories > 20;
 
         $icons = collect();
         foreach ($games as $g) {
@@ -62,12 +65,35 @@ class HomeController extends Controller
 
         $banners = \App\Models\Banner::activeOrdered();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners'));
+        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories'));
+    }
+
+    public function categories(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+
+        $games = Product::query()
+            ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+            ->available()
+            ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
+            ->groupBy('game')
+            ->orderBy('game')
+            ->paginate(50);
+
+        $icons = collect();
+        foreach ($games as $g) {
+            $icon = GameIcon::where('game_name', $g->game)->where('is_active', true)->first()
+                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($g->game)])->where('is_active', true)->first();
+            if ($icon) {
+                $icons[$g->game] = $icon;
+            }
+        }
+
+        return view('categories', compact('games', 'icons', 'q'));
     }
 
     public function game(string $game)
-    {
-        $products = Product::where('game', $game)->available()->orderBy('price_guest')->get();
+    {        $products = Product::where('game', $game)->available()->orderBy('price_guest')->get();
         $icon = GameIcon::where('game_name', $game)->where('is_active', true)->first()
             ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 

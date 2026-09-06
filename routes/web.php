@@ -12,6 +12,7 @@ use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/kategori', [HomeController::class, 'categories'])->name('categories.index');
 Route::get('/game/{game}', [HomeController::class, 'game'])->name('game.show');
 
 Route::get('/product/{product}/checkout', [CheckoutController::class, 'show'])->name('checkout.show');

@@ -8,12 +8,12 @@ class Banner extends Model
 {
     protected $fillable = [
         'title', 'subtitle', 'image_path', 'link_url',
-        'button_text', 'sort_order', 'is_active',
+        'button_text', 'sort_order', 'duration_seconds', 'is_active',
     ];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'sort_order' => 'integer'];
+        return ['is_active' => 'boolean', 'sort_order' => 'integer', 'duration_seconds' => 'integer'];
     }
 
     public function imageUrl(): ?string
