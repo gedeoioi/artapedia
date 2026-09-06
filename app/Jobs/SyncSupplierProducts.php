@@ -14,13 +14,23 @@ class SyncSupplierProducts implements ShouldQueue
 
     public function __construct(public int $supplierId, public array $filters = []) {}
 
-    public function handle(): \App\Models\SupplierConfig
+    public function handle(): array
     {
         $supplier = SupplierConfig::findOrFail($this->supplierId);
         $provider = ProviderFactory::supplierFor($supplier);
         $res = $provider->getProducts($this->filters);
 
-        $rows = $res['data'] ?? $res['services'] ?? $res ?? [];
+        if (! ($res['result'] ?? false)) {
+            $message = (string) ($res['message'] ?? 'Gagal ambil produk dari supplier');
+            \App\Models\AuditLog::record('products.sync_failed', $supplier, [], [
+                'filters' => $this->filters,
+                'message' => mb_substr($message, 0, 500),
+            ]);
+
+            return ['ok' => false, 'synced' => 0, 'message' => $message];
+        }
+
+        $rows = $res['data'] ?? [];
         if (! is_array($rows)) {
             $rows = [];
         }
@@ -92,7 +102,12 @@ class SyncSupplierProducts implements ShouldQueue
         $supplier->last_sync_at = now();
         $supplier->save();
 
-        return $supplier->fresh();
+        \App\Models\AuditLog::record('products.synced', $supplier, [], [
+            'filters' => $this->filters,
+            'synced' => $count,
+        ]);
+
+        return ['ok' => true, 'synced' => $count, 'message' => "Sync selesai: {$count} produk"];
     }
 
     protected function markup(int $cost, float $pct = 5.0): int

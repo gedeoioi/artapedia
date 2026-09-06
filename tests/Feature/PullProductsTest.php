@@ -46,6 +46,19 @@ class PullProductsTest extends TestCase
         Http::assertSent(fn ($req) => ($req->data()['filter_game'] ?? '') === 'Mobile Legends');
     }
 
+    public function test_sync_gagal_mengembalikan_pesan_asli(): void
+    {
+        $s = $this->makeSupplier();
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response(['result' => false, 'message' => 'Invalid key'], 200)]);
+
+        $result = (new SyncSupplierProducts($s->id, []))->handle();
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('Invalid key', $result['message']);
+        $this->assertEquals(0, Product::where('supplier_config_id', $s->id)->count());
+    }
+
     public function test_hapus_proteksi_produk_bertransaksi(): void
     {
         $s = $this->makeSupplier();

@@ -158,17 +158,21 @@ class PullProducts extends Page implements HasTable, HasSchemas
                     }
 
                     $job = new SyncSupplierProducts($supplier->id, $this->syncFilters());
-                    $job->handle();
+                    $result = $job->handle();
                     $this->resetTable();
 
-                    $count = Product::where('supplier_config_id', $supplier->id)
-                        ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g))
-                        ->count();
-
-                    Notification::make()
-                        ->title('Sync selesai: '.$count.' produk'.($this->data['filter_game'] ?? null ? ' ('.$this->data['filter_game'].')' : ''))
-                        ->success()
-                        ->send();
+                    if ($result['ok']) {
+                        Notification::make()
+                            ->title($result['message'].($this->data['filter_game'] ?? null ? ' ('.$this->data['filter_game'].')' : ''))
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Sync gagal')
+                            ->body($result['message'])
+                            ->danger()
+                            ->send();
+                    }
                 }),
             Action::make('removeProducts')
                 ->label('Hapus Produk')
