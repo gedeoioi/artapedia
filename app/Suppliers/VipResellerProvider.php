@@ -37,12 +37,12 @@ class VipResellerProvider implements SupplierProviderInterface, NicknameCheckabl
 
     protected function apiId(): string
     {
-        return (string) ($this->credentials['api_id'] ?? '');
+        return trim((string) ($this->credentials['api_id'] ?? ''));
     }
 
     protected function apiKey(): string
     {
-        return (string) ($this->credentials['api_key'] ?? '');
+        return trim((string) ($this->credentials['api_key'] ?? ''));
     }
 
     public function sign(): string

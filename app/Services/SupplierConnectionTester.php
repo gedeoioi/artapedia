@@ -10,6 +10,15 @@ class SupplierConnectionTester
     /** Key kredensial yang wajib disamarkan di log. */
     protected const SECRET_KEYS = ['api_key', 'apikey', 'secret', 'webhook_secret', 'password', 'token', 'private_key'];
 
+    protected function requiredKeys(string $code): array
+    {
+        return match ($code) {
+            'toko-voucher' => ['member_code', 'secret'],
+            'digiflazz' => ['username', 'api_key'],
+            default => ['api_id', 'api_key'],
+        };
+    }
+
     public function test(SupplierConfig $config): array
     {
         $started = microtime(true);
@@ -17,6 +26,33 @@ class SupplierConnectionTester
         $lines = [];
         $lines[] = '['.now()->toDateTimeString().'] Tes koneksi ke '.$config->name.' ('.$config->code.')';
         $lines[] = 'Mode: '.($config->is_sandbox ? 'SANDBOX/testing' : 'PRODUCTION').' | Provider: '.$config->provider_class;
+
+        // Deteksi decrypt gagal / kredensial korup: cast encrypted:array melempar
+        // DecryptException -> tangkap di sini dengan pesan jelas (tanpa bocorkan isi).
+        try {
+            $credentials = $config->fresh()->credentials ?? [];
+            if (! is_array($credentials)) {
+                $credentials = [];
+            }
+        } catch (\Throwable $e) {
+            $lines[] = '[GAGAL] Kredensial tidak bisa dibaca (key enkripsi berubah?): '.$e->getMessage();
+            $msg = 'Kredensial rusak (gagal decrypt — APP_KEY berubah?). Isi ulang kredensial di form lalu simpan.';
+
+            return $this->fail($config, $msg, $steps, $lines, $started);
+        }
+
+        $required = $this->requiredKeys($config->code);
+        $missing = array_filter($required, fn ($k) => trim((string) ($credentials[$k] ?? '')) === '');
+        if (! empty($missing)) {
+            $lines[] = '[GAGAL] Kredensial kosong: '.implode(', ', $missing);
+            $msg = 'Kredensial belum lengkap ('.implode(', ', $missing).'). Isi di form supplier lalu simpan.';
+
+            return $this->fail($config, $msg, $steps, $lines, $started);
+        }
+        $lines[] = '[OK] Kredensial terisi: '.implode(', ', array_map(
+            fn ($k) => $k.'='.mb_substr(trim((string) $credentials[$k]), 0, 3).'***('.mb_strlen(trim((string) $credentials[$k])).' char)',
+            $required
+        ));
 
         try {
             $provider = ProviderFactory::supplierFor($config->fresh());

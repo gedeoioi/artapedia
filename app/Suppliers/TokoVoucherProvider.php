@@ -35,12 +35,12 @@ class TokoVoucherProvider implements SupplierProviderInterface
 
     protected function memberCode(): string
     {
-        return (string) ($this->credentials['member_code'] ?? '');
+        return trim((string) ($this->credentials['member_code'] ?? ''));
     }
 
     protected function secret(): string
     {
-        return (string) ($this->credentials['secret'] ?? '');
+        return trim((string) ($this->credentials['secret'] ?? ''));
     }
 
     public function signRef(string $refId): string

@@ -42,12 +42,12 @@ class DigiflazzProvider implements SupplierProviderInterface
 
     protected function username(): string
     {
-        return (string) ($this->credentials['username'] ?? '');
+        return trim((string) ($this->credentials['username'] ?? ''));
     }
 
     protected function apiKey(): string
     {
-        return (string) ($this->credentials['api_key'] ?? '');
+        return trim((string) ($this->credentials['api_key'] ?? ''));
     }
 
     public function signDeposit(): string
