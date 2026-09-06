@@ -162,6 +162,12 @@ class OrderService
                     if ($trx->target_zone) {
                         $orderOptions['zone'] = $trx->target_zone;
                     }
+                } elseif ($provider instanceof \App\Suppliers\TokoVoucherProvider) {
+                    // TokoVoucher: ref_id stabil + server_id terpisah (dok transaksi/post).
+                    $orderOptions['ref_id'] = 'TV-'.$trx->id;
+                    if ($trx->target_zone) {
+                        $orderOptions['server_id'] = $trx->target_zone;
+                    }
                 } elseif ($trx->target_zone) {
                     $target = $trx->target_user_id.'|'.$trx->target_zone;
                 }
@@ -175,7 +181,9 @@ class OrderService
                 }
 
                 $trx->supplier_config_id = $supplier->id;
-                $trx->supplier_trx_id = $res['data']['trxid'] ?? $res['trxid'] ?? (string) $trx->id;
+                // TokoVoucher: yang dipakai untuk polling & webhook adalah ref_id KITA,
+                // bukan trx_id mereka. Provider mengembalikan keduanya.
+                $trx->supplier_trx_id = $res['data']['ref_id'] ?? $res['data']['trxid'] ?? $res['trxid'] ?? (string) $trx->id;
                 $trx->supplier_status = $res['data']['status'] ?? 'processing';
                 $trx->processed_at = now();
                 $trx->status = Transaction::STATUS_PROCESSING;
@@ -210,12 +218,16 @@ class OrderService
         // Digiflazz: cek status prepaid = topup ulang dengan ref_id yang sama,
         // butuh buyer_sku_code + customer_no asli.
         // VIPayment: cek ke channel yang sama saat order; data balikan ARRAY.
+        // TokoVoucher: order menyimpan ref_id kita ("TV-{id}") di supplier_trx_id,
+        // polling memakai ref_id itu (bukan trx_id mereka).
         $statusOptions = [];
         if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
             $statusOptions = [
                 'buyer_sku_code' => $trx->product->supplier_code,
                 'customer_no' => $trx->target_user_id,
             ];
+        } elseif ($provider instanceof \App\Suppliers\TokoVoucherProvider) {
+            $statusOptions = ['ref_id' => $trx->supplier_trx_id];
         }
 
         $res = $provider->checkStatus($trx->supplier_trx_id, $statusOptions);

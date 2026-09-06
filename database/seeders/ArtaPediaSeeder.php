@@ -51,7 +51,7 @@ class ArtaPediaSeeder extends Seeder
             'is_active' => false,
             'is_sandbox' => true,
             'priority' => 2,
-            'credentials' => [],
+            'credentials' => ['member_code' => '', 'secret' => ''],
         ]);
 
         PaymentGatewayConfig::firstOrCreate(['code' => 'xendit'], [

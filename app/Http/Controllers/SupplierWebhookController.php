@@ -7,6 +7,7 @@ use App\Models\SupplierConfig;
 use App\Services\OrderService;
 use App\Services\ProviderFactory;
 use App\Suppliers\DigiflazzProvider;
+use App\Suppliers\TokoVoucherProvider;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -179,6 +180,86 @@ class SupplierWebhookController extends Controller
         });
 
         AuditLog::record('supplier.webhook.vip-reseller', $config, [], ['trxid' => $trxid, 'status' => $status]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function tokoVoucher(Request $request)
+    {
+        $config = SupplierConfig::where('code', 'toko-voucher')->first();
+
+        if (! $config) {
+            return response()->json(['ok' => false, 'message' => 'Supplier toko-voucher belum dikonfigurasi'], 404);
+        }
+
+        $provider = ProviderFactory::supplierFor($config);
+
+        if (! $provider instanceof TokoVoucherProvider) {
+            return response()->json(['ok' => false, 'message' => 'Provider mismatch'], 500);
+        }
+
+        $refId = (string) ($request->input('ref_id') ?? '');
+        $status = (string) ($request->input('status') ?? '');
+
+        if ($refId === '') {
+            return response()->json(['ok' => false, 'reason' => 'missing_ref_id'], 400);
+        }
+
+        if (! $provider->verifyWebhook($request->header('X-TokoVoucher-Authorization'), $refId)) {
+            AuditLog::record('supplier.webhook.invalid_signature', $config, [], ['supplier' => 'toko-voucher']);
+
+            return response()->json(['ok' => false, 'reason' => 'invalid_signature'], 401);
+        }
+
+        $trx = \App\Models\Transaction::where('supplier_trx_id', $refId)->first();
+
+        if (! $trx) {
+            return response()->json(['ok' => true, 'ignored' => true]);
+        }
+
+        DB::transaction(function () use ($trx, $request, $status, $refId) {
+            $locked = \App\Models\Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isFinal()) {
+                return;
+            }
+
+            $locked->supplier_status = strtolower($status);
+            $locked->payment_payload = array_merge($locked->payment_payload ?? [], [
+                'webhook_toko' => [
+                    'status' => $status,
+                    'sn' => $request->input('sn'),
+                    'trx_id' => $request->input('trx_id'),
+                    'price' => $request->input('price'),
+                    'message' => $request->input('message'),
+                    'at' => now()->toDateTimeString(),
+                ],
+            ]);
+
+            if ($request->input('sn')) {
+                $locked->notes = trim(($locked->notes ?? '').' [SN: '.$request->input('sn').']');
+            }
+
+            $mapped = TokoVoucherProvider::mapStatus($status);
+
+            if ($mapped === 'success') {
+                $locked->status = \App\Models\Transaction::STATUS_SUCCESS;
+            } elseif ($mapped === 'failed') {
+                $locked->status = \App\Models\Transaction::STATUS_FAILED;
+                if ($locked->payment_method === 'balance' && $locked->user_id && $locked->paid_at) {
+                    app(\App\Services\BalanceService::class)->credit(
+                        $locked->user,
+                        $locked->total_amount,
+                        \App\Models\BalanceMutation::TYPE_REFUND,
+                        'Refund '.$locked->invoice_code.' TokoVoucher gagal (webhook)',
+                        $locked->id
+                    );
+                }
+            }
+            $locked->save();
+        });
+
+        AuditLog::record('supplier.webhook.toko-voucher', $config, [], ['ref_id' => $refId, 'status' => $status]);
 
         return response()->json(['ok' => true]);
     }

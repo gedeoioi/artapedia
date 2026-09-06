@@ -34,9 +34,10 @@ class SyncSupplierProducts implements ShouldQueue
             if (! $code) {
                 continue;
             }
-            $name = $row['name'] ?? $row['product_name'] ?? $row['service_name'] ?? $code;
-            $game = $row['game'] ?? $row['brand'] ?? $row['category'] ?? $this->filters['game'] ?? $this->filters['brand'] ?? 'Lainnya';
+            $name = $row['name'] ?? $row['product_name'] ?? $row['nama_produk'] ?? $row['nama'] ?? $row['service_name'] ?? $code;
+            $game = $row['game'] ?? $row['operator_produk'] ?? $row['brand'] ?? $row['category'] ?? $this->filters['game'] ?? $this->filters['brand'] ?? 'Lainnya';
             // VIPayment: price = {basic, premium, special} -> 3 tier modal sekaligus.
+            // TokoVoucher: price + price_gold/vip/vvip (dipetakan ke 3 tier modal).
             $priceNode = $row['price'] ?? $row['harga'] ?? 0;
             if (is_array($priceNode)) {
                 $price = (int) ($priceNode['basic'] ?? 0);
@@ -56,6 +57,12 @@ class SyncSupplierProducts implements ShouldQueue
             if (isset($row['price_special'])) {
                 $priceSpecial = (int) $row['price_special'];
             }
+            // TokoVoucher full: price_gold / price_vip / price_vvip.
+            if (isset($row['price_gold']) || isset($row['price_vvip'])) {
+                $price = (int) ($row['price_gold'] ?? $price);
+                $pricePremium = (int) ($row['price_vip'] ?? $pricePremium);
+                $priceSpecial = (int) ($row['price_vvip'] ?? $priceSpecial);
+            }
             $status = strtolower((string) ($row['status'] ?? 'available'));
             $inStock = ! in_array($status, ['kosong', 'empty', 'off', 'nonaktif'], true);
             if (array_key_exists('in_stock', $row)) {
@@ -67,6 +74,7 @@ class SyncSupplierProducts implements ShouldQueue
                 [
                     'name' => $name,
                     'game' => $game,
+                    'category' => $row['category'] ?? 'game',
                     'cost_basic' => $price,
                     'cost_premium' => $pricePremium,
                     'cost_special' => $priceSpecial,
@@ -75,7 +83,7 @@ class SyncSupplierProducts implements ShouldQueue
                     'price_vip' => $this->markup($priceSpecial),
                     'in_stock' => $inStock,
                     'is_active' => true,
-                    'description' => $row['desc'] ?? null,
+                    'description' => $row['desc'] ?? $row['deskripsi'] ?? null,
                 ]
             );
             $count++;
