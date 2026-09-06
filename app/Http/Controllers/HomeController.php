@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\GameIcon;
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class HomeController extends Controller
+{
+    public function index(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+
+        $games = Product::query()
+            ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+            ->where('is_active', true)
+            ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
+            ->groupBy('game')
+            ->orderBy('game')
+            ->limit(24)
+            ->get();
+
+        $icons = GameIcon::whereIn('game_name', $games->pluck('game'))->get()->keyBy('game_name');
+        $popular = Product::where('is_active', true)->orderByDesc('id')->limit(8)->get();
+
+        return view('home', compact('games', 'icons', 'popular', 'q'));
+    }
+
+    public function game(string $game)
+    {
+        $products = Product::where('game', $game)->where('is_active', true)->orderBy('price_guest')->get();
+        $icon = GameIcon::where('game_name', $game)->first();
+
+        return view('game', compact('products', 'game', 'icon'));
+    }
+}

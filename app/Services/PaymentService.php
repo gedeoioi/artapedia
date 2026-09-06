@@ -1,0 +1,145 @@
+<?php
+
+namespace App\Services;
+
+use App\Jobs\DispatchOrderToSupplier;
+use App\Models\BalanceMutation;
+use App\Models\Invoice;
+use App\Models\PaymentGatewayConfig;
+use App\Models\Product;
+use App\Models\Transaction;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class PaymentService
+{
+    public function __construct(protected BalanceService $balances) {}
+
+    public function quote(Product $product, ?User $user, ?string $gatewayCode): array
+    {
+        $sell = $user ? $user->priceFor($product) : (int) $product->price_guest;
+        $gatewayFee = 0;
+
+        if ($gatewayCode && $gatewayCode !== 'balance') {
+            $gw = PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->first();
+            if ($gw) {
+                $gatewayFee = $gw->feeFor($sell);
+            }
+        }
+
+        $adminFee = 0;
+
+        return [
+            'sell_price' => $sell,
+            'admin_fee' => $adminFee,
+            'gateway_fee' => $gatewayFee,
+            'total' => $sell + $adminFee + $gatewayFee,
+        ];
+    }
+
+    public function invoiceCode(): string
+    {
+        return 'INV-'.now()->format('Ymd').'-'.Str::upper(Str::random(8));
+    }
+
+    public function referenceId(string $prefix = 'AP'): string
+    {
+        return $prefix.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(6));
+    }
+
+    public function topupBalance(User $user, int $amount, string $gatewayCode): Transaction
+    {
+        return DB::transaction(function () use ($user, $amount, $gatewayCode) {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $gw = PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->firstOrFail();
+            $fee = $gw->feeFor($amount);
+
+            $trx = Transaction::create([
+                'invoice_code' => $this->invoiceCode(),
+                'user_id' => $locked->id,
+                'product_id' => null,
+                'payment_gateway_code' => $gw->code,
+                'target_user_id' => 'TOPUP',
+                'quantity' => 1,
+                'cost_price' => 0,
+                'sell_price' => $amount,
+                'admin_fee' => 0,
+                'gateway_fee' => $fee,
+                'total_amount' => $amount + $fee,
+                'profit' => -$fee,
+                'payment_method' => $gw->code,
+                'status' => Transaction::STATUS_PENDING,
+                'buyer_phone' => $locked->phone,
+                'buyer_email' => $locked->email,
+                'meta' => ['kind' => 'topup'],
+            ]);
+            $trx->profit = -$fee;
+            $trx->save();
+
+            $gateway = ProviderFactory::gatewayFor($gw);
+            $result = $gateway->createPayment([
+                'reference_id' => $this->referenceId('TOPUP'),
+                'amount' => $trx->total_amount,
+                'description' => 'Topup saldo '.$amount,
+                'customer_email' => $locked->email,
+                'customer_phone' => $locked->phone,
+                'customer_name' => $locked->name,
+            ]);
+
+            $trx->payment_reference = $result['reference_id'];
+            $trx->payment_payload = $result['raw'] ?? null;
+            $trx->save();
+
+            Invoice::create([
+                'transaction_id' => $trx->id,
+                'invoice_code' => $trx->invoice_code,
+                'gateway_code' => $gw->code,
+                'reference_id' => $result['reference_id'],
+                'amount' => $trx->total_amount,
+                'status' => 'pending',
+                'expired_at' => now()->addHour(),
+                'payload' => $result['raw'] ?? null,
+            ]);
+
+            return $trx;
+        });
+    }
+
+    public function markPaid(string $referenceId, string $gatewayCode, array $raw = []): ?Transaction
+    {
+        return DB::transaction(function () use ($referenceId, $gatewayCode, $raw) {
+            $trx = Transaction::where('payment_reference', $referenceId)->lockForUpdate()->first();
+            if (! $trx) {
+                return null;
+            }
+
+            if ($trx->isFinal() || in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
+                return $trx;
+            }
+
+            $trx->status = Transaction::STATUS_PAID;
+            $trx->paid_at = now();
+            $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['callback' => $raw]);
+            $trx->save();
+
+            $trx->invoice()->update(['status' => 'paid', 'paid_at' => now()]);
+
+            if (($trx->meta['kind'] ?? null) === 'topup' && $trx->user_id) {
+                $this->balances->credit(
+                    $trx->user,
+                    $trx->sell_price,
+                    BalanceMutation::TYPE_TOPUP,
+                    'Topup via '.$gatewayCode.' '.$trx->invoice_code,
+                    $trx->id
+                );
+                $trx->status = Transaction::STATUS_SUCCESS;
+                $trx->save();
+            } else {
+                DispatchOrderToSupplier::dispatch($trx->id);
+            }
+
+            return $trx;
+        });
+    }
+}

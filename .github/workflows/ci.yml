@@ -1,0 +1,27 @@
+name: ArtaPedia CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, curl, sqlite3, pdo_sqlite, intl, zip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install PHP deps
+        run: composer install --no-interaction --prefer-dist
+      - name: Setup env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run critical balance tests
+        run: php artisan test --filter=BalanceSafetyTest
