@@ -41,60 +41,21 @@
 </section>
 @endif
 
-<!-- FLASH SALE -->
-@if($flashSale->isNotEmpty())
+<!-- KATEGORI TERFAVORIT -->
+@if(($favorites ?? collect())->isNotEmpty())
 <section class="mb-8">
-    <div class="flash-grad card p-5 mb-3 flex items-center justify-between">
-        <div>
-            <div class="font-extrabold text-lg text-white">FLASH SALE</div>
-            <div class="text-xs text-orange-100">Harga termurah hari ini, stok tersedia.</div>
-        </div>
-        <div class="text-xs text-orange-100">Berakhir 23:59</div>
-    </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        @foreach($flashSale as $p)
-            @php $pIcon = $p->iconUrl(); @endphp
-            <a href="{{ route('checkout.show', $p) }}" class="card p-4 hover:border-orange-500 transition">
-                <div class="flex items-center gap-2 mb-2">
-                    @if($pIcon)
-                        <img src="{{ $pIcon }}" class="w-10 h-10" style="border-radius:10px" alt="{{ $p->game }}" loading="lazy">
-                    @endif
-                    <div class="min-w-0">
-                        <div class="text-sm font-semibold truncate">{{ $p->name }}</div>
-                        <div class="text-xs muted">{{ $p->game }}</div>
-                    </div>
-                </div>
-                <div class="text-base font-extrabold accent">Rp {{ number_format($p->price_guest, 0, ',', '.') }}</div>
-            </a>
-        @endforeach
-    </div>
-</section>
-@endif
-
-<!-- TRENDING -->
-@if($trending->isNotEmpty())
-<section class="mb-8">
-    <h2 class="font-extrabold text-lg">TRENDING</h2>
-    <p class="muted text-xs mb-3">Produk paling populer saat ini.</p>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        @foreach($trending as $g)
+    <h2 class="font-extrabold text-lg">Kategori Terfavorit</h2>
+    <p class="muted text-xs mb-3">Paling sering dibeli pelanggan.</p>
+    <div class="grid grid-cols-4 md:grid-cols-8 gap-3">
+        @foreach($favorites as $g)
             @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-            <a href="{{ route('game.show', $g->game) }}" class="card p-4 hover:border-orange-500 transition">
-                <div class="flex items-center gap-3">
-                    @if($catIcon)
-                        <img src="{{ $catIcon }}" class="w-12 h-12" style="border-radius:12px" alt="{{ $g->game }}" loading="lazy">
-                    @else
-                        <div class="w-12 h-12 flex items-center justify-center font-bold text-lg btn-primary">{{ mb_substr($g->game, 0, 1) }}</div>
-                    @endif
-                    <div class="min-w-0">
-                        <div class="font-semibold text-sm truncate">{{ $g->game }}</div>
-                        <div class="text-xs muted">{{ $g->total }} produk</div>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between mt-3">
-                    <div class="text-xs muted">Mulai dari</div>
-                    <div class="text-sm font-bold">Rp {{ number_format($g->min_price, 0, ',', '.') }}</div>
-                </div>
+            <a href="{{ route('game.show', $g->game) }}" class="card p-3 hover:border-orange-500 transition flex flex-col items-center text-center gap-2">
+                @if($catIcon)
+                    <img src="{{ $catIcon }}" class="w-14 h-14 object-cover" style="border-radius:14px" alt="{{ $g->game }}" loading="lazy">
+                @else
+                    <div class="w-14 h-14 flex items-center justify-center font-bold text-xl btn-primary" style="border-radius:14px">{{ mb_substr($g->game, 0, 1) }}</div>
+                @endif
+                <div class="text-xs font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
             </a>
         @endforeach
     </div>
@@ -106,25 +67,16 @@
     <h2 class="font-bold text-lg">Semua Kategori</h2>
     @if($q)<a href="{{ route('home') }}" class="text-xs underline">Reset pencarian</a>@endif
 </div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+<div class="grid grid-cols-4 md:grid-cols-8 gap-3 mb-8">
     @forelse($games as $g)
         @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-        <a href="{{ route('game.show', $g->game) }}" class="card p-4 hover:border-orange-500 transition group">
-            <div class="flex items-center gap-3">
-                @if($catIcon)
-                    <img src="{{ $catIcon }}" class="w-12 h-12" style="border-radius:12px" alt="{{ $g->game }}" loading="lazy">
-                @else
-                    <div class="w-12 h-12 flex items-center justify-center font-bold text-lg btn-primary">{{ mb_substr($g->game, 0, 1) }}</div>
-                @endif
-                <div class="min-w-0">
-                    <div class="font-semibold text-sm truncate">{{ $g->game }}</div>
-                    <div class="text-xs muted">{{ $g->total }} produk</div>
-                </div>
-            </div>
-            <div class="flex items-center justify-between mt-3">
-                <div class="text-xs muted">Mulai dari</div>
-                <div class="text-sm font-bold">Rp {{ number_format($g->min_price, 0, ',', '.') }}</div>
-            </div>
+        <a href="{{ route('game.show', $g->game) }}" class="card p-3 hover:border-orange-500 transition flex flex-col items-center text-center gap-2">
+            @if($catIcon)
+                <img src="{{ $catIcon }}" class="w-14 h-14 object-cover" style="border-radius:14px" alt="{{ $g->game }}" loading="lazy">
+            @else
+                <div class="w-14 h-14 flex items-center justify-center font-bold text-xl btn-primary" style="border-radius:14px">{{ mb_substr($g->game, 0, 1) }}</div>
+            @endif
+            <div class="text-xs font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
         </a>
     @empty
         <div class="card p-6 text-sm muted col-span-full text-center">

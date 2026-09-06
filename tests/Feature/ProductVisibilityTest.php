@@ -31,10 +31,11 @@ class ProductVisibilityTest extends TestCase
 
     public function test_beranda_tidak_menampilkan_produk_kosong(): void
     {
-        $this->makeProduct(['supplier_code' => 'A', 'name' => 'Ada Stok', 'game' => 'ML']);
-        $this->makeProduct(['supplier_code' => 'B', 'name' => 'Kosong Stok', 'game' => 'ML', 'in_stock' => false]);
+        $this->makeProduct(['supplier_code' => 'A', 'name' => 'Ada Stok', 'game' => 'Game Ada']);
+        $this->makeProduct(['supplier_code' => 'B', 'name' => 'Kosong Stok', 'game' => 'Game Kosong', 'in_stock' => false]);
 
-        $this->get('/')->assertOk()->assertSee('Ada Stok')->assertDontSee('Kosong Stok');
+        // Beranda hanya menampilkan nama kategori (bukan nama produk).
+        $this->get('/')->assertOk()->assertSee('Game Ada')->assertDontSee('Game Kosong');
     }
 
     public function test_halaman_game_tidak_menampilkan_produk_kosong(): void

@@ -33,20 +33,36 @@ class HomeController extends Controller
         $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
         $totalProducts = Product::available()->count();
         $totalGames = Product::available()->distinct()->count('game');
-        // Flash sale: 8 produk termurah yang stok tersedia.
-        $flashSale = Product::available()->orderBy('price_guest')->limit(8)->get();
-        // Trending: 8 game dengan produk terbanyak.
-        $trending = Product::query()
-            ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
-            ->available()
-            ->groupBy('game')
+        // Kategori terfavorit: 8 game dengan transaksi sukses terbanyak (fallback: produk terbanyak).
+        $favGames = \App\Models\Transaction::query()
+            ->selectRaw('products.game as game, COUNT(*) as total')
+            ->join('products', 'products.id', '=', 'transactions.product_id')
+            ->where('transactions.status', \App\Models\Transaction::STATUS_SUCCESS)
+            ->groupBy('products.game')
             ->orderByDesc('total')
             ->limit(8)
             ->get();
+        if ($favGames->isEmpty()) {
+            $favGames = Product::query()
+                ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+                ->available()
+                ->groupBy('game')
+                ->orderByDesc('total')
+                ->limit(8)
+                ->get();
+        }
+        $favorites = $favGames;
+        foreach ($favorites as $f) {
+            $icon = GameIcon::where('game_name', $f->game)->where('is_active', true)->first()
+                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($f->game)])->where('is_active', true)->first();
+            if ($icon) {
+                $icons[$f->game] = $icon;
+            }
+        }
 
         $banners = \App\Models\Banner::activeOrdered();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'flashSale', 'trending', 'banners'));
+        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners'));
     }
 
     public function game(string $game)
