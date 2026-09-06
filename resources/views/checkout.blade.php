@@ -24,12 +24,20 @@
             @csrf
             <input type="hidden" name="product_id" value="{{ $product->id }}">
             <label class="text-sm font-semibold">User ID / Tujuan</label>
-            <input name="target_user_id" required class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 12345678">
-            <label class="text-sm font-semibold">Server / Zone (opsional)</label>
-            <input name="target_zone" id="zone" class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 1234">
-            <div class="flex gap-2 mb-2 items-center">
-                <button type="button" id="btn-nick" class="btn-primary px-4 py-2 text-sm">Cek Nickname</button>
-                <span id="nick-result" class="text-sm text-gray-600"></span>
+            <input name="target_user_id" id="target-uid" required class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 12345678" autocomplete="off">
+            <label class="text-sm font-semibold">Server / Zone <span class="muted font-normal">(opsional)</span></label>
+            <input name="target_zone" id="zone" class="card w-full px-3 py-2 mt-1 mb-2" placeholder="cth: 1234" autocomplete="off">
+            <div class="card p-3 mb-3 flex items-center gap-3" id="nick-box" style="border-style:dashed">
+                <button type="button" id="btn-nick" class="btn-primary px-4 py-2 text-sm whitespace-nowrap shrink-0">
+                    <span id="btn-nick-label">Cek Nickname</span>
+                </button>
+                <div class="min-w-0 flex-1">
+                    <div id="nick-hint" class="text-xs muted">Pastikan User ID benar sebelum bayar.</div>
+                    <div id="nick-result" class="text-sm font-semibold hidden"></div>
+                </div>
+                <div id="nick-spinner" class="hidden shrink-0" aria-hidden="true">
+                    <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                </div>
             </div>
             <input type="hidden" name="nickname" id="nickname">
             <div class="grid grid-cols-2 gap-2 mb-2">
@@ -84,28 +92,49 @@ document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventL
 refreshQuote();
 document.getElementById('btn-nick').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    const uid = document.querySelector('input[name=target_user_id]').value.trim();
+    const label = document.getElementById('btn-nick-label');
+    const uid = document.getElementById('target-uid').value.trim();
     const zone = document.getElementById('zone').value.trim();
-    const box = document.getElementById('nick-result');
-    if (!uid) { box.textContent = 'Isi User ID dulu.'; return; }
+    const box = document.getElementById('nick-box');
+    const hint = document.getElementById('nick-hint');
+    const result = document.getElementById('nick-result');
+    const spinner = document.getElementById('nick-spinner');
+    const esc = s => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const setState = (state, html) => {
+        box.style.borderColor = state === 'ok' ? '#22c55e' : (state === 'err' ? '#ef4444' : '');
+        box.style.background = state === 'ok' ? 'rgba(34,197,94,.08)' : (state === 'err' ? 'rgba(239,68,68,.08)' : '');
+        result.classList.toggle('hidden', !html);
+        hint.classList.toggle('hidden', !!html);
+        if (html) result.innerHTML = html;
+    };
+    if (!uid) { setState('err', 'Isi User ID dulu.'); return; }
     btn.disabled = true;
-    btn.textContent = 'Mengecek...';
-    box.textContent = '';
+    btn.style.opacity = '.6';
+    label.textContent = 'Mengecek...';
+    spinner.classList.remove('hidden');
+    setState('', null);
+    hint.classList.remove('hidden');
     try {
         const r = await fetch(nickUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, user_id: uid, zone_id: zone})});
         const j = await r.json();
         if (j.ok && j.nickname) {
-            box.innerHTML = '✅ <b>' + j.nickname.replace(/</g, '&lt;') + '</b>' + (j.country?.name ? ' (' + j.country.name.replace(/</g, '&lt;') + ')' : '');
+            setState('ok', '✓ ' + esc(j.nickname) + (j.country?.name ? ' <span class="muted font-normal">(' + esc(j.country.name) + ')</span>' : ''));
             document.getElementById('nickname').value = j.nickname;
         } else {
-            box.textContent = '❌ ' + (j.message || 'Nickname tidak ditemukan.');
+            setState('err', '✕ ' + esc(j.message || 'Nickname tidak ditemukan.'));
             document.getElementById('nickname').value = '';
         }
     } catch (err) {
-        box.textContent = '❌ Gagal menghubungi server.';
+        setState('err', '✕ Gagal menghubungi server.');
     }
     btn.disabled = false;
-    btn.textContent = 'Cek Nickname';
+    btn.style.opacity = '';
+    label.textContent = 'Cek Ulang';
+    spinner.classList.add('hidden');
 });
+['target-uid', 'zone'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+    document.getElementById('nickname').value = '';
+    document.getElementById('btn-nick-label').textContent = 'Cek Nickname';
+}));
 </script>
 @endsection
