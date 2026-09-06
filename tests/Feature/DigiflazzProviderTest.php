@@ -184,4 +184,29 @@ class DigiflazzProviderTest extends TestCase
         $this->assertEquals('AP-'.$trx->id, $result->supplier_trx_id);
         Http::assertSent(fn ($req) => ($req->data()['ref_id'] ?? '') === 'AP-'.$trx->id);
     }
+
+    public function test_get_games_gagal_tidak_dicache_dan_ada_pesan(): void
+    {
+        // Urutan: gagal (rate-limit) lalu pulih. Http::fake menumpuk stub
+        // (first-match wins), jadi pakai sequence agar respons bergantian.
+        Http::fake(['api.digiflazz.com/*' => Http::sequence()
+            ->push(['data' => ['message' => 'Limit', 'rc' => '83']], 200)
+            ->push(['data' => [[
+                'product_name' => 'ML 100', 'category' => 'Games', 'brand' => 'Mobile Legends',
+                'type' => 'Umum', 'price' => 9500, 'buyer_sku_code' => 'ML100',
+                'buyer_product_status' => true, 'seller_product_status' => true,
+            ]]], 200),
+        ]);
+
+        $fail = $this->provider()->getGames();
+
+        $this->assertFalse($fail['result']);
+        $this->assertNotEmpty($fail['message']);
+
+        // API pulih -> panggilan berikutnya harus sukses (tidak terkunci cache gagal).
+        $ok = $this->provider()->getGames();
+
+        $this->assertTrue($ok['result']);
+        $this->assertEquals(['Mobile Legends'], $ok['data']);
+    }
 }

@@ -100,25 +100,39 @@ class PullProducts extends Page implements HasTable, HasSchemas
         }
 
         // Sumber 1 (utama): daftar game dari API supplier.
+        $apiError = null;
         try {
             $provider = ProviderFactory::supplierFor($supplier);
             if (method_exists($provider, 'getGames')) {
                 $res = $provider->getGames();
-                foreach ((array) ($res['data'] ?? []) as $row) {
-                    $name = is_array($row) ? ($row['name'] ?? $row['game'] ?? null) : (string) $row;
-                    if ($name) {
-                        $this->gameOptions[$name] = $name;
+                if (! ($res['result'] ?? false)) {
+                    $apiError = (string) ($res['message'] ?? 'Gagal ambil daftar game dari supplier');
+                } else {
+                    foreach ((array) ($res['data'] ?? []) as $row) {
+                        $name = is_array($row) ? ($row['name'] ?? $row['game'] ?? null) : (string) $row;
+                        if ($name) {
+                            $this->gameOptions[$name] = $name;
+                        }
                     }
                 }
             }
         } catch (\Throwable $e) {
             report($e);
+            $apiError = $e->getMessage();
         }
 
         // Sumber 2 (fallback): game yang sudah pernah ditarik untuk supplier ini.
         if (empty($this->gameOptions)) {
             $this->gameOptions = Product::where('supplier_config_id', $supplier->id)
                 ->distinct()->orderBy('game')->pluck('game', 'game')->toArray();
+        }
+
+        if (empty($this->gameOptions) && $apiError) {
+            Notification::make()
+                ->title('Daftar kategori kosong')
+                ->body($apiError.' — kamu tetap bisa tarik SEMUA (kosongkan filter) lalu pilih kategori.')
+                ->warning()
+                ->send();
         }
     }
 

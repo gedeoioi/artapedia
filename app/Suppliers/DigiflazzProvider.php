@@ -120,10 +120,13 @@ class DigiflazzProvider implements SupplierProviderInterface
         $json = $this->post('/price-list', $body);
         $rows = $json['data'] ?? null;
 
-        if (! ($json['http_ok'] ?? false) || ! is_array($rows)) {
+        // Respons error Digiflazz berbentuk data = OBJECT ({message, rc}),
+        // sedangkan sukses = LIST. Bedakan agar error tidak dianggap sukses kosong.
+        if (! ($json['http_ok'] ?? false) || ! is_array($rows) || ! array_is_list($rows)) {
             return [
                 'result' => false,
-                'message' => $json['data']['message'] ?? 'Gagal ambil pricelist Digiflazz (mungkin rate-limit rc=83)',
+                'message' => (is_array($rows) ? ($rows['message'] ?? null) : null)
+                    ?? $json['data']['message'] ?? 'Gagal ambil pricelist Digiflazz (mungkin rate-limit rc=83)',
                 'raw' => $json,
             ];
         }
@@ -189,13 +192,26 @@ class DigiflazzProvider implements SupplierProviderInterface
 
     public function getGames(array $filters = []): array
     {
-        $brands = Cache::remember('digiflazz_brands', 600, function () {
-            $res = $this->getProducts([]);
+        // JANGAN cache kegagalan: rate-limit rc=83 / kredensial salah tidak boleh
+        // mengunci dropdown kategori kosong selama 10 menit.
+        // Cache sukses per username agar ganti akun tidak basi.
+        $key = 'digiflazz_brands.'.md5($this->username());
+        $ttl = (int) ($this->credentials['brands_cache_ttl'] ?? 600);
 
-            return ($res['result'] ?? false)
-                ? array_values(array_unique(array_filter(array_column($res['data'], 'game'))))
-                : [];
-        });
+        try {
+            $brands = Cache::remember($key, $ttl, function () {
+                $res = $this->getProducts([]);
+
+                if (! ($res['result'] ?? false)) {
+                    // Lempar agar remember() TIDAK menyimpan hasil gagal.
+                    throw new \RuntimeException($res['message'] ?? 'Gagal ambil daftar brand Digiflazz');
+                }
+
+                return array_values(array_unique(array_filter(array_column($res['data'], 'game'))));
+            });
+        } catch (\Throwable $e) {
+            return ['result' => false, 'message' => $e->getMessage(), 'data' => []];
+        }
         sort($brands);
 
         return ['result' => true, 'data' => $brands];
