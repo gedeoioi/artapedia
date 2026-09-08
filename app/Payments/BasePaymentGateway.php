@@ -3,7 +3,6 @@
 namespace App\Payments;
 
 use App\Contracts\PaymentGatewayInterface;
-use Illuminate\Support\Facades\Http;
 
 abstract class BasePaymentGateway implements PaymentGatewayInterface
 {
@@ -12,5 +11,16 @@ abstract class BasePaymentGateway implements PaymentGatewayInterface
     protected function callbackBase(string $gateway): string
     {
         return rtrim(config('app.url'), '/').'/webhook/payment/'.$gateway;
+    }
+
+    protected function headerValue(array $headers, string $name): string
+    {
+        foreach ($headers as $key => $value) {
+            if (strcasecmp((string) $key, $name) === 0) {
+                return is_array($value) ? (string) ($value[0] ?? '') : (string) $value;
+            }
+        }
+
+        return '';
     }
 }

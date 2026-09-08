@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Suppliers\DigiflazzProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +19,7 @@ class DigiflazzWebhookTest extends TestCase
     {
         $config = SupplierConfig::create([
             'code' => 'digiflazz', 'name' => 'Digiflazz',
-            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'provider_class' => DigiflazzProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
             'credentials' => ['username' => 'user1', 'api_key' => 'KEY1', 'webhook_secret' => 's3cr3t'],
         ]);

@@ -142,7 +142,10 @@ php artisan schedule:list   # 4 job polling muncul
 curl -s -o /dev/null -w "%{http_code}\n" https://domain-anda/
 ```
 
-Buka: toko `https://domain-anda`, admin `https://domain-anda/admin`, login `admin@artapedia.id / password` (SEGERA ganti + isi kredensial supplier/gateway asli di admin).
+Buka toko `https://domain-anda` dan admin `https://domain-anda/admin`. Login memakai
+`INITIAL_ADMIN_EMAIL` dan `INITIAL_ADMIN_PASSWORD` dari `.env`. Semua supplier dan
+gateway awal sengaja nonaktif; isi kredensial serta secret callback, uji koneksi,
+lalu aktifkan satu per satu dari admin.
 
 ## 11. Webhook supplier/gateway
 

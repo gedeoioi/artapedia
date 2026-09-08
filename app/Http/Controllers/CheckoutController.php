@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\NicknameCheckableInterface;
 use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
 use App\Services\NicknameService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
-use App\Services\ProviderFactory;
 use Illuminate\Http\Request;
 
 class CheckoutController extends Controller
@@ -24,9 +22,19 @@ class CheckoutController extends Controller
 
     public function quote(Request $request, PaymentService $payments)
     {
-        $product = Product::available()->findOrFail($request->get('product_id'));
+        $data = $request->validate([
+            'product_id' => 'required|integer',
+            'gateway_code' => 'nullable|string|max:64',
+        ]);
+        $gateway = $data['gateway_code'] ?? 'balance';
 
-        return response()->json($payments->quote($product, $request->user(), $request->get('gateway_code', 'balance')));
+        if ($gateway !== 'balance' && ! PaymentGatewayConfig::where('code', $gateway)->where('is_active', true)->exists()) {
+            return response()->json(['message' => 'Metode pembayaran tidak tersedia.'], 422);
+        }
+
+        $product = Product::available()->findOrFail($data['product_id']);
+
+        return response()->json($payments->quote($product, $request->user(), $gateway));
     }
 
     public function checkNickname(Request $request, NicknameService $nicknames)
@@ -57,7 +65,8 @@ class CheckoutController extends Controller
             'target_user_id' => 'required|string|max:64',
             'target_zone' => 'nullable|string|max:32',
             'nickname' => 'nullable|string|max:128',
-            'quantity' => 'nullable|integer|min:1|max:100',
+            // Semua provider saat ini membuat satu order per transaksi.
+            'quantity' => 'nullable|integer|min:1|max:1',
             'gateway_code' => 'required|string',
             'buyer_phone' => 'nullable|string|max:32',
             'buyer_email' => 'nullable|email|max:128',
@@ -65,8 +74,12 @@ class CheckoutController extends Controller
 
         try {
             $trx = $orders->checkout($data, $request->user());
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             return back()->withErrors(['checkout' => $e->getMessage()])->withInput();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors(['checkout' => 'Checkout gagal diproses. Silakan coba lagi.'])->withInput();
         }
 
         return redirect()->route('payment.show', $trx->invoice_code);

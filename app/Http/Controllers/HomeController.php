@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Banner;
 use App\Models\GameIcon;
+use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -33,14 +36,14 @@ class HomeController extends Controller
             }
         }
         $popular = Product::available()->orderByDesc('id')->limit(8)->get();
-        $gateways = \App\Models\PaymentGatewayConfig::activeOrdered();
+        $gateways = PaymentGatewayConfig::activeOrdered();
         $totalProducts = Product::available()->count();
         $totalGames = Product::available()->distinct()->count('game');
         // Kategori terfavorit: 8 game dengan transaksi sukses terbanyak (fallback: produk terbanyak).
-        $favGames = \App\Models\Transaction::query()
+        $favGames = Transaction::query()
             ->selectRaw('products.game as game, COUNT(*) as total')
             ->join('products', 'products.id', '=', 'transactions.product_id')
-            ->where('transactions.status', \App\Models\Transaction::STATUS_SUCCESS)
+            ->where('transactions.status', Transaction::STATUS_SUCCESS)
             ->groupBy('products.game')
             ->orderByDesc('total')
             ->limit(8)
@@ -63,7 +66,7 @@ class HomeController extends Controller
             }
         }
 
-        $banners = \App\Models\Banner::activeOrdered();
+        $banners = Banner::activeOrdered();
 
         return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories'));
     }
@@ -93,7 +96,8 @@ class HomeController extends Controller
     }
 
     public function game(string $game)
-    {        $products = Product::where('game', $game)->available()->orderBy('price_guest')->get();
+    {
+        $products = Product::where('game', $game)->available()->orderBy('price_guest')->get();
         $icon = GameIcon::where('game_name', $game)->where('is_active', true)->first()
             ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 

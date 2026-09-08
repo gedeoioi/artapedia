@@ -6,6 +6,12 @@ use App\Models\PaymentGatewayConfig;
 use App\Models\SupplierConfig;
 use App\Models\User;
 use App\Models\WaNotificationSetting;
+use App\Payments\DuitkuGateway;
+use App\Payments\IPaymuGateway;
+use App\Payments\XenditGateway;
+use App\Suppliers\DigiflazzProvider;
+use App\Suppliers\TokoVoucherProvider;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -23,23 +29,26 @@ class ArtaPediaSeeder extends Seeder
         $biasa = Role::firstOrCreate(['name' => 'reseller-biasa']);
         $admin->givePermissionTo(Permission::all());
 
-        $user = User::firstOrCreate(
-            ['email' => 'admin@artapedia.id'],
-            ['name' => 'Admin', 'password' => 'password', 'level' => 'admin', 'balance' => 0]
-        );
-        $user->assignRole($admin);
+        $adminPassword = (string) config('artapedia.initial_admin.password');
+        if (! app()->environment('production') || $adminPassword !== '') {
+            $user = User::firstOrCreate(
+                ['email' => config('artapedia.initial_admin.email')],
+                ['name' => 'Admin', 'password' => $adminPassword ?: 'password', 'level' => 'admin', 'balance' => 0]
+            );
+            $user->assignRole($admin);
+        }
 
         SupplierConfig::firstOrCreate(['code' => 'vip-reseller'], [
             'name' => 'VIP Reseller',
-            'provider_class' => \App\Suppliers\VipResellerProvider::class,
-            'is_active' => true,
+            'provider_class' => VipResellerProvider::class,
+            'is_active' => false,
             'is_sandbox' => true,
             'priority' => 0,
             'credentials' => ['api_id' => '', 'api_key' => ''],
         ]);
         SupplierConfig::firstOrCreate(['code' => 'digiflazz'], [
             'name' => 'Digiflazz',
-            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'provider_class' => DigiflazzProvider::class,
             'is_active' => false,
             'is_sandbox' => true,
             'priority' => 1,
@@ -47,7 +56,7 @@ class ArtaPediaSeeder extends Seeder
         ]);
         SupplierConfig::firstOrCreate(['code' => 'toko-voucher'], [
             'name' => 'TokoVoucher',
-            'provider_class' => \App\Suppliers\TokoVoucherProvider::class,
+            'provider_class' => TokoVoucherProvider::class,
             'is_active' => false,
             'is_sandbox' => true,
             'priority' => 2,
@@ -56,15 +65,15 @@ class ArtaPediaSeeder extends Seeder
 
         PaymentGatewayConfig::firstOrCreate(['code' => 'xendit'], [
             'name' => 'Xendit',
-            'gateway_class' => \App\Payments\XenditGateway::class,
-            'is_active' => true,
+            'gateway_class' => XenditGateway::class,
+            'is_active' => false,
             'is_sandbox' => true,
             'sort_order' => 0,
             'credentials' => ['secret_key' => '', 'callback_token' => ''],
         ]);
         PaymentGatewayConfig::firstOrCreate(['code' => 'duitku'], [
             'name' => 'Duitku',
-            'gateway_class' => \App\Payments\DuitkuGateway::class,
+            'gateway_class' => DuitkuGateway::class,
             'is_active' => false,
             'is_sandbox' => true,
             'sort_order' => 1,
@@ -72,7 +81,7 @@ class ArtaPediaSeeder extends Seeder
         ]);
         PaymentGatewayConfig::firstOrCreate(['code' => 'ipaymu'], [
             'name' => 'iPaymu',
-            'gateway_class' => \App\Payments\IPaymuGateway::class,
+            'gateway_class' => IPaymuGateway::class,
             'is_active' => false,
             'is_sandbox' => true,
             'sort_order' => 2,

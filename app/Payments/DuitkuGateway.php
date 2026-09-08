@@ -54,7 +54,7 @@ class DuitkuGateway extends BasePaymentGateway
         $apiKey = $this->credentials['api_key'] ?? '';
         $expected = md5($merchantCode.($payload['merchantOrderId'] ?? '').($payload['amount'] ?? '').$apiKey);
 
-        if (! hash_equals($expected, (string) ($payload['signature'] ?? ''))) {
+        if ($merchantCode === '' || $apiKey === '' || ! hash_equals($expected, (string) ($payload['signature'] ?? ''))) {
             return ['ok' => false, 'status' => 'invalid_signature', 'reference_id' => $payload['merchantOrderId'] ?? null];
         }
 
@@ -63,6 +63,7 @@ class DuitkuGateway extends BasePaymentGateway
         return [
             'ok' => true,
             'reference_id' => $payload['merchantOrderId'] ?? null,
+            'amount' => isset($payload['amount']) ? (int) $payload['amount'] : null,
             'status' => $code === '00' ? 'paid' : 'pending',
             'raw' => $payload,
         ];

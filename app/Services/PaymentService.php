@@ -87,6 +87,10 @@ class PaymentService
                 'customer_name' => $locked->name,
             ]);
 
+            if (! ($result['ok'] ?? false) || empty($result['reference_id'])) {
+                throw new \RuntimeException('Gateway gagal membuat pembayaran. Silakan coba metode lain.');
+            }
+
             $trx->payment_reference = $result['reference_id'];
             $trx->payment_payload = $result['raw'] ?? null;
             $trx->save();
@@ -106,12 +110,20 @@ class PaymentService
         });
     }
 
-    public function markPaid(string $referenceId, string $gatewayCode, array $raw = []): ?Transaction
+    public function markPaid(string $referenceId, string $gatewayCode, array $raw = [], ?int $paidAmount = null): ?Transaction
     {
-        return DB::transaction(function () use ($referenceId, $gatewayCode, $raw) {
+        return DB::transaction(function () use ($referenceId, $gatewayCode, $raw, $paidAmount) {
             $trx = Transaction::where('payment_reference', $referenceId)->lockForUpdate()->first();
             if (! $trx) {
                 return null;
+            }
+
+            if (! hash_equals((string) $trx->payment_gateway_code, $gatewayCode)) {
+                throw new \UnexpectedValueException('Gateway callback tidak sesuai dengan transaksi.');
+            }
+
+            if ($paidAmount !== null && $paidAmount !== (int) $trx->total_amount) {
+                throw new \UnexpectedValueException('Nominal callback tidak sesuai dengan transaksi.');
             }
 
             if ($trx->isFinal() || in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
@@ -163,7 +175,8 @@ class PaymentService
             return $this->expireTransaction($trx->id);
         }
 
-        $gateway = ProviderFactory::gatewayByCode($trx->payment_gateway_code);
+        // Tetap poll invoice lama walaupun admin menonaktifkan checkout baru.
+        $gateway = ProviderFactory::gatewayByCode($trx->payment_gateway_code, activeOnly: false);
         if (! $gateway) {
             return $trx;
         }

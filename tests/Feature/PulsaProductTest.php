@@ -5,8 +5,9 @@ namespace Tests\Feature;
 use App\Jobs\SyncSupplierProducts;
 use App\Models\Product;
 use App\Models\SupplierConfig;
-use App\Services\OrderService;
 use App\Models\User;
+use App\Services\OrderService;
+use App\Suppliers\DigiflazzProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -29,7 +30,7 @@ class PulsaProductTest extends TestCase
     {
         $s = SupplierConfig::create([
             'code' => 'digiflazz', 'name' => 'Digiflazz',
-            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'provider_class' => DigiflazzProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
             'credentials' => ['username' => 'U', 'api_key' => 'K'],
         ]);

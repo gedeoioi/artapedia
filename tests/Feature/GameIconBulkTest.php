@@ -6,6 +6,7 @@ use App\Jobs\SyncSupplierProducts;
 use App\Models\GameIcon;
 use App\Models\Product;
 use App\Models\SupplierConfig;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -84,7 +85,7 @@ class GameIconBulkTest extends TestCase
         ]);
         $s = SupplierConfig::create([
             'code' => 'vip-reseller', 'name' => 'VIP',
-            'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'provider_class' => VipResellerProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
             'credentials' => ['api_id' => 'ID', 'api_key' => 'KEY'],
         ]);

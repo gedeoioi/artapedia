@@ -52,9 +52,9 @@ class XenditGateway extends BasePaymentGateway
     public function handleCallback(array $payload, array $headers = []): array
     {
         $token = $this->credentials['callback_token'] ?? '';
-        $provided = $headers['x-callback-token'] ?? $headers['X-Callback-Token'] ?? null;
+        $provided = $this->headerValue($headers, 'x-callback-token');
 
-        if ($token !== '' && ! hash_equals($token, (string) $provided)) {
+        if ($token === '' || $provided === '' || ! hash_equals($token, $provided)) {
             return ['ok' => false, 'status' => 'invalid_signature', 'reference_id' => $payload['external_id'] ?? null];
         }
 
@@ -63,6 +63,7 @@ class XenditGateway extends BasePaymentGateway
         return [
             'ok' => true,
             'reference_id' => $payload['external_id'] ?? null,
+            'amount' => isset($payload['amount']) ? (int) $payload['amount'] : null,
             'status' => $status === 'paid' ? 'paid' : ($status === 'expired' ? 'expired' : 'pending'),
             'raw' => $payload,
         ];

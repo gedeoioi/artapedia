@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\BalanceMutation;
 use App\Models\SupplierConfig;
+use App\Models\Transaction;
+use App\Services\BalanceService;
 use App\Services\OrderService;
 use App\Services\ProviderFactory;
 use App\Suppliers\DigiflazzProvider;
@@ -60,14 +63,14 @@ class SupplierWebhookController extends Controller
 
         // Idempotency: cari by ref_id (= supplier_trx_id). Double webhook aman
         // karena pollStatus()/finalisasi memakai lock + cek isFinal.
-        $trx = \App\Models\Transaction::where('supplier_trx_id', $refId)->first();
+        $trx = Transaction::where('supplier_trx_id', $refId)->first();
 
         if (! $trx) {
             return response()->json(['ok' => true, 'ignored' => true]);
         }
 
         DB::transaction(function () use ($trx, $data, $status) {
-            $locked = \App\Models\Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
+            $locked = Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->isFinal()) {
                 return;
@@ -89,14 +92,14 @@ class SupplierWebhookController extends Controller
             $mapped = DigiflazzProvider::mapStatus($status);
 
             if ($mapped === 'success') {
-                $locked->status = \App\Models\Transaction::STATUS_SUCCESS;
+                $locked->status = Transaction::STATUS_SUCCESS;
             } elseif ($mapped === 'failed') {
-                $locked->status = \App\Models\Transaction::STATUS_FAILED;
+                $locked->status = Transaction::STATUS_FAILED;
                 if ($locked->payment_method === 'balance' && $locked->user_id && $locked->paid_at) {
-                    app(\App\Services\BalanceService::class)->credit(
+                    app(BalanceService::class)->credit(
                         $locked->user,
                         $locked->total_amount,
-                        \App\Models\BalanceMutation::TYPE_REFUND,
+                        BalanceMutation::TYPE_REFUND,
                         'Refund '.$locked->invoice_code.' Digiflazz gagal (webhook)',
                         $locked->id
                     );
@@ -138,14 +141,14 @@ class SupplierWebhookController extends Controller
             return response()->json(['ok' => false, 'reason' => 'missing_trxid'], 400);
         }
 
-        $trx = \App\Models\Transaction::where('supplier_trx_id', $trxid)->first();
+        $trx = Transaction::where('supplier_trx_id', $trxid)->first();
 
         if (! $trx) {
             return response()->json(['ok' => true, 'ignored' => true]);
         }
 
         DB::transaction(function () use ($trx, $data, $status) {
-            $locked = \App\Models\Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
+            $locked = Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->isFinal()) {
                 return;
@@ -163,14 +166,14 @@ class SupplierWebhookController extends Controller
             $mapped = VipResellerProvider::mapStatus($status);
 
             if ($mapped === 'success') {
-                $locked->status = \App\Models\Transaction::STATUS_SUCCESS;
+                $locked->status = Transaction::STATUS_SUCCESS;
             } elseif ($mapped === 'failed') {
-                $locked->status = \App\Models\Transaction::STATUS_FAILED;
+                $locked->status = Transaction::STATUS_FAILED;
                 if ($locked->payment_method === 'balance' && $locked->user_id && $locked->paid_at) {
-                    app(\App\Services\BalanceService::class)->credit(
+                    app(BalanceService::class)->credit(
                         $locked->user,
                         $locked->total_amount,
-                        \App\Models\BalanceMutation::TYPE_REFUND,
+                        BalanceMutation::TYPE_REFUND,
                         'Refund '.$locked->invoice_code.' VIPayment gagal (webhook)',
                         $locked->id
                     );
@@ -211,14 +214,14 @@ class SupplierWebhookController extends Controller
             return response()->json(['ok' => false, 'reason' => 'invalid_signature'], 401);
         }
 
-        $trx = \App\Models\Transaction::where('supplier_trx_id', $refId)->first();
+        $trx = Transaction::where('supplier_trx_id', $refId)->first();
 
         if (! $trx) {
             return response()->json(['ok' => true, 'ignored' => true]);
         }
 
-        DB::transaction(function () use ($trx, $request, $status, $refId) {
-            $locked = \App\Models\Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($trx, $request, $status) {
+            $locked = Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->isFinal()) {
                 return;
@@ -243,14 +246,14 @@ class SupplierWebhookController extends Controller
             $mapped = TokoVoucherProvider::mapStatus($status);
 
             if ($mapped === 'success') {
-                $locked->status = \App\Models\Transaction::STATUS_SUCCESS;
+                $locked->status = Transaction::STATUS_SUCCESS;
             } elseif ($mapped === 'failed') {
-                $locked->status = \App\Models\Transaction::STATUS_FAILED;
+                $locked->status = Transaction::STATUS_FAILED;
                 if ($locked->payment_method === 'balance' && $locked->user_id && $locked->paid_at) {
-                    app(\App\Services\BalanceService::class)->credit(
+                    app(BalanceService::class)->credit(
                         $locked->user,
                         $locked->total_amount,
-                        \App\Models\BalanceMutation::TYPE_REFUND,
+                        BalanceMutation::TYPE_REFUND,
                         'Refund '.$locked->invoice_code.' TokoVoucher gagal (webhook)',
                         $locked->id
                     );

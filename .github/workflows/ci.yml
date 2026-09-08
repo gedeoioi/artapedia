@@ -23,5 +23,9 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-      - name: Run critical balance tests
-        run: php artisan test --filter=BalanceSafetyTest
+      - name: Check PHP formatting
+        run: vendor/bin/pint --test
+      - name: Run test suite
+        run: php artisan test
+      - name: Build frontend
+        run: npm ci --no-audit --no-fund && npm run build

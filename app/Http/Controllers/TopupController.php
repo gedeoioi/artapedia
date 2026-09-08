@@ -22,7 +22,13 @@ class TopupController extends Controller
             'gateway_code' => 'required|string|exists:payment_gateway_configs,code',
         ]);
 
-        $trx = $payments->topupBalance($request->user(), $data['amount'], $data['gateway_code']);
+        try {
+            $trx = $payments->topupBalance($request->user(), $data['amount'], $data['gateway_code']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors(['topup' => 'Topup gagal dibuat. Silakan coba metode lain.'])->withInput();
+        }
 
         return redirect()->route('payment.show', $trx->invoice_code);
     }

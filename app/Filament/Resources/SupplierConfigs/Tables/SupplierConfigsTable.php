@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SupplierConfigs\Tables;
 
+use App\Services\SupplierConnectionTester;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -73,7 +74,7 @@ class SupplierConfigsTable
                     ->modalHeading(fn ($record) => 'Tes koneksi ke '.$record->name.'?')
                     ->modalDescription('Memanggil cek saldo + daftar produk (read-only, tanpa order). Hasil dicatat di audit log.')
                     ->action(function ($record) {
-                        $result = app(\App\Services\SupplierConnectionTester::class)->test($record);
+                        $result = app(SupplierConnectionTester::class)->test($record);
 
                         $notification = Notification::make()
                             ->title($result['ok'] ? 'Koneksi berhasil' : 'Koneksi gagal')

@@ -3,8 +3,10 @@
 namespace App\Jobs;
 
 use App\Models\Transaction;
+use App\Models\WaNotificationSetting;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Http;
 
 class SendWaNotification implements ShouldQueue
 {
@@ -19,13 +21,13 @@ class SendWaNotification implements ShouldQueue
             return;
         }
 
-        $setting = \App\Models\WaNotificationSetting::where('name', $this->kind)->where('is_active', true)->first();
+        $setting = WaNotificationSetting::where('name', $this->kind)->where('is_active', true)->first();
         if (! $setting || ! $setting->api_url) {
             return;
         }
 
         try {
-            \Illuminate\Support\Facades\Http::post($setting->api_url, [
+            Http::post($setting->api_url, [
                 'token' => $setting->api_token,
                 'to' => $trx->buyer_phone,
                 'message' => str_replace(

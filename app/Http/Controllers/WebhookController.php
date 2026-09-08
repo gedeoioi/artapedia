@@ -10,7 +10,9 @@ class WebhookController extends Controller
 {
     public function gateway(Request $request, string $gateway, PaymentService $payments)
     {
-        $provider = ProviderFactory::gatewayByCode($gateway);
+        // Gateway nonaktif tetap harus menerima callback invoice lama. Status
+        // nonaktif hanya mencegah checkout baru memakai gateway tersebut.
+        $provider = ProviderFactory::gatewayByCode($gateway, activeOnly: false);
 
         if (! $provider) {
             return response()->json(['ok' => false, 'message' => 'Unknown gateway'], 404);
@@ -23,7 +25,22 @@ class WebhookController extends Controller
         }
 
         if (($result['status'] ?? '') === 'paid' && ! empty($result['reference_id'])) {
-            $payments->markPaid($result['reference_id'], $gateway, $result['raw'] ?? []);
+            try {
+                $trx = $payments->markPaid(
+                    $result['reference_id'],
+                    $gateway,
+                    $result['raw'] ?? [],
+                    $result['amount'] ?? null,
+                );
+            } catch (\UnexpectedValueException $e) {
+                report($e);
+
+                return response()->json(['ok' => false, 'reason' => 'payment_mismatch'], 422);
+            }
+
+            if (! $trx) {
+                return response()->json(['ok' => false, 'reason' => 'transaction_not_found'], 404);
+            }
         }
 
         return response()->json(['ok' => true]);

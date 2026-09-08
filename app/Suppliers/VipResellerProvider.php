@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Http;
  * (jangan digabung "id|zone" seperti sebelumnya).
  * Webhook: header X-Client-Signature = md5(API ID + API KEY), whitelist IP 178.248.73.218.
  */
-class VipResellerProvider implements SupplierProviderInterface, NicknameCheckableInterface
+class VipResellerProvider implements NicknameCheckableInterface, SupplierProviderInterface
 {
     public const BASE_URL = 'https://vip-reseller.co.id';
 

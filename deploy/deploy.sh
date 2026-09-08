@@ -16,11 +16,13 @@ sudo chmod -R 775 storage bootstrap/cache || chmod -R 775 storage bootstrap/cach
 echo "==> [2/7] Composer install (production)"
 COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
-echo "==> [3/7] NPM build (abaikan jika gagal / belum ada node_modules)"
+echo "==> [3/7] NPM build"
 if command -v npm >/dev/null 2>&1; then
-  (npm ci --no-audit --no-fund && npm run build) || echo "!! npm build gagal, lanjut (pastikan public/build ada)"
+  npm ci --no-audit --no-fund
+  npm run build
 else
-  echo "!! npm tidak ada, lewati (pastikan public/build ikut ter-commit)"
+  echo "ERROR: npm tidak tersedia; build frontend tidak dapat dibuat." >&2
+  exit 1
 fi
 
 echo "==> [4/7] Storage link + permission"

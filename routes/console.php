@@ -3,10 +3,10 @@
 use App\Jobs\ExpireOverdueInvoices;
 use App\Jobs\PollGatewayInvoice;
 use App\Jobs\PollTransactionStatus;
+use App\Jobs\SyncSupplierProducts;
 use App\Models\CronSetting;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
-use App\Jobs\SyncSupplierProducts;
 use App\Support\CronGate;
 use Illuminate\Support\Facades\Schedule;
 

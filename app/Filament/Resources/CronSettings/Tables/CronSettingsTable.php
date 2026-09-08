@@ -5,9 +5,11 @@ namespace App\Filament\Resources\CronSettings\Tables;
 use App\Models\CronSetting;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+
 class CronSettingsTable
 {
     public static function configure(Table $table): Table
@@ -36,7 +38,7 @@ class CronSettingsTable
                     ->requiresConfirmation()
                     ->action(function ($record) {
                         $record->update(['last_run_at' => now()->subMinutes($record->interval_minutes + 1)]);
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title('Akan jalan pada menit berikutnya (schedule:work tiap menit)')
                             ->success()
                             ->send();

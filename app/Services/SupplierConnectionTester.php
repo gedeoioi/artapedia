@@ -168,6 +168,7 @@ class SupplierConnectionTester
         foreach ($data as $k => $v) {
             if (is_array($v)) {
                 $out[$k] = $this->maskSecrets($v);
+
                 continue;
             }
             $lower = strtolower((string) $k);

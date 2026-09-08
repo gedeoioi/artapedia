@@ -10,6 +10,9 @@ use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Suppliers\DigiflazzProvider;
+use App\Suppliers\TokoVoucherProvider;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
@@ -100,6 +103,10 @@ class OrderService
                 'customer_name' => $user?->name ?? 'Guest',
             ]);
 
+            if (! ($result['ok'] ?? false)) {
+                throw new \RuntimeException('Gateway gagal membuat pembayaran. Silakan coba metode lain.');
+            }
+
             $trx->payment_reference = $reference;
             $trx->payment_payload = $result['raw'] ?? null;
             $trx->save();
@@ -123,7 +130,7 @@ class OrderService
     {
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
-        if (in_array($trx->status, [Transaction::STATUS_SUCCESS, Transaction::STATUS_FAILED, Transaction::STATUS_EXPIRED], true)) {
+        if (! in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
             return $trx;
         }
 
@@ -137,7 +144,7 @@ class OrderService
         // Mencegah double-order ke supplier saat 2 job/cron berjalan bersamaan.
         $claimed = Transaction::whereKey($trx->id)
             ->whereNull('supplier_trx_id')
-            ->whereIn('status', [Transaction::STATUS_PENDING, Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING])
+            ->whereIn('status', [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING])
             ->update(['status' => Transaction::STATUS_PROCESSING, 'supplier_status' => 'claiming_order']);
 
         if (! $claimed) {
@@ -158,20 +165,20 @@ class OrderService
 
                 $orderOptions = ['trx_id' => $trx->id];
 
-                if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
+                if ($provider instanceof DigiflazzProvider) {
                     // Digiflazz: ref_id HARUS unik & stabil per transaksi.
                     // Retry / cek status memakai ref_id yang sama -> tidak double charge.
                     // Format: AP-{trx_id} (huruf/angka, aman untuk Digiflazz).
                     $orderOptions['ref_id'] = 'AP-'.$trx->id;
                 }
 
-                if ($provider instanceof \App\Suppliers\VipResellerProvider) {
+                if ($provider instanceof VipResellerProvider) {
                     // VIPayment game: zone dikirim TERPISAH via data_zone (dok game-feature).
                     // Jangan digabung "id|zone" — server menolaknya.
                     if ($trx->target_zone) {
                         $orderOptions['zone'] = $trx->target_zone;
                     }
-                } elseif ($provider instanceof \App\Suppliers\TokoVoucherProvider) {
+                } elseif ($provider instanceof TokoVoucherProvider) {
                     // TokoVoucher: ref_id stabil + server_id terpisah (dok transaksi/post).
                     $orderOptions['ref_id'] = 'TV-'.$trx->id;
                     if ($trx->target_zone) {
@@ -186,6 +193,7 @@ class OrderService
                 if (! ($res['result'] ?? false)) {
                     $trx->notes = trim(($trx->notes ?? '').' ['.$supplier->code.': '.mb_substr((string) ($res['message'] ?? 'gagal'), 0, 120).']');
                     $trx->save();
+
                     continue;
                 }
 
@@ -204,6 +212,7 @@ class OrderService
                 return $trx->fresh();
             } catch (\Throwable $e) {
                 report($e);
+
                 continue;
             }
         }
@@ -230,12 +239,12 @@ class OrderService
         // TokoVoucher: order menyimpan ref_id kita ("TV-{id}") di supplier_trx_id,
         // polling memakai ref_id itu (bukan trx_id mereka).
         $statusOptions = [];
-        if ($provider instanceof \App\Suppliers\DigiflazzProvider) {
+        if ($provider instanceof DigiflazzProvider) {
             $statusOptions = [
                 'buyer_sku_code' => $trx->product->supplier_code,
                 'customer_no' => $trx->target_user_id,
             ];
-        } elseif ($provider instanceof \App\Suppliers\TokoVoucherProvider) {
+        } elseif ($provider instanceof TokoVoucherProvider) {
             $statusOptions = ['ref_id' => $trx->supplier_trx_id];
         }
 

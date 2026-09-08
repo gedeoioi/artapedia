@@ -41,9 +41,14 @@ class ProviderFactory
         return new $class($config->credentials ?? [], (bool) $config->is_sandbox);
     }
 
-    public static function gatewayByCode(string $code): ?PaymentGatewayInterface
+    public static function gatewayByCode(string $code, bool $activeOnly = true): ?PaymentGatewayInterface
     {
-        $config = PaymentGatewayConfig::where('code', $code)->where('is_active', true)->first();
+        $query = PaymentGatewayConfig::where('code', $code);
+        if ($activeOnly) {
+            $query->where('is_active', true);
+        }
+
+        $config = $query->first();
         if (! $config) {
             return null;
         }

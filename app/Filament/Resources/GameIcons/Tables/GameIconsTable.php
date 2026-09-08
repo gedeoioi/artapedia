@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameIcons\Tables;
 
+use App\Models\Product;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -54,7 +55,7 @@ class GameIconsTable
                     ->modalHeading(fn ($record) => 'Hubungkan icon ke semua produk "'.$record->game_name.'"?')
                     ->modalDescription('Mengisi game_icon_id produk yang namanya sama persis + menghapus cache. Produk dengan override sendiri tidak diubah.')
                     ->action(function ($record) {
-                        $updated = \App\Models\Product::where('game', $record->game_name)
+                        $updated = Product::where('game', $record->game_name)
                             ->whereNull('game_icon_id')
                             ->update(['game_icon_id' => $record->id]);
 

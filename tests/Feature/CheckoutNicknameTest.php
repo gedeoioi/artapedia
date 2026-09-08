@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\SupplierConfig;
+use App\Suppliers\DigiflazzProvider;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -16,7 +18,7 @@ class CheckoutNicknameTest extends TestCase
     {
         $s = SupplierConfig::create([
             'code' => 'vip-reseller', 'name' => 'VIP',
-            'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'provider_class' => VipResellerProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
             'credentials' => ['api_id' => 'ID', 'api_key' => 'KEY'],
         ]);
@@ -34,14 +36,14 @@ class CheckoutNicknameTest extends TestCase
     {
         $s = SupplierConfig::create([
             'code' => 'digiflazz', 'name' => 'Digiflazz',
-            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'provider_class' => DigiflazzProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
             'credentials' => ['username' => 'U', 'api_key' => 'K'],
         ]);
         // VIP tetap aktif sebagai pengecek nickname universal.
         SupplierConfig::create([
             'code' => 'vip-reseller', 'name' => 'VIP',
-            'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'provider_class' => VipResellerProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
             'credentials' => ['api_id' => 'ID', 'api_key' => 'KEY'],
         ]);
@@ -137,7 +139,7 @@ class CheckoutNicknameTest extends TestCase
     {
         $s = SupplierConfig::create([
             'code' => 'digiflazz', 'name' => 'Digiflazz',
-            'provider_class' => \App\Suppliers\DigiflazzProvider::class,
+            'provider_class' => DigiflazzProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 1,
             'credentials' => ['username' => 'U', 'api_key' => 'K'],
         ]);

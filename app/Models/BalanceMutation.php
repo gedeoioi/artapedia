@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class BalanceMutation extends Model
 {
     public const TYPE_TOPUP = 'topup';
+
     public const TYPE_ORDER = 'order';
+
     public const TYPE_REFUND = 'refund';
+
     public const TYPE_ADJUST = 'adjust';
 
     protected $fillable = [

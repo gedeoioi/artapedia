@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SupplierConfigs\Pages;
 
 use App\Filament\Resources\SupplierConfigs\SupplierConfigResource;
+use App\Services\SupplierConnectionTester;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Infolists\Components\CodeEntry;
@@ -25,7 +26,7 @@ class EditSupplierConfig extends EditRecord
                 ->icon(Heroicon::OutlinedSignal)
                 ->color('info')
                 ->action(function () {
-                    $result = app(\App\Services\SupplierConnectionTester::class)->test($this->record);
+                    $result = app(SupplierConnectionTester::class)->test($this->record);
                     $this->record->refresh();
 
                     $notification = Notification::make()

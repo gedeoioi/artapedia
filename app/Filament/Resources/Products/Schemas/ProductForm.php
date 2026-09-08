@@ -2,10 +2,11 @@
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Models\Product;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 
@@ -30,7 +31,7 @@ class ProductForm
                     ->default('game'),
                 Select::make('product_type')
                     ->label('Tipe produk (menentukan form checkout)')
-                    ->options(\App\Models\Product::TYPES)
+                    ->options(Product::TYPES)
                     ->required()
                     ->default('game'),
                 TextInput::make('nickname_check_code')

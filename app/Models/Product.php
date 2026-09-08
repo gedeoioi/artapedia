@@ -7,10 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 class Product extends Model
 {
     public const TYPE_GAME = 'game';
+
     public const TYPE_PULSA = 'pulsa';
+
     public const TYPE_DATA = 'data';
+
     public const TYPE_PPOB = 'ppob';
+
     public const TYPE_VOUCHER = 'voucher';
+
     public const TYPE_EMONEY = 'emoney';
 
     public const TYPES = [

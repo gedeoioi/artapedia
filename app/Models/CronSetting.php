@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class CronSetting extends Model
 {
     public const KEY_POLL_PROCESSING = 'poll-processing-transactions';
+
     public const KEY_POLL_GATEWAY = 'poll-pending-gateway-invoices';
+
     public const KEY_EXPIRE = 'expire-overdue-invoices';
+
     public const KEY_SYNC_PRODUCTS = 'sync-supplier-products';
 
     public const DEFAULTS = [

@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Models\AuditLog;
+use App\Models\GameIcon;
 use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Services\ProviderFactory;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
 
 class SyncSupplierProducts implements ShouldQueue
 {
@@ -22,7 +25,7 @@ class SyncSupplierProducts implements ShouldQueue
 
         if (! ($res['result'] ?? false)) {
             $message = (string) ($res['message'] ?? 'Gagal ambil produk dari supplier');
-            \App\Models\AuditLog::record('products.sync_failed', $supplier, [], [
+            AuditLog::record('products.sync_failed', $supplier, [], [
                 'filters' => $this->filters,
                 'message' => mb_substr($message, 0, 500),
             ]);
@@ -85,7 +88,7 @@ class SyncSupplierProducts implements ShouldQueue
                     'name' => $name,
                     'game' => $game,
                     'category' => $row['category'] ?? 'game',
-                    'product_type' => \App\Models\Product::detectType(
+                    'product_type' => Product::detectType(
                         $row['category'] ?? '',
                         $game,
                         $row['type'] ?? '',
@@ -93,9 +96,9 @@ class SyncSupplierProducts implements ShouldQueue
                     ),
                     // Hubungkan ke icon kategori (by nama game persis).
                     // Ganti 1 icon di menu Game Icons -> semua produk kategori ini ikut berubah.
-                    'game_icon_id' => \App\Models\GameIcon::firstOrCreate(
+                    'game_icon_id' => GameIcon::firstOrCreate(
                         ['game_name' => $game],
-                        ['slug' => \Illuminate\Support\Str::slug($game), 'is_active' => true]
+                        ['slug' => Str::slug($game), 'is_active' => true]
                     )->id,
                     'cost_basic' => $price,
                     'cost_premium' => $pricePremium,
@@ -114,7 +117,7 @@ class SyncSupplierProducts implements ShouldQueue
         $supplier->last_sync_at = now();
         $supplier->save();
 
-        \App\Models\AuditLog::record('products.synced', $supplier, [], [
+        AuditLog::record('products.synced', $supplier, [], [
             'filters' => $this->filters,
             'synced' => $count,
         ]);

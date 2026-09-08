@@ -3,13 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\BalanceMutation;
-use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\BalanceService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -21,7 +22,7 @@ class BalanceSafetyTest extends TestCase
     protected function seedBasics(): array
     {
         $supplier = SupplierConfig::create([
-            'code' => 'vip-reseller', 'name' => 'VIP', 'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'code' => 'vip-reseller', 'name' => 'VIP', 'provider_class' => VipResellerProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 0, 'credentials' => ['api_id' => 'x', 'api_key' => 'y'],
         ]);
         $product = Product::create([
@@ -61,7 +62,7 @@ class BalanceSafetyTest extends TestCase
         $fail = 0;
         for ($i = 0; $i < 2; $i++) {
             try {
-                DB::transaction(function () use ($user, $product, &$ok) {
+                DB::transaction(function () use ($user, &$ok) {
                     $locked = User::whereKey($user->id)->lockForUpdate()->first();
                     $price = 11500;
                     if ($locked->balance < $price) {
@@ -113,7 +114,7 @@ class BalanceSafetyTest extends TestCase
         [$supplier, $product] = $this->seedBasics();
         $user = User::factory()->create(['balance' => 100000, 'level' => 'vip']);
 
-        app(\App\Services\BalanceService::class)->debit($user, 11000, 'order test');
+        app(BalanceService::class)->debit($user, 11000, 'order test');
 
         $fresh = $user->fresh();
         $sum = BalanceMutation::where('user_id', $user->id)->sum('amount');

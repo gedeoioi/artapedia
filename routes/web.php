@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SupplierWebhookController;
 use App\Http\Controllers\TopupController;
 use App\Http\Controllers\WebhookController;
+use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -33,7 +34,7 @@ Route::post('/webhook/supplier/vip-reseller', [SupplierWebhookController::class,
 Route::post('/webhook/supplier/toko-voucher', [SupplierWebhookController::class, 'tokoVoucher'])->name('webhook.supplier.toko-voucher');
 
 Route::get('/sitemap.xml', function () {
-    $products = \App\Models\Product::available()->orderBy('game')->limit(1000)->get();
+    $products = Product::available()->orderBy('game')->limit(1000)->get();
 
     return response()->view('sitemap', compact('products'))->header('Content-Type', 'text/xml');
 })->name('sitemap');

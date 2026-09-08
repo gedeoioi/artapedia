@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\SupplierConfig;
 use App\Services\SupplierConnectionTester;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -16,7 +17,7 @@ class SupplierConnectionTest extends TestCase
     {
         return SupplierConfig::create([
             'code' => 'vip-reseller', 'name' => 'VIP',
-            'provider_class' => \App\Suppliers\VipResellerProvider::class,
+            'provider_class' => VipResellerProvider::class,
             'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
             'credentials' => ['api_id' => 'ID123', 'api_key' => 'KEY456'],
         ]);

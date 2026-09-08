@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Transactions\Tables;
 
+use App\Services\OrderService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -92,12 +93,12 @@ class TransactionsTable
                 Action::make('manualOrder')
                     ->label('Order manual')
                     ->requiresConfirmation()
-                    ->action(fn ($record) => app(\App\Services\OrderService::class)->dispatchToSupplier($record->id, null, true)),
+                    ->action(fn ($record) => app(OrderService::class)->dispatchToSupplier($record->id, null, true)),
                 Action::make('refund')
                     ->label('Refund')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->action(fn ($record) => app(\App\Services\OrderService::class)->manualRefund($record->id)),
+                    ->action(fn ($record) => app(OrderService::class)->manualRefund($record->id)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

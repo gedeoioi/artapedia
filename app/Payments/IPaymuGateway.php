@@ -64,12 +64,14 @@ class IPaymuGateway extends BasePaymentGateway
 
     public function handleCallback(array $payload, array $headers = []): array
     {
-        $secret = $this->credentials['secret'] ?? '';
-        $bodyHash = hash('sha256', json_encode($payload));
-        $expected = $this->sign('POST', $bodyHash);
-        $provided = $headers['signature'] ?? $headers['Signature'] ?? '';
+        // Callback iPaymu memakai Merchant VA sebagai HMAC secret. Payload harus
+        // dinormalisasi dan diurutkan sebelum dihitung (berbeda dari signature API).
+        $secret = $this->credentials['callback_secret'] ?? $this->credentials['va'] ?? '';
+        $provided = $this->headerValue($headers, 'x-signature');
+        $normalized = $this->normalizeCallbackPayload($payload);
+        $expected = hash_hmac('sha256', (string) json_encode($normalized), $secret);
 
-        if ($secret !== '' && $provided !== '' && ! hash_equals($expected, (string) $provided)) {
+        if ($secret === '' || $provided === '' || ! hash_equals($expected, $provided)) {
             return ['ok' => false, 'status' => 'invalid_signature', 'reference_id' => $payload['referenceId'] ?? null];
         }
 
@@ -78,9 +80,32 @@ class IPaymuGateway extends BasePaymentGateway
         return [
             'ok' => true,
             'reference_id' => $payload['referenceId'] ?? $payload['reference_id'] ?? null,
+            'amount' => isset($payload['amount']) ? (int) $payload['amount'] : null,
             'status' => in_array($status, ['berhasil', 'paid', 'success'], true) ? 'paid' : 'pending',
             'raw' => $payload,
         ];
+    }
+
+    protected function normalizeCallbackPayload(array $payload): array
+    {
+        unset($payload['signature']);
+
+        foreach ($payload as $key => $value) {
+            if (in_array($key, ['trx_id', 'status_code', 'transaction_status_code', 'paid_off'], true)) {
+                $payload[$key] = (int) $value;
+            } elseif ($key === 'is_escrow') {
+                $payload[$key] = filter_var($value, FILTER_VALIDATE_BOOL);
+            } elseif ($key === 'additional_info' && $value === '[]') {
+                $payload[$key] = [];
+            } elseif (! is_array($value)) {
+                $payload[$key] = (string) $value;
+            }
+        }
+
+        $payload['additional_info'] ??= [];
+        ksort($payload, SORT_STRING);
+
+        return $payload;
     }
 
     public function checkStatus(string $referenceId): array

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 class DiagnoseIcons extends Command
 {
     protected $signature = 'icons:diagnose';
+
     protected $description = 'Cek kecocokan nama game vs game_icons + keberadaan file icon';
 
     public function handle(): int
@@ -37,6 +38,7 @@ class DiagnoseIcons extends Command
             $linked = Product::where('game', $g)->whereNotNull('game_icon_id')->count();
             if (! $icon) {
                 $this->line("[TIDAK-ADA-ICON] '$g' ($count produk, $linked terhubung) — buat baris game_icons bernama persis ini lalu upload icon");
+
                 continue;
             }
             $fileOk = $icon->icon_path && Storage::disk('public')->exists($icon->icon_path);

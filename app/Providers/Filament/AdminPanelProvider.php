@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\SalesStats;
+use App\Models\SiteSetting;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,7 +12,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use App\Filament\Widgets\SalesStats;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -27,9 +28,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName(fn () => \App\Models\SiteSetting::get('site_name', 'ArtaPedia'))
-            ->brandLogo(fn () => \App\Models\SiteSetting::logoUrl())
-            ->favicon(fn () => \App\Models\SiteSetting::faviconUrl())
+            ->brandName(fn () => SiteSetting::get('site_name', 'ArtaPedia'))
+            ->brandLogo(fn () => SiteSetting::logoUrl())
+            ->favicon(fn () => SiteSetting::faviconUrl())
             ->colors([
                 'primary' => Color::Amber,
             ])

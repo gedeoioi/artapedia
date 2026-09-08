@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameIcons\Schemas;
 
+use App\Models\Product;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
@@ -32,7 +33,7 @@ class GameIconForm
                 Placeholder::make('affected')
                     ->label('Produk yang akan ikut berubah')
                     ->content(fn ($record) => $record
-                        ? \App\Models\Product::where('game', $record->game_name)->count().' produk bernama "'.$record->game_name.'"'
+                        ? Product::where('game', $record->game_name)->count().' produk bernama "'.$record->game_name.'"'
                         : 'Simpan dulu untuk melihat jumlah produk.'),
             ]);
     }
