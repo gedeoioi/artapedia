@@ -97,6 +97,48 @@ class Transaction extends Model
         return in_array($this->status, self::FINAL_STATUSES, true);
     }
 
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING => 'Menunggu pembayaran',
+            self::STATUS_PAID => 'Pembayaran diterima',
+            self::STATUS_PROCESSING => 'Sedang diproses',
+            self::STATUS_SUCCESS => 'Transaksi berhasil',
+            self::STATUS_FAILED => 'Transaksi gagal',
+            self::STATUS_EXPIRED => 'Pembayaran kedaluwarsa',
+            default => ucfirst((string) $this->status),
+        };
+    }
+
+    public function statusMessage(): string
+    {
+        if ($this->status === self::STATUS_PROCESSING) {
+            return match (strtolower((string) $this->supplier_status)) {
+                'waiting' => 'Pesanan sudah diterima supplier dan sedang dalam antrean.',
+                'processing', 'proccessing' => 'Pesanan sedang diproses oleh supplier.',
+                default => 'Pembayaran diterima dan pesanan sedang diproses oleh supplier.',
+            };
+        }
+
+        return match ($this->status) {
+            self::STATUS_PENDING => 'Menunggu pembayaran terdeteksi.',
+            self::STATUS_PAID => 'Pembayaran diterima, menunggu pengiriman pesanan ke supplier.',
+            self::STATUS_SUCCESS => 'Pesanan berhasil diselesaikan oleh supplier.',
+            self::STATUS_FAILED => 'Pesanan gagal diproses. Silakan hubungi layanan pelanggan.',
+            self::STATUS_EXPIRED => 'Batas waktu pembayaran telah berakhir.',
+            default => 'Status transaksi sedang diperbarui.',
+        };
+    }
+
+    public function statusBadgeClass(): string
+    {
+        return match ($this->status) {
+            self::STATUS_SUCCESS => 'badge-ok',
+            self::STATUS_FAILED, self::STATUS_EXPIRED => 'badge-fail',
+            default => 'badge-pending',
+        };
+    }
+
     public function recalculateProfit(): void
     {
         $this->profit = $this->sell_price - $this->cost_price - $this->gateway_fee;

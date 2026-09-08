@@ -6,10 +6,13 @@
 <div class="card p-5 max-w-xl mx-auto">
     <h1 class="font-bold text-lg">Invoice {{ $trx->invoice_code }}</h1>
     <div class="text-sm text-gray-600 mb-3">{{ $trx->product->name }} - Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</div>
-    @php
-        $badge = $trx->status === 'success' ? 'badge-ok' : (in_array($trx->status, ['pending','paid','processing']) ? 'badge-pending' : 'badge-fail');
-    @endphp
-    <div class="card p-2 text-sm mb-3 {{ $badge }}" id="pay-status">Status: {{ $trx->status }} - menunggu pembayaran terdeteksi</div>
+    <div class="card p-3 text-sm mb-3 {{ $trx->statusBadgeClass() }}" id="pay-status">
+        <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
+        <div class="mt-1" id="pay-status-message">{{ $trx->statusMessage() }}</div>
+        <div class="mt-1 text-xs opacity-75" id="pay-supplier-status" @if(!$trx->supplier_status) hidden @endif>
+            Status supplier: {{ $trx->supplier_status }}
+        </div>
+    </div>
     @if($trx->payment_method === 'balance')
         <p class="text-sm">Dibayar dengan saldo member. Pesanan diteruskan ke supplier otomatis.</p>
     @else
@@ -26,14 +29,28 @@
 
 @section('scripts')
 <script>
-const statusUrl = "{{ route('payment.status', $trx->invoice_code) }}";
-const timer = setInterval(async () => {
+const statusUrl = @json(route('payment.status', $trx->invoice_code));
+let timer;
+
+async function refreshStatus() {
     try {
-        const r = await fetch(statusUrl);
+        const r = await fetch(statusUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+        if (!r.ok) return;
         const j = await r.json();
-        document.getElementById('pay-status').textContent = 'Status: ' + j.status;
-        if (['success', 'failed', 'expired'].includes(j.status)) clearInterval(timer);
+        const box = document.getElementById('pay-status');
+        box.className = 'card p-3 text-sm mb-3 ' + j.badge;
+        document.getElementById('pay-status-label').textContent = j.status_label;
+        document.getElementById('pay-status-message').textContent = j.message;
+
+        const supplier = document.getElementById('pay-supplier-status');
+        supplier.hidden = !j.supplier_status;
+        supplier.textContent = j.supplier_status ? 'Status supplier: ' + j.supplier_status : '';
+
+        if (['success', 'failed', 'expired'].includes(j.status) && timer) clearInterval(timer);
     } catch (e) {}
-}, 5000);
+}
+
+refreshStatus();
+timer = setInterval(refreshStatus, 5000);
 </script>
 @endsection

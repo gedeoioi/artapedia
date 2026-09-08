@@ -17,6 +17,14 @@ class PaymentController extends Controller
     {
         $trx = Transaction::where('invoice_code', $invoice)->firstOrFail();
 
-        return response()->json(['status' => $trx->status, 'paid_at' => $trx->paid_at]);
+        return response()->json([
+            'status' => $trx->status,
+            'status_label' => $trx->statusLabel(),
+            'message' => $trx->statusMessage(),
+            'badge' => $trx->statusBadgeClass(),
+            'supplier_status' => $trx->supplier_status,
+            'paid_at' => $trx->paid_at,
+            'processed_at' => $trx->processed_at,
+        ]);
     }
 }
