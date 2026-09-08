@@ -56,18 +56,32 @@
 <!-- KATEGORI TERFAVORIT -->
 @if(($favorites ?? collect())->isNotEmpty())
 <section class="mb-8">
-    <h2 class="font-extrabold text-lg">Kategori Terfavorit</h2>
-    <p class="muted text-xs mb-3">Paling sering dibeli pelanggan.</p>
-    <div class="grid grid-cols-4 md:grid-cols-8 gap-3">
-        @foreach($favorites as $g)
+    <div class="flex items-end justify-between gap-4 mb-4">
+        <div>
+            <div class="text-[11px] uppercase tracking-[.18em] font-extrabold accent mb-1">Pilihan pelanggan</div>
+            <h2 class="font-extrabold text-xl md:text-2xl">Kategori Terfavorit</h2>
+        </div>
+        <div class="hidden sm:block text-xs muted">Paling sering dibeli</div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        @foreach($favorites as $idx => $g)
             @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-            <a href="{{ route('game.show', $g->game) }}" class="card p-3 hover:border-orange-500 transition flex flex-col items-center text-center gap-2">
-                @if($catIcon)
-                    <img src="{{ $catIcon }}" class="w-14 h-14 object-cover" style="border-radius:14px" alt="{{ $g->game }}" loading="lazy">
-                @else
-                    <div class="w-14 h-14 flex items-center justify-center font-bold text-xl btn-primary" style="border-radius:14px">{{ mb_substr($g->game, 0, 1) }}</div>
-                @endif
-                <div class="text-xs font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
+            <a href="{{ route('game.show', $g->game) }}" class="favorite-card group" aria-label="Buka kategori {{ $g->game }}">
+                <div class="category-cover aspect-[4/3]">
+                    @if($catIcon)
+                        <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
+                    @endif
+                    <span class="favorite-rank">#{{ $idx + 1 }} FAVORIT</span>
+                </div>
+                <div class="p-3.5 md:p-4 flex items-end justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="font-bold text-sm md:text-base leading-snug line-clamp-2-custom">{{ $g->game }}</div>
+                        <div class="muted text-xs mt-1">{{ $g->product_count ?? $g->total }} pilihan · mulai Rp{{ number_format((int) ($g->min_price ?? 0), 0, ',', '.') }}</div>
+                    </div>
+                    <span class="card-arrow" aria-hidden="true">&#8594;</span>
+                </div>
             </a>
         @endforeach
     </div>
@@ -75,20 +89,29 @@
 @endif
 
 <!-- SEMUA KATEGORI -->
-<div class="flex items-center justify-between mb-3">
-    <h2 class="font-bold text-lg">Semua Kategori</h2>
-    @if($q)<a href="{{ route('home') }}" class="text-xs underline">Reset pencarian</a>@endif
+<div class="flex items-end justify-between gap-4 mb-4">
+    <div>
+        <div class="text-[11px] uppercase tracking-[.18em] font-extrabold accent mb-1">Jelajahi katalog</div>
+        <h2 class="font-extrabold text-xl md:text-2xl">Semua Kategori</h2>
+    </div>
+    @if($q)<a href="{{ route('home') }}" class="text-xs font-semibold accent hover:underline">Reset pencarian</a>@endif
 </div>
-<div class="grid grid-cols-5 gap-2 mb-4" id="category-grid">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mb-5" id="category-grid">
     @forelse($games as $idx => $g)
         @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-        <a href="{{ route('game.show', $g->game) }}" data-cat-item @if($idx >= 20) class="hidden" @endif class="card p-2 hover:border-orange-500 transition flex flex-col items-center text-center gap-1.5">
-            @if($catIcon)
-                <img src="{{ $catIcon }}" class="w-12 h-12 object-cover" style="border-radius:12px" alt="{{ $g->game }}" loading="lazy">
-            @else
-                <div class="w-12 h-12 flex items-center justify-center font-bold text-lg btn-primary" style="border-radius:12px">{{ mb_substr($g->game, 0, 1) }}</div>
-            @endif
-            <div class="text-[11px] font-semibold leading-tight" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ $g->game }}</div>
+        <a href="{{ route('game.show', $g->game) }}" data-cat-item class="category-card group" aria-label="Buka kategori {{ $g->game }}">
+            <div class="category-cover aspect-square">
+                @if($catIcon)
+                    <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
+                @else
+                    <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
+                @endif
+            </div>
+            <div class="p-3">
+                <div class="text-sm font-bold leading-snug line-clamp-2-custom min-h-[2.5rem]">{{ $g->game }}</div>
+                <div class="text-xs muted mt-1.5">{{ $g->total }} produk</div>
+                <div class="text-xs font-bold accent mt-0.5">Mulai Rp{{ number_format((int) $g->min_price, 0, ',', '.') }}</div>
+            </div>
         </a>
     @empty
         <div class="card p-6 text-sm muted col-span-full text-center">

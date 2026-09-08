@@ -52,6 +52,77 @@
         .foot { background: #0a0a0c; border-top: 1px solid #26262b; }
         html[data-theme="light"] .foot { background: #f5f5f4; border-color: #e5e5e5; }
         .flash-grad { background: linear-gradient(135deg, #7c2d12, #c2570c 60%, #f97316); }
+        .favorite-card, .category-card {
+            position: relative;
+            display: block;
+            overflow: hidden;
+            border: 1px solid #29292f;
+            background: #19191e;
+            color: inherit;
+            isolation: isolate;
+            transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+        }
+        .favorite-card { border-radius: 18px; box-shadow: 0 12px 32px rgba(0, 0, 0, .2); }
+        .category-card { border-radius: 14px; }
+        .favorite-card:hover, .category-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(249, 115, 22, .8);
+            box-shadow: 0 18px 42px rgba(0, 0, 0, .3), 0 0 0 1px rgba(249, 115, 22, .12);
+        }
+        .category-cover { position: relative; overflow: hidden; background: #24242a; }
+        .category-cover::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0;
+            height: 35%;
+            background: linear-gradient(to top, rgba(10, 10, 12, .42), transparent);
+            pointer-events: none;
+        }
+        .category-cover img { transition: transform .4s ease, filter .4s ease; }
+        .favorite-card:hover .category-cover img, .category-card:hover .category-cover img {
+            transform: scale(1.045);
+            filter: saturate(1.08);
+        }
+        .favorite-rank {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(15, 15, 18, .82);
+            border: 1px solid rgba(255, 255, 255, .14);
+            color: #fff7ed;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            backdrop-filter: blur(10px);
+        }
+        .card-arrow {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+            border-radius: 999px;
+            background: rgba(249, 115, 22, .12);
+            color: #fb923c;
+            transition: background .2s ease, color .2s ease, transform .2s ease;
+        }
+        .favorite-card:hover .card-arrow { background: #f97316; color: white; transform: translateX(2px); }
+        .line-clamp-2-custom {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        html[data-theme="light"] .favorite-card,
+        html[data-theme="light"] .category-card { border-color: #e7e5e4; background: #fff; box-shadow: 0 10px 28px rgba(28, 25, 23, .07); }
+        html[data-theme="light"] .category-cover { background: #f5f5f4; }
+        @media (prefers-reduced-motion: reduce) {
+            .favorite-card, .category-card, .category-cover img, .card-arrow { transition: none; }
+        }
     </style>
     @yield('head')
 </head>

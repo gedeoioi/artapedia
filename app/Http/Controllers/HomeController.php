@@ -41,7 +41,7 @@ class HomeController extends Controller
         $totalGames = Product::available()->distinct()->count('game');
         // Kategori terfavorit: 8 game dengan transaksi sukses terbanyak (fallback: produk terbanyak).
         $favGames = Transaction::query()
-            ->selectRaw('products.game as game, COUNT(*) as total')
+            ->selectRaw('products.game as game, COUNT(*) as total, COUNT(DISTINCT products.id) as product_count, MIN(products.price_guest) as min_price')
             ->join('products', 'products.id', '=', 'transactions.product_id')
             ->where('transactions.status', Transaction::STATUS_SUCCESS)
             ->groupBy('products.game')
@@ -50,7 +50,7 @@ class HomeController extends Controller
             ->get();
         if ($favGames->isEmpty()) {
             $favGames = Product::query()
-                ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+                ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total, COUNT(*) as product_count')
                 ->available()
                 ->groupBy('game')
                 ->orderByDesc('total')
