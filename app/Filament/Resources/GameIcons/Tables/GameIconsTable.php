@@ -9,9 +9,9 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 
 class GameIconsTable
@@ -31,8 +31,15 @@ class GameIconsTable
                     ->label('Produk child')
                     ->counts('products')
                     ->sortable(),
-                IconColumn::make('is_active')
-                    ->boolean(),
+                ToggleColumn::make('is_favorite')
+                    ->label('Favorit')
+                    ->sortable(),
+                TextColumn::make('favorite_order')
+                    ->label('Urutan')
+                    ->numeric()
+                    ->sortable(),
+                ToggleColumn::make('is_active')
+                    ->label('Aktif'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -42,6 +49,7 @@ class GameIconsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('game_name')
             ->filters([
                 //
             ])

@@ -3,13 +3,12 @@
 @section('title', 'Semua Kategori')
 
 @section('content')
-<div class="flex items-end justify-between gap-4 mb-4">
-    <div>
-        <div class="text-[11px] uppercase tracking-[.18em] font-extrabold accent mb-1">Jelajahi katalog</div>
-        <h1 class="font-extrabold text-2xl">Semua Kategori</h1>
-    </div>
+<h1 class="sr-only">Semua Kategori</h1>
+<div class="mb-5">
+    @include('partials.catalog-tabs', ['routeName' => 'categories.index'])
 </div>
 <form action="{{ route('categories.index') }}" class="flex gap-2 max-w-md mb-4">
+    <input type="hidden" name="type" value="{{ $activeType }}">
     <input name="q" value="{{ $q }}" placeholder="Cari kategori..." class="card flex-1 px-4 py-2 text-sm">
     <button class="btn-primary px-5 py-2 text-sm">Cari</button>
 </form>
@@ -31,7 +30,7 @@
             </div>
         </a>
     @empty
-        <div class="card p-6 text-sm muted col-span-full text-center">Tidak ada kategori ditemukan.</div>
+        <div class="card p-6 text-sm muted col-span-full text-center">Tidak ada kategori {{ \App\Models\Product::TYPES[$activeType] ?? '' }} ditemukan.</div>
     @endforelse
 </div>
 <div class="flex justify-center">{{ $games->links() }}</div>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\GameIcon;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -59,5 +60,46 @@ class ProductVisibilityTest extends TestCase
 
         $this->postJson('/checkout/quote', ['product_id' => $p->id, 'gateway_code' => 'balance'])
             ->assertNotFound();
+    }
+
+    public function test_beranda_memisahkan_kategori_berdasarkan_tipe_produk(): void
+    {
+        $this->makeProduct(['supplier_code' => 'GAME', 'game' => 'Mobile Legends', 'product_type' => Product::TYPE_GAME]);
+        $this->makeProduct(['supplier_code' => 'PULSA', 'game' => 'Telkomsel', 'product_type' => Product::TYPE_PULSA]);
+        $this->makeProduct(['supplier_code' => 'DATA', 'game' => 'Internet Telkomsel', 'product_type' => Product::TYPE_DATA]);
+        $this->makeProduct(['supplier_code' => 'VOUCHER', 'game' => 'Google Play', 'product_type' => Product::TYPE_VOUCHER]);
+
+        $response = $this->get('/?type=pulsa');
+
+        $response->assertOk();
+        $this->assertSame(Product::TYPE_PULSA, $response->viewData('activeType'));
+        $this->assertSame(['Telkomsel'], $response->viewData('games')->pluck('game')->all());
+    }
+
+    public function test_favorit_yang_dipilih_admin_menggantikan_fallback_otomatis(): void
+    {
+        $this->makeProduct(['supplier_code' => 'A', 'game' => 'Kategori Biasa']);
+        $this->makeProduct(['supplier_code' => 'B', 'game' => 'Kategori Pilihan']);
+        GameIcon::create([
+            'game_name' => 'Kategori Pilihan',
+            'slug' => 'kategori-pilihan',
+            'is_active' => true,
+            'is_favorite' => true,
+            'favorite_order' => 1,
+        ]);
+
+        $favorites = $this->get('/')->assertOk()->viewData('favorites');
+
+        $this->assertSame(['Kategori Pilihan'], $favorites->pluck('game')->all());
+    }
+
+    public function test_tipe_kategori_tidak_valid_kembali_ke_game(): void
+    {
+        $this->makeProduct(['supplier_code' => 'GAME', 'game' => 'Kategori Game']);
+
+        $response = $this->get('/?type=tidak-valid');
+
+        $response->assertOk()->assertSee('Kategori Game');
+        $this->assertSame(Product::TYPE_GAME, $response->viewData('activeType'));
     }
 }

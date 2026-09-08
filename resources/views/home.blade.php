@@ -84,12 +84,12 @@
 @endif
 
 <!-- SEMUA KATEGORI -->
-<div class="flex items-end justify-between gap-4 mb-4">
-    <div>
-        <div class="text-[11px] uppercase tracking-[.18em] font-extrabold accent mb-1">Jelajahi katalog</div>
-        <h2 class="font-extrabold text-xl md:text-2xl">Semua Kategori</h2>
-    </div>
+<div class="flex items-center justify-between gap-4 mb-4">
+    <h2 class="sr-only">Semua Kategori</h2>
     @if($q)<a href="{{ route('home') }}" class="text-xs font-semibold accent hover:underline">Reset pencarian</a>@endif
+</div>
+<div class="mb-5">
+    @include('partials.catalog-tabs', ['routeName' => 'home'])
 </div>
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mb-5" id="category-grid">
     @forelse($games as $idx => $g)
@@ -111,13 +111,13 @@
     @empty
         <div class="card p-6 text-sm muted col-span-full text-center">
             <div class="font-semibold mb-1">Belum ada produk</div>
-            <div>Jalankan sync dari supplier di admin, atau ubah kata kunci pencarian.</div>
+            <div>Tidak ada kategori {{ \App\Models\Product::TYPES[$activeType] ?? '' }} yang cocok.</div>
         </div>
     @endforelse
 </div>
 @if(($hasMoreCategories ?? false) && !$q)
 <div class="text-center mb-8">
-    <a href="{{ route('categories.index') }}" class="btn-primary inline-block px-6 py-2.5 text-sm">Lihat Selengkapnya</a>
+    <a href="{{ route('categories.index', ['type' => $activeType]) }}" class="btn-primary inline-block px-6 py-2.5 text-sm">Lihat Selengkapnya</a>
 </div>
 @else
 <div class="mb-8"></div>

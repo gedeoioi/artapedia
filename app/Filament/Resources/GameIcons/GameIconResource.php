@@ -20,6 +20,14 @@ class GameIconResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    protected static ?string $navigationLabel = 'Kategori';
+
+    protected static ?string $modelLabel = 'kategori';
+
+    protected static ?string $pluralModelLabel = 'Kategori';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Katalog';
+
     public static function form(Schema $schema): Schema
     {
         return GameIconForm::configure($schema);

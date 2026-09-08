@@ -29,7 +29,21 @@ class GameIconForm
                     ->visibility('public')
                     ->helperText('Upload 1 icon per kategori (bukan per varian). Berlaku ke semua produk child kategori ini, kecuali produk yang punya override sendiri.'),
                 Toggle::make('is_active')
+                    ->label('Kategori aktif')
+                    ->default(true)
                     ->required(),
+                Toggle::make('is_favorite')
+                    ->label('Tampilkan di Kategori Favorit')
+                    ->helperText('Aktifkan agar kategori muncul pada bagian favorit di halaman utama.')
+                    ->live()
+                    ->default(false),
+                TextInput::make('favorite_order')
+                    ->label('Urutan favorit')
+                    ->helperText('Angka lebih kecil tampil lebih dahulu.')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    ->visible(fn ($get): bool => (bool) $get('is_favorite')),
                 Placeholder::make('affected')
                     ->label('Produk yang akan ikut berubah')
                     ->content(fn ($record) => $record

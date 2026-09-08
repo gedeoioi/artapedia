@@ -11,13 +11,22 @@ use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
+    private const CATALOG_TYPES = [
+        Product::TYPE_GAME,
+        Product::TYPE_PULSA,
+        Product::TYPE_DATA,
+        Product::TYPE_VOUCHER,
+    ];
+
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
+        $activeType = $this->activeType($request);
 
         $gamesQuery = Product::query()
             ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
             ->available()
+            ->where('product_type', $activeType)
             ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
             ->groupBy('game')
             ->orderBy('game');
@@ -39,15 +48,20 @@ class HomeController extends Controller
         $gateways = PaymentGatewayConfig::activeOrdered();
         $totalProducts = Product::available()->count();
         $totalGames = Product::available()->distinct()->count('game');
-        // Kategori terfavorit: 8 game dengan transaksi sukses terbanyak (fallback: produk terbanyak).
-        $favGames = Transaction::query()
-            ->selectRaw('products.game as game, COUNT(*) as total, COUNT(DISTINCT products.id) as product_count, MIN(products.price_guest) as min_price')
-            ->join('products', 'products.id', '=', 'transactions.product_id')
-            ->where('transactions.status', Transaction::STATUS_SUCCESS)
-            ->groupBy('products.game')
-            ->orderByDesc('total')
-            ->limit(8)
-            ->get();
+        $favGames = $this->configuredFavorites();
+
+        // Jika admin belum memilih favorit, gunakan kategori dengan transaksi sukses
+        // terbanyak dan terakhir jumlah produk sebagai fallback.
+        if ($favGames->isEmpty()) {
+            $favGames = Transaction::query()
+                ->selectRaw('products.game as game, COUNT(*) as total, COUNT(DISTINCT products.id) as product_count, MIN(products.price_guest) as min_price')
+                ->join('products', 'products.id', '=', 'transactions.product_id')
+                ->where('transactions.status', Transaction::STATUS_SUCCESS)
+                ->groupBy('products.game')
+                ->orderByDesc('total')
+                ->limit(8)
+                ->get();
+        }
         if ($favGames->isEmpty()) {
             $favGames = Product::query()
                 ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total, COUNT(*) as product_count')
@@ -68,20 +82,23 @@ class HomeController extends Controller
 
         $banners = Banner::activeOrdered();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories'));
+        return view('home', compact('games', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories'));
     }
 
     public function categories(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
+        $activeType = $this->activeType($request);
 
         $games = Product::query()
             ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
             ->available()
+            ->where('product_type', $activeType)
             ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
             ->groupBy('game')
             ->orderBy('game')
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString();
 
         $icons = collect();
         foreach ($games as $g) {
@@ -92,7 +109,7 @@ class HomeController extends Controller
             }
         }
 
-        return view('categories', compact('games', 'icons', 'q'));
+        return view('categories', compact('games', 'icons', 'q', 'activeType'));
     }
 
     public function game(string $game)
@@ -102,5 +119,43 @@ class HomeController extends Controller
             ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 
         return view('game', compact('products', 'game', 'icon'));
+    }
+
+    private function activeType(Request $request): string
+    {
+        $type = (string) $request->get('type', Product::TYPE_GAME);
+
+        return in_array($type, self::CATALOG_TYPES, true) ? $type : Product::TYPE_GAME;
+    }
+
+    private function configuredFavorites()
+    {
+        return GameIcon::query()
+            ->where('is_active', true)
+            ->where('is_favorite', true)
+            ->orderBy('favorite_order')
+            ->orderBy('game_name')
+            ->limit(8)
+            ->get()
+            ->map(function (GameIcon $category) {
+                $stats = Product::query()
+                    ->available()
+                    ->where('game', $category->game_name)
+                    ->selectRaw('MIN(price_guest) as min_price, COUNT(*) as total')
+                    ->first();
+
+                if (! $stats || (int) $stats->total === 0) {
+                    return null;
+                }
+
+                return (object) [
+                    'game' => $category->game_name,
+                    'min_price' => (int) $stats->min_price,
+                    'total' => (int) $stats->total,
+                    'product_count' => (int) $stats->total,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 }

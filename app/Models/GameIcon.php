@@ -6,11 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class GameIcon extends Model
 {
-    protected $fillable = ['game_name', 'slug', 'icon_path', 'is_active'];
+    protected $fillable = [
+        'game_name',
+        'slug',
+        'icon_path',
+        'is_active',
+        'is_favorite',
+        'favorite_order',
+    ];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return [
+            'is_active' => 'boolean',
+            'is_favorite' => 'boolean',
+            'favorite_order' => 'integer',
+        ];
     }
 
     public function products()

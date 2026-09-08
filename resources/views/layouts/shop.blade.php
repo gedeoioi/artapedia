@@ -52,6 +52,32 @@
         .foot { background: #0a0a0c; border-top: 1px solid #26262b; }
         html[data-theme="light"] .foot { background: #f5f5f4; border-color: #e5e5e5; }
         .flash-grad { background: linear-gradient(135deg, #7c2d12, #c2570c 60%, #f97316); }
+        .catalog-tabs {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 2px 0 5px;
+            scrollbar-width: none;
+        }
+        .catalog-tabs::-webkit-scrollbar { display: none; }
+        .catalog-tabs a {
+            flex: none;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 18px;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            background: #25252b;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+            transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+        }
+        .catalog-tabs a:hover { border-color: rgba(249, 115, 22, .6); transform: translateY(-1px); }
+        .catalog-tabs a:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 2px; }
+        .catalog-tabs a.is-active { background: var(--primary); border-color: var(--primary); }
         .favorite-card, .category-card {
             position: relative;
             display: block;
@@ -110,6 +136,8 @@
         }
         html[data-theme="light"] .favorite-card,
         html[data-theme="light"] .category-card { border-color: #e7e5e4; background-color: #fff; box-shadow: 0 10px 28px rgba(28, 25, 23, .07); }
+        html[data-theme="light"] .catalog-tabs a { background: #e7e5e4; color: #292524; }
+        html[data-theme="light"] .catalog-tabs a.is-active { background: var(--primary); color: #fff; }
         html[data-theme="light"] .favorite-card {
             background-image:
                 linear-gradient(90deg, rgba(249, 115, 22, .04), transparent 48%),
@@ -117,7 +145,7 @@
         }
         html[data-theme="light"] .category-cover { background: #f5f5f4; }
         @media (prefers-reduced-motion: reduce) {
-            .favorite-card, .category-card, .category-cover img { transition: none; }
+            .favorite-card, .category-card, .category-cover img, .catalog-tabs a { transition: none; }
         }
     </style>
     @yield('head')
@@ -131,6 +159,7 @@
             <span>{{ $siteName }}</span>
         </a>
         <form action="{{ route('home') }}" class="hidden md:flex flex-1 max-w-md gap-2">
+            @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
             <input name="q" value="{{ request('q') }}" placeholder="Cari game / voucher..." class="card flex-1 px-4 py-2 text-sm">
         </form>
         <nav class="hidden lg:flex items-center gap-5 ml-2">
