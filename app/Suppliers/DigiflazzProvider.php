@@ -125,6 +125,7 @@ class DigiflazzProvider implements SupplierProviderInterface
         if (! ($json['http_ok'] ?? false) || ! is_array($rows) || ! array_is_list($rows)) {
             return [
                 'result' => false,
+                'rc' => (string) (is_array($rows) ? ($rows['rc'] ?? '') : ($json['rc'] ?? '')),
                 'message' => (is_array($rows) ? ($rows['message'] ?? null) : null)
                     ?? $json['data']['message'] ?? 'Gagal ambil pricelist Digiflazz (mungkin rate-limit rc=83)',
                 'raw' => $json,

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\SupplierConfig;
 use App\Services\SupplierConnectionTester;
+use App\Suppliers\DigiflazzProvider;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -97,5 +98,35 @@ class SupplierConnectionTest extends TestCase
         $log = $supplier->fresh()->last_test_log;
         $this->assertStringNotContainsString('RAHASIA123', $log);
         $this->assertStringNotContainsString('TOKENXYZ', $log);
+    }
+
+    public function test_rate_limit_pricelist_digiflazz_tetap_dianggap_koneksi_berhasil(): void
+    {
+        $supplier = SupplierConfig::create([
+            'code' => 'digiflazz',
+            'name' => 'Digiflazz',
+            'provider_class' => DigiflazzProvider::class,
+            'is_active' => true,
+            'is_sandbox' => true,
+            'priority' => 0,
+            'credentials' => ['username' => 'buyer', 'api_key' => 'secret'],
+        ]);
+
+        Http::fake([
+            'api.digiflazz.com/*' => Http::sequence()
+                ->push(['data' => ['deposit' => 250000]])
+                ->push(['data' => [
+                    'rc' => '83',
+                    'message' => 'Anda telah mencapai limitasi pengecekan pricelist, silahkan coba beberapa saat lagi',
+                ]]),
+        ]);
+
+        $result = app(SupplierConnectionTester::class)->test($supplier);
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue($result['warning']);
+        $this->assertStringContainsString('maksimal 1x per 5 menit', $result['message']);
+        $this->assertSame(250000, $supplier->fresh()->cached_balance);
+        $this->assertTrue((bool) $supplier->fresh()->last_test_ok);
     }
 }

@@ -102,6 +102,34 @@ class SupplierConnectionTester
         $lines[] = '[RESP] daftar produk: ok='.($productsOk ? 'ya' : 'tidak').', jumlah='.($steps['product_count']);
 
         if (! $productsOk) {
+            if ($config->code === 'digiflazz' && $this->isPricelistRateLimited($products)) {
+                $ms = (int) round((microtime(true) - $started) * 1000);
+
+                if (is_numeric($balanceValue)) {
+                    $config->cached_balance = (int) $balanceValue;
+                }
+
+                $summary = 'Koneksi Digiflazz berhasil. Saldo: '.($balanceValue ?? '?')
+                    .'. Pricelist sedang dibatasi (maksimal 1x per 5 menit); coba sinkronisasi lagi nanti.';
+                $lines[] = '[PERINGATAN] '.$summary;
+                $this->saveLog($config, true, $summary, $lines);
+
+                AuditLog::record('supplier.test_connection', $config, [], [
+                    'ok' => true,
+                    'warning' => 'pricelist_rate_limited',
+                    'latency_ms' => $ms,
+                ]);
+
+                return [
+                    'ok' => true,
+                    'warning' => true,
+                    'latency_ms' => $ms,
+                    'message' => $summary,
+                    'steps' => $steps,
+                    'log' => implode("\n", $lines),
+                ];
+            }
+
             $msg = 'Saldo OK tapi daftar produk error: '.($products['message'] ?? 'unknown');
             $lines[] = '[GAGAL] '.$msg;
 
@@ -130,6 +158,16 @@ class SupplierConnectionTester
             'steps' => $steps,
             'log' => implode("\n", $lines),
         ];
+    }
+
+    protected function isPricelistRateLimited(array $products): bool
+    {
+        $rc = (string) ($products['rc'] ?? data_get($products, 'raw.data.rc', ''));
+        $message = strtolower((string) ($products['message'] ?? ''));
+
+        return $rc === '83'
+            || str_contains($message, 'limitasi pengecekan pricelist')
+            || str_contains($message, 'rate limit');
     }
 
     protected function fail(SupplierConfig $config, string $message, array $steps, array $lines, float $started): array

@@ -80,7 +80,9 @@ class SupplierConfigsTable
                             ->title($result['ok'] ? 'Koneksi berhasil' : 'Koneksi gagal')
                             ->body($result['message']);
 
-                        if ($result['ok']) {
+                        if ($result['warning'] ?? false) {
+                            $notification->warning();
+                        } elseif ($result['ok']) {
                             $notification->success();
                         } else {
                             $notification->danger();
