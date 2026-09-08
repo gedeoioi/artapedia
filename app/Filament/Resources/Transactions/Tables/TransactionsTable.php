@@ -106,11 +106,12 @@ class TransactionsTable
                             ->title('Status supplier diperbarui')
                             ->body('Status transaksi: '.$transaction->status.'; supplier: '.($transaction->supplier_status ?: '-'));
 
-                        match ($transaction->status) {
+                        $notification = match ($transaction->status) {
                             'success' => $notification->success(),
                             'failed' => $notification->danger(),
                             default => $notification->warning(),
-                        }->send();
+                        };
+                        $notification->send();
                     }),
                 Action::make('refund')
                     ->label('Refund')
