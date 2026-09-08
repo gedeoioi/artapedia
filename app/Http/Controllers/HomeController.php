@@ -23,8 +23,8 @@ class HomeController extends Controller
         $q = trim((string) $request->get('q', ''));
         $activeType = $this->activeType($request);
 
+        $categoryPagesByType = collect();
         $gamesByType = collect();
-        $hasMoreCategoriesByType = collect();
 
         foreach (self::CATALOG_TYPES as $type) {
             $gamesQuery = Product::query()
@@ -35,20 +35,27 @@ class HomeController extends Controller
                 ->groupBy('game')
                 ->orderBy('game');
 
-            // Grid 5 kolom x 4 baris = 20 kategori per tipe.
-            $categories = (clone $gamesQuery)->limit(21)->get();
-            $hasMoreCategoriesByType[$type] = $categories->count() > 20;
-            $gamesByType[$type] = $categories->take(20)->values();
+            // Setiap panel menampilkan tepat 5 kolom x 3 baris di desktop.
+            $pages = $gamesQuery->get()->chunk(15)->map->values()->values();
+            if ($pages->isEmpty()) {
+                $pages = collect([collect()]);
+            }
+
+            $categoryPagesByType[$type] = $pages;
+            $gamesByType[$type] = $pages->first();
         }
 
         // Dipertahankan untuk kompatibilitas view/test yang membaca tipe aktif.
         $games = $gamesByType[$activeType];
-        $hasMoreCategories = $hasMoreCategoriesByType[$activeType];
+
+        $activeIconsByName = GameIcon::query()
+            ->where('is_active', true)
+            ->get()
+            ->keyBy(fn (GameIcon $icon) => mb_strtolower($icon->game_name));
 
         $icons = collect();
-        foreach ($gamesByType->flatten(1) as $g) {
-            $icon = GameIcon::where('game_name', $g->game)->where('is_active', true)->first()
-                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($g->game)])->where('is_active', true)->first();
+        foreach ($categoryPagesByType->flatten(2) as $g) {
+            $icon = $activeIconsByName->get(mb_strtolower($g->game));
             if ($icon) {
                 $icons[$g->game] = $icon;
             }
@@ -82,8 +89,7 @@ class HomeController extends Controller
         }
         $favorites = $favGames;
         foreach ($favorites as $f) {
-            $icon = GameIcon::where('game_name', $f->game)->where('is_active', true)->first()
-                ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($f->game)])->where('is_active', true)->first();
+            $icon = $activeIconsByName->get(mb_strtolower($f->game));
             if ($icon) {
                 $icons[$f->game] = $icon;
             }
@@ -91,7 +97,7 @@ class HomeController extends Controller
 
         $banners = Banner::activeOrdered();
 
-        return view('home', compact('games', 'gamesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories', 'hasMoreCategoriesByType'));
+        return view('home', compact('games', 'gamesByType', 'categoryPagesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners'));
     }
 
     public function categories(Request $request)

@@ -113,4 +113,23 @@ class ProductVisibilityTest extends TestCase
             ->assertSee('@click="activeType =', false)
             ->assertSee('id="category-panel-game"', false);
     }
+
+    public function test_grid_kategori_beranda_dibagi_per_lima_belas_item(): void
+    {
+        foreach (range(1, 16) as $number) {
+            $this->makeProduct([
+                'supplier_code' => 'GAME-'.$number,
+                'game' => 'Game '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $response = $this->get('/')->assertOk();
+        $pages = $response->viewData('categoryPagesByType')[Product::TYPE_GAME];
+
+        $this->assertCount(2, $pages);
+        $this->assertCount(15, $pages[0]);
+        $this->assertCount(1, $pages[1]);
+        $response->assertSee('@click="pageByType[', false)
+            ->assertSee('Lihat Selengkapnya');
+    }
 }

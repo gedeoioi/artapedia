@@ -88,48 +88,69 @@
     <h2 class="sr-only">Semua Kategori</h2>
     @if($q)<a href="{{ route('home') }}" class="text-xs font-semibold accent hover:underline">Reset pencarian</a>@endif
 </div>
-<div x-data="{ activeType: @js($activeType) }">
+<div x-data="{
+    activeType: @js($activeType),
+    pageByType: { game: 0, pulsa: 0, data: 0, voucher: 0 }
+}">
     <div class="mb-5">
         @include('partials.catalog-tabs', ['routeName' => 'home', 'interactive' => true])
     </div>
-    @foreach($gamesByType as $type => $typeGames)
+    @foreach($categoryPagesByType as $type => $typePages)
     <section
         id="category-panel-{{ $type }}"
         x-show="activeType === @js($type)"
         @if($type !== $activeType) x-cloak @endif
         aria-label="Kategori {{ \App\Models\Product::TYPES[$type] ?? $type }}"
     >
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mb-5">
-            @forelse($typeGames as $g)
-                @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-                <a href="{{ route('game.show', $g->game) }}" data-cat-item class="category-card group" aria-label="Buka kategori {{ $g->game }}">
-                    <div class="category-cover aspect-square">
-                        @if($catIcon)
-                            <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
-                        @else
-                            <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
-                        @endif
+        @foreach($typePages as $pageIndex => $typeGames)
+        <div
+            x-show="pageByType[@js($type)] === {{ $pageIndex }}"
+            @if($type !== $activeType || $pageIndex !== 0) x-cloak @endif
+        >
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-5">
+                @forelse($typeGames as $g)
+                    @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
+                    <a href="{{ route('game.show', $g->game) }}" data-cat-item class="category-card group" aria-label="Buka kategori {{ $g->game }}">
+                        <div class="category-cover aspect-square">
+                            @if($catIcon)
+                                <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
+                            @else
+                                <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
+                            @endif
+                        </div>
+                        <div class="p-3">
+                            <div class="text-sm font-bold leading-snug line-clamp-2-custom min-h-[2.5rem]">{{ $g->game }}</div>
+                            <div class="text-xs muted mt-1.5">{{ $g->total }} produk</div>
+                            <div class="text-xs font-bold accent mt-0.5">Mulai Rp{{ number_format((int) $g->min_price, 0, ',', '.') }}</div>
+                        </div>
+                    </a>
+                @empty
+                    <div class="card p-6 text-sm muted col-span-full text-center">
+                        <div class="font-semibold mb-1">Belum ada produk</div>
+                        <div>Tidak ada kategori {{ \App\Models\Product::TYPES[$type] ?? '' }} yang cocok.</div>
                     </div>
-                    <div class="p-3">
-                        <div class="text-sm font-bold leading-snug line-clamp-2-custom min-h-[2.5rem]">{{ $g->game }}</div>
-                        <div class="text-xs muted mt-1.5">{{ $g->total }} produk</div>
-                        <div class="text-xs font-bold accent mt-0.5">Mulai Rp{{ number_format((int) $g->min_price, 0, ',', '.') }}</div>
-                    </div>
-                </a>
-            @empty
-                <div class="card p-6 text-sm muted col-span-full text-center">
-                    <div class="font-semibold mb-1">Belum ada produk</div>
-                    <div>Tidak ada kategori {{ \App\Models\Product::TYPES[$type] ?? '' }} yang cocok.</div>
-                </div>
-            @endforelse
+                @endforelse
+            </div>
+
+            @if($typePages->count() > 1)
+            <div class="flex items-center justify-center gap-3 mb-8" aria-label="Navigasi kelompok kategori">
+                @if($pageIndex > 0)
+                <button type="button" @click="pageByType[@js($type)]--" class="card px-5 py-2.5 text-sm font-bold hover:border-orange-500">
+                    Sebelumnya
+                </button>
+                @endif
+                <span class="muted text-xs">{{ $pageIndex + 1 }} / {{ $typePages->count() }}</span>
+                @if($pageIndex < $typePages->count() - 1)
+                <button type="button" @click="pageByType[@js($type)]++" class="btn-primary px-6 py-2.5 text-sm">
+                    Lihat Selengkapnya
+                </button>
+                @endif
+            </div>
+            @else
+            <div class="mb-8"></div>
+            @endif
         </div>
-        @if(($hasMoreCategoriesByType[$type] ?? false) && !$q)
-        <div class="text-center mb-8">
-            <a href="{{ route('categories.index', ['type' => $type]) }}" class="btn-primary inline-block px-6 py-2.5 text-sm">Lihat Selengkapnya</a>
-        </div>
-        @else
-        <div class="mb-8"></div>
-        @endif
+        @endforeach
     </section>
     @endforeach
 </div>

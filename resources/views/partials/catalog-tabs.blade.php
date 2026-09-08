@@ -12,7 +12,7 @@
         @if($interactive ?? false)
         <button
             type="button"
-            @click="activeType = @js($type)"
+            @click="activeType = @js($type); pageByType[@js($type)] = 0"
             :class="{ 'is-active': activeType === @js($type) }"
             :aria-current="activeType === @js($type) ? 'page' : null"
             aria-controls="category-panel-{{ $type }}"
