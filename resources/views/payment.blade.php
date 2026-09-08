@@ -8,10 +8,6 @@
     <div class="text-sm text-gray-600 mb-3">{{ $trx->product->name }} - Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</div>
     <div class="card p-3 text-sm mb-3 {{ $trx->statusBadgeClass() }}" id="pay-status">
         <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
-        <div class="mt-1" id="pay-status-message">{{ $trx->statusMessage() }}</div>
-        <div class="mt-1 text-xs opacity-75" id="pay-supplier-status" @if(!$trx->supplier_status) hidden @endif>
-            Status supplier: {{ $trx->supplier_status }}
-        </div>
     </div>
     @if($trx->payment_method === 'balance')
         <p class="text-sm">Dibayar dengan saldo member. Pesanan diteruskan ke supplier otomatis.</p>
@@ -40,11 +36,6 @@ async function refreshStatus() {
         const box = document.getElementById('pay-status');
         box.className = 'card p-3 text-sm mb-3 ' + j.badge;
         document.getElementById('pay-status-label').textContent = j.status_label;
-        document.getElementById('pay-status-message').textContent = j.message;
-
-        const supplier = document.getElementById('pay-supplier-status');
-        supplier.hidden = !j.supplier_status;
-        supplier.textContent = j.supplier_status ? 'Status supplier: ' + j.supplier_status : '';
 
         if (['success', 'failed', 'expired'].includes(j.status) && timer) clearInterval(timer);
     } catch (e) {}

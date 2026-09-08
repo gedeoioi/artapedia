@@ -31,7 +31,8 @@ class PaymentStatusTest extends TestCase
         $this->get(route('payment.show', $trx->invoice_code))
             ->assertOk()
             ->assertSee('Sedang diproses')
-            ->assertSee('Pesanan sudah diterima supplier dan sedang dalam antrean.')
+            ->assertDontSee('Pesanan sudah diterima supplier dan sedang dalam antrean.')
+            ->assertDontSee('Status supplier:')
             ->assertDontSee('Status: processing - menunggu pembayaran terdeteksi');
 
         $this->getJson(route('payment.status', $trx->invoice_code))
