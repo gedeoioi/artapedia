@@ -23,6 +23,15 @@ Schedule::call(function () {
     // bila worker memakai koneksi/config berbeda, job terlihat habis tetapi
     // status tidak pernah tersinkron. pollStatus() idempoten dan memakai lock.
     $orders = app(OrderService::class);
+
+    // Pulihkan juga data lama dari implementasi sebelumnya yang hanya menulis
+    // supplier_status tanpa memfinalkan transaksi.
+    Transaction::where('status', Transaction::STATUS_PROCESSING)
+        ->where('supplier_status', 'all_suppliers_failed')
+        ->orderBy('id')
+        ->limit(50)
+        ->each(fn ($trx) => $orders->markAllSuppliersFailed($trx->id));
+
     Transaction::where('status', Transaction::STATUS_PROCESSING)
         ->whereNotNull('supplier_trx_id')
         ->where('created_at', '>', now()->subDays(7))

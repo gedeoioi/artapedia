@@ -13,6 +13,7 @@ use App\Services\PaymentService;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BalanceSafetyTest extends TestCase
@@ -137,6 +138,52 @@ class BalanceSafetyTest extends TestCase
         $result = app(OrderService::class)->dispatchToSupplier($trx->id);
 
         $this->assertEquals('SUP-EXISTING-1', $result->supplier_trx_id);
+    }
+
+    public function test_semua_supplier_gagal_menandai_transaksi_gagal_dan_refund_sekali(): void
+    {
+        [$supplier, $product] = $this->seedBasics();
+        $user = User::factory()->create(['balance' => 0, 'level' => 'biasa']);
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-ALL-FAILED', 'user_id' => $user->id, 'product_id' => $product->id,
+            'supplier_config_id' => $supplier->id,
+            'payment_gateway_code' => 'balance', 'target_user_id' => '123',
+            'quantity' => 1, 'cost_price' => 10000, 'sell_price' => 12000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 12000, 'profit' => 2000,
+            'payment_method' => 'balance', 'status' => Transaction::STATUS_PAID, 'paid_at' => now(),
+        ]);
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response([
+            'result' => false, 'message' => 'Order ditolak',
+        ])]);
+
+        $failed = app(OrderService::class)->dispatchToSupplier($trx->id);
+        $retried = app(OrderService::class)->markAllSuppliersFailed($trx->id);
+
+        $this->assertSame(Transaction::STATUS_FAILED, $failed->status);
+        $this->assertSame('all_suppliers_failed', $failed->supplier_status);
+        $this->assertSame(Transaction::STATUS_FAILED, $retried->status);
+        $this->assertSame(12000, $user->fresh()->balance);
+        $this->assertSame(1, BalanceMutation::where('transaction_id', $trx->id)
+            ->where('type', BalanceMutation::TYPE_REFUND)->count());
+    }
+
+    public function test_data_lama_all_suppliers_failed_dapat_difinalkan(): void
+    {
+        [$supplier, $product] = $this->seedBasics();
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-OLD-ALL-FAILED', 'product_id' => $product->id,
+            'supplier_config_id' => $supplier->id,
+            'payment_gateway_code' => 'balance', 'target_user_id' => '123',
+            'quantity' => 1, 'cost_price' => 10000, 'sell_price' => 12000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 12000, 'profit' => 2000,
+            'payment_method' => 'balance', 'status' => Transaction::STATUS_PROCESSING,
+            'supplier_status' => 'all_suppliers_failed', 'paid_at' => now(),
+        ]);
+
+        $result = app(OrderService::class)->markAllSuppliersFailed($trx->id);
+
+        $this->assertSame(Transaction::STATUS_FAILED, $result->status);
     }
 
     public function test_callback_telat_tidak_menghidupkan_invoice_expired(): void

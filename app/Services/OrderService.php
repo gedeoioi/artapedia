@@ -221,10 +221,41 @@ class OrderService
             }
         }
 
-        $trx->supplier_status = 'all_suppliers_failed';
-        $trx->save();
+        return $this->markAllSuppliersFailed($trx->id);
+    }
 
-        return $trx->fresh();
+    public function markAllSuppliersFailed(int $transactionId): Transaction
+    {
+        return DB::transaction(function () use ($transactionId) {
+            $trx = Transaction::with('user')->whereKey($transactionId)->lockForUpdate()->firstOrFail();
+
+            if ($trx->isFinal()) {
+                return $trx;
+            }
+
+            $trx->supplier_status = 'all_suppliers_failed';
+            $trx->status = Transaction::STATUS_FAILED;
+            $trx->notes = trim(($trx->notes ?? '').' [Semua supplier gagal menerima order]');
+            $trx->save();
+
+            // Saldo sudah didebit saat checkout, tetapi tidak ada supplier yang
+            // membentuk order. Kembalikan tepat satu kali.
+            $alreadyRefunded = BalanceMutation::where('transaction_id', $trx->id)
+                ->where('type', BalanceMutation::TYPE_REFUND)
+                ->exists();
+
+            if (! $alreadyRefunded && $trx->payment_method === 'balance' && $trx->user_id && $trx->paid_at) {
+                $this->balances->credit(
+                    $trx->user,
+                    $trx->total_amount,
+                    BalanceMutation::TYPE_REFUND,
+                    'Refund '.$trx->invoice_code.' semua supplier gagal',
+                    $trx->id
+                );
+            }
+
+            return $trx->fresh();
+        });
     }
 
     public function pollStatus(int $transactionId): Transaction

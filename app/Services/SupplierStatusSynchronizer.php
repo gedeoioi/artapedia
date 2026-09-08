@@ -15,6 +15,11 @@ class SupplierStatusSynchronizer
      */
     public function refreshIfDue(Transaction $transaction, int $seconds = 15): Transaction
     {
+        if ($transaction->status === Transaction::STATUS_PROCESSING
+            && $transaction->supplier_status === 'all_suppliers_failed') {
+            return $this->orders->markAllSuppliersFailed($transaction->id);
+        }
+
         if ($transaction->status !== Transaction::STATUS_PROCESSING || ! $transaction->supplier_trx_id) {
             return $transaction;
         }
