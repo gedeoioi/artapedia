@@ -35,7 +35,7 @@ Schedule::call(function () {
                 report($e);
             }
         });
-})->everyMinute()->name('poll-processing-transactions')->withoutOverlapping(10);
+})->everyMinute()->name('poll-processing-transactions');
 
 // Polling status PEMBAYARAN ke gateway untuk invoice pending.
 // Backup kalau webhook telat/gagal sampai. Guard: markPaid() menolak

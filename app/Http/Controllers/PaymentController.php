@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use App\Services\SupplierStatusSynchronizer;
 
 class PaymentController extends Controller
 {
@@ -13,9 +14,10 @@ class PaymentController extends Controller
         return view('payment', compact('trx'));
     }
 
-    public function status(string $invoice)
+    public function status(string $invoice, SupplierStatusSynchronizer $synchronizer)
     {
         $trx = Transaction::where('invoice_code', $invoice)->firstOrFail();
+        $trx = $synchronizer->refreshIfDue($trx);
 
         return response()->json([
             'status' => $trx->status,
@@ -25,6 +27,6 @@ class PaymentController extends Controller
             'supplier_status' => $trx->supplier_status,
             'paid_at' => $trx->paid_at,
             'processed_at' => $trx->processed_at,
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 }
