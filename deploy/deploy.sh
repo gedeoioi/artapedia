@@ -40,6 +40,11 @@ php artisan route:cache
 php artisan view:cache
 
 echo "==> [7/7] Restart worker"
+if command -v supervisorctl >/dev/null 2>&1; then
+  # Supervisor tidak membaca file config dari dalam repository secara otomatis.
+  # Pasang/update config saat deploy agar queue dan scheduler benar-benar berjalan.
+  sudo install -m 0644 "$APP_DIR/deploy/supervisor-artapedia.conf" /etc/supervisor/conf.d/artapedia.conf
+fi
 sudo supervisorctl reread || true
 sudo supervisorctl update || true
 sudo supervisorctl restart artapedia-queue:* artapedia-schedule:* || true

@@ -144,7 +144,19 @@ class SupplierWebhookController extends Controller
         $trx = Transaction::where('supplier_trx_id', $trxid)->first();
 
         if (! $trx) {
-            return response()->json(['ok' => true, 'ignored' => true]);
+            AuditLog::record('supplier.webhook.vip-reseller.unmatched', $config, [], [
+                'trxid' => $trxid,
+                'status' => $status,
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'matched' => false,
+                'ignored' => true,
+                'reason' => 'transaction_not_found',
+                'trxid' => $trxid,
+                'received_status' => strtolower($status),
+            ]);
         }
 
         DB::transaction(function () use ($trx, $data, $status) {
@@ -184,7 +196,16 @@ class SupplierWebhookController extends Controller
 
         AuditLog::record('supplier.webhook.vip-reseller', $config, [], ['trxid' => $trxid, 'status' => $status]);
 
-        return response()->json(['ok' => true]);
+        $trx->refresh();
+
+        return response()->json([
+            'ok' => true,
+            'matched' => true,
+            'trxid' => $trxid,
+            'received_status' => strtolower($status),
+            'transaction_status' => $trx->status,
+            'supplier_status' => $trx->supplier_status,
+        ]);
     }
 
     public function tokoVoucher(Request $request)

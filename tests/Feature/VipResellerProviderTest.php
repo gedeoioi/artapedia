@@ -184,12 +184,46 @@ class VipResellerProviderTest extends TestCase
             'service' => 'ML B', 'status' => 'success', 'note' => '', 'price' => 9000]];
         $headers = ['X-Client-Signature' => md5('ID123KEY456')];
 
-        $this->postJson('/webhook/supplier/vip-reseller', $payload, $headers)->assertOk();
+        $this->postJson('/webhook/supplier/vip-reseller', $payload, $headers)
+            ->assertOk()
+            ->assertJson([
+                'ok' => true,
+                'matched' => true,
+                'received_status' => 'success',
+                'transaction_status' => 'success',
+                'supplier_status' => 'success',
+            ]);
         $this->postJson('/webhook/supplier/vip-reseller', $payload, $headers)->assertOk();
         $this->assertEquals('success', $trx->fresh()->status);
 
         $this->postJson('/webhook/supplier/vip-reseller', $payload, ['X-Client-Signature' => 'salah'])
             ->assertStatus(401);
+    }
+
+    public function test_webhook_vip_transaksi_tidak_ditemukan_dilaporkan_sebagai_unmatched(): void
+    {
+        SupplierConfig::create([
+            'code' => 'vip-reseller', 'name' => 'VIP',
+            'provider_class' => VipResellerProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
+            'credentials' => ['api_id' => 'ID123', 'api_key' => 'KEY456'],
+        ]);
+
+        $this->postJson('/webhook/supplier/vip-reseller', [
+            'data' => ['trxid' => 'VP-TIDAK-ADA', 'status' => 'success'],
+        ], ['X-Client-Signature' => md5('ID123KEY456')])
+            ->assertOk()
+            ->assertJson([
+                'ok' => true,
+                'matched' => false,
+                'reason' => 'transaction_not_found',
+                'trxid' => 'VP-TIDAK-ADA',
+                'received_status' => 'success',
+            ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'supplier.webhook.vip-reseller.unmatched',
+        ]);
     }
 
     public function test_dispatch_vip_mengirim_zone_terpisah(): void
