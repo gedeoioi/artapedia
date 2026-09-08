@@ -56,31 +56,26 @@
 <!-- KATEGORI TERFAVORIT -->
 @if(($favorites ?? collect())->isNotEmpty())
 <section class="mb-8">
-    <div class="flex items-end justify-between gap-4 mb-4">
+    <div class="mb-4">
         <div>
-            <div class="text-[11px] uppercase tracking-[.18em] font-extrabold accent mb-1">Pilihan pelanggan</div>
-            <h2 class="font-extrabold text-xl md:text-2xl">Kategori Terfavorit</h2>
+            <h2 class="font-extrabold text-lg tracking-wide flex items-center gap-2"><span aria-hidden="true">🔥</span> KATEGORI FAVORIT</h2>
+            <p class="muted text-xs mt-1 ml-7">Kategori yang paling populer saat ini.</p>
         </div>
-        <div class="hidden sm:block text-xs muted">Paling sering dibeli</div>
     </div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        @foreach($favorites as $idx => $g)
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+        @foreach($favorites as $g)
             @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
             <a href="{{ route('game.show', $g->game) }}" class="favorite-card group" aria-label="Buka kategori {{ $g->game }}">
-                <div class="category-cover aspect-[4/3]">
+                <div class="category-cover">
                     @if($catIcon)
                         <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
                     @else
-                        <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
+                        <div class="w-full h-full flex items-center justify-center text-3xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
                     @endif
-                    <span class="favorite-rank">#{{ $idx + 1 }} FAVORIT</span>
                 </div>
-                <div class="p-3.5 md:p-4 flex items-end justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="font-bold text-sm md:text-base leading-snug line-clamp-2-custom">{{ $g->game }}</div>
-                        <div class="muted text-xs mt-1">{{ $g->product_count ?? $g->total }} pilihan · mulai Rp{{ number_format((int) ($g->min_price ?? 0), 0, ',', '.') }}</div>
-                    </div>
-                    <span class="card-arrow" aria-hidden="true">&#8594;</span>
+                <div class="min-w-0 py-3 pr-4 pl-1">
+                    <div class="font-extrabold text-sm md:text-base leading-snug truncate">{{ $g->game }}</div>
+                    <div class="muted text-xs mt-1 truncate">{{ $g->product_count ?? $g->total }} pilihan · mulai Rp{{ number_format((int) ($g->min_price ?? 0), 0, ',', '.') }}</div>
                 </div>
             </a>
         @endforeach
