@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Transactions\Tables;
 
 use App\Services\OrderService;
+use App\Support\Rupiah;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -39,22 +40,22 @@ class TransactionsTable
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('cost_price')
-                    ->money()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('sell_price')
-                    ->money()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('admin_fee')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('gateway_fee')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('total_amount')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('profit')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('payment_method')
                     ->searchable(),

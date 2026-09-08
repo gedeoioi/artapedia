@@ -37,27 +37,31 @@ class TransactionForm
                     ->required()
                     ->numeric()
                     ->default(0)
-                    ->prefix('$'),
+                    ->prefix('Rp'),
                 TextInput::make('sell_price')
                     ->required()
                     ->numeric()
                     ->default(0)
-                    ->prefix('$'),
+                    ->prefix('Rp'),
                 TextInput::make('admin_fee')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('gateway_fee')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('total_amount')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('profit')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('payment_method')
                     ->required()

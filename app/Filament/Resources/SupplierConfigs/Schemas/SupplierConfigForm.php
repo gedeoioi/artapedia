@@ -36,8 +36,10 @@ class SupplierConfigForm
                     ->valueLabel('Value')
                     ->helperText('Tersimpan terenkripsi. VIP Reseller: api_id + api_key (sign = md5(api_id + api_key)). Digiflazz: username + api_key + webhook_secret. TokoVoucher: member_code + secret (sign order = md5(MEMBER:SECRET:REF_ID)).'),
                 TextInput::make('cached_balance')
+                    ->label('Saldo supplier')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 DateTimePicker::make('last_sync_at'),
             ]);

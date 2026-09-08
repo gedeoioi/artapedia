@@ -20,6 +20,9 @@ class SiteSetting extends Model
         'footer_text' => 'Topup game & PPOB.',
         'contact_whatsapp' => null,
         'contact_email' => null,
+        'profit_mode' => 'percent',
+        'profit_percent' => '5',
+        'profit_flat' => '0',
     ];
 
     public const THEMES = [

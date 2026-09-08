@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Support\Rupiah;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -31,7 +32,8 @@ class UsersTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('balance')
-                    ->numeric()
+                    ->label('Saldo')
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('level')
                     ->searchable(),

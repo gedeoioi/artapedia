@@ -36,12 +36,16 @@ class PaymentGatewayConfigForm
                     ->valueLabel('Value')
                     ->helperText('Tersimpan terenkripsi. Xendit: secret_key + callback_token. Duitku: merchant_code + api_key. iPaymu: va + secret (opsional callback_secret jika berbeda dari VA).'),
                 TextInput::make('fee_flat')
+                    ->label('Biaya flat')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('fee_percent')
+                    ->label('Biaya persen')
                     ->required()
                     ->numeric()
+                    ->suffix('%')
                     ->default(0),
             ]);
     }

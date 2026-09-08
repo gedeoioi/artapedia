@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Services\ProviderFactory;
+use App\Support\Rupiah;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -296,9 +297,9 @@ class PullProducts extends Page implements HasSchemas, HasTable
                 TextColumn::make('supplier_code')->searchable()->copyable(),
                 TextColumn::make('name')->searchable()->limit(40),
                 TextColumn::make('game'),
-                TextColumn::make('cost_basic')->numeric()->sortable(),
-                TextColumn::make('cost_premium')->numeric()->sortable(),
-                TextColumn::make('cost_special')->numeric()->sortable(),
+                TextColumn::make('cost_basic')->formatStateUsing(fn ($state) => Rupiah::format($state))->sortable(),
+                TextColumn::make('cost_premium')->formatStateUsing(fn ($state) => Rupiah::format($state))->sortable(),
+                TextColumn::make('cost_special')->formatStateUsing(fn ($state) => Rupiah::format($state))->sortable(),
                 TextColumn::make('in_stock')->badge()
                     ->formatStateUsing(fn ($state) => $state ? 'Tersedia' : 'Kosong')
                     ->color(fn ($state) => $state ? 'success' : 'danger'),

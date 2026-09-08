@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\GameIcon;
 use App\Models\Product;
 use App\Models\SupplierConfig;
+use App\Services\ProfitCalculator;
 use App\Services\ProviderFactory;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -39,6 +40,7 @@ class SyncSupplierProducts implements ShouldQueue
         }
 
         $count = 0;
+        $profit = app(ProfitCalculator::class);
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
@@ -103,9 +105,9 @@ class SyncSupplierProducts implements ShouldQueue
                     'cost_basic' => $price,
                     'cost_premium' => $pricePremium,
                     'cost_special' => $priceSpecial,
-                    'price_guest' => $this->markup($price),
-                    'price_biasa' => $this->markup($pricePremium),
-                    'price_vip' => $this->markup($priceSpecial),
+                    'price_guest' => $profit->calculate($price),
+                    'price_biasa' => $profit->calculate($pricePremium),
+                    'price_vip' => $profit->calculate($priceSpecial),
                     'in_stock' => $inStock,
                     'is_active' => true,
                     'description' => $row['desc'] ?? $row['deskripsi'] ?? null,
@@ -123,10 +125,5 @@ class SyncSupplierProducts implements ShouldQueue
         ]);
 
         return ['ok' => true, 'synced' => $count, 'message' => "Sync selesai: {$count} produk"];
-    }
-
-    protected function markup(int $cost, float $pct = 5.0): int
-    {
-        return (int) ceil($cost * (1 + $pct / 100));
     }
 }

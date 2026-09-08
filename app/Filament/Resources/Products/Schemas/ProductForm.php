@@ -39,26 +39,32 @@ class ProductForm
                 TextInput::make('cost_basic')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('cost_premium')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('cost_special')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('price_guest')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('price_biasa')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 TextInput::make('price_vip')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0),
                 Toggle::make('is_active')
                     ->required(),

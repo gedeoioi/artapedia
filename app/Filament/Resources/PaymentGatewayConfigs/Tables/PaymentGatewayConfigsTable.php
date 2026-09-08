@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PaymentGatewayConfigs\Tables;
 
+use App\Support\Rupiah;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -29,10 +30,13 @@ class PaymentGatewayConfigsTable
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('fee_flat')
-                    ->numeric()
+                    ->label('Biaya flat')
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('fee_percent')
+                    ->label('Biaya persen')
                     ->numeric()
+                    ->suffix('%')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()

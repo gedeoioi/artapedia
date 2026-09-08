@@ -24,8 +24,10 @@ class UserForm
                     ->password()
                     ->required(),
                 TextInput::make('balance')
+                    ->label('Saldo')
                     ->required()
                     ->numeric()
+                    ->prefix('Rp')
                     ->default(0)
                     ->disabled()
                     ->helperText('Ubah saldo hanya via mutasi (ledger), bukan edit langsung.'),

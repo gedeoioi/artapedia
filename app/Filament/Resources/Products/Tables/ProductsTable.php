@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Support\Rupiah;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -33,22 +34,22 @@ class ProductsTable
                 TextColumn::make('nickname_check_code')
                     ->searchable(),
                 TextColumn::make('cost_basic')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('cost_premium')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('cost_special')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('price_guest')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('price_biasa')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('price_vip')
-                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->boolean(),

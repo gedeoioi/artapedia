@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SupplierConfigs\Tables;
 
 use App\Services\SupplierConnectionTester;
+use App\Support\Rupiah;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -35,7 +36,8 @@ class SupplierConfigsTable
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('cached_balance')
-                    ->numeric()
+                    ->label('Saldo supplier')
+                    ->formatStateUsing(fn ($state) => Rupiah::format($state))
                     ->sortable(),
                 TextColumn::make('last_sync_at')
                     ->dateTime()
