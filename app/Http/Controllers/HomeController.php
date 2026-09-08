@@ -23,21 +23,30 @@ class HomeController extends Controller
         $q = trim((string) $request->get('q', ''));
         $activeType = $this->activeType($request);
 
-        $gamesQuery = Product::query()
-            ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
-            ->available()
-            ->where('product_type', $activeType)
-            ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
-            ->groupBy('game')
-            ->orderBy('game');
+        $gamesByType = collect();
+        $hasMoreCategoriesByType = collect();
 
-        $totalCategories = (clone $gamesQuery)->get()->count();
-        // Grid 5 kolom x 4 baris = 20 kategori. Sisanya via tombol Lihat Selengkapnya.
-        $games = (clone $gamesQuery)->limit(20)->get();
-        $hasMoreCategories = $totalCategories > 20;
+        foreach (self::CATALOG_TYPES as $type) {
+            $gamesQuery = Product::query()
+                ->selectRaw('game, MIN(price_guest) as min_price, COUNT(*) as total')
+                ->available()
+                ->where('product_type', $type)
+                ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
+                ->groupBy('game')
+                ->orderBy('game');
+
+            // Grid 5 kolom x 4 baris = 20 kategori per tipe.
+            $categories = (clone $gamesQuery)->limit(21)->get();
+            $hasMoreCategoriesByType[$type] = $categories->count() > 20;
+            $gamesByType[$type] = $categories->take(20)->values();
+        }
+
+        // Dipertahankan untuk kompatibilitas view/test yang membaca tipe aktif.
+        $games = $gamesByType[$activeType];
+        $hasMoreCategories = $hasMoreCategoriesByType[$activeType];
 
         $icons = collect();
-        foreach ($games as $g) {
+        foreach ($gamesByType->flatten(1) as $g) {
             $icon = GameIcon::where('game_name', $g->game)->where('is_active', true)->first()
                 ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($g->game)])->where('is_active', true)->first();
             if ($icon) {
@@ -82,7 +91,7 @@ class HomeController extends Controller
 
         $banners = Banner::activeOrdered();
 
-        return view('home', compact('games', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories'));
+        return view('home', compact('games', 'gamesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'hasMoreCategories', 'hasMoreCategoriesByType'));
     }
 
     public function categories(Request $request)

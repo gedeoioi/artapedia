@@ -102,4 +102,15 @@ class ProductVisibilityTest extends TestCase
         $response->assertOk()->assertSee('Kategori Game');
         $this->assertSame(Product::TYPE_GAME, $response->viewData('activeType'));
     }
+
+    public function test_filter_kategori_di_beranda_memakai_tombol_tanpa_navigasi(): void
+    {
+        $this->makeProduct(['supplier_code' => 'GAME', 'game' => 'Kategori Game']);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('type="button"', false)
+            ->assertSee('@click="activeType =', false)
+            ->assertSee('id="category-panel-game"', false);
+    }
 }

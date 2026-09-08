@@ -60,7 +60,8 @@
             scrollbar-width: none;
         }
         .catalog-tabs::-webkit-scrollbar { display: none; }
-        .catalog-tabs a {
+        [x-cloak] { display: none !important; }
+        .catalog-tabs a, .catalog-tabs button {
             flex: none;
             min-height: 40px;
             display: inline-flex;
@@ -75,9 +76,9 @@
             font-weight: 800;
             transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
         }
-        .catalog-tabs a:hover { border-color: rgba(249, 115, 22, .6); transform: translateY(-1px); }
-        .catalog-tabs a:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 2px; }
-        .catalog-tabs a.is-active { background: var(--primary); border-color: var(--primary); }
+        .catalog-tabs a:hover, .catalog-tabs button:hover { border-color: rgba(249, 115, 22, .6); transform: translateY(-1px); }
+        .catalog-tabs a:focus-visible, .catalog-tabs button:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 2px; }
+        .catalog-tabs a.is-active, .catalog-tabs button.is-active { background: var(--primary); border-color: var(--primary); }
         .favorite-card, .category-card {
             position: relative;
             display: block;
@@ -136,8 +137,10 @@
         }
         html[data-theme="light"] .favorite-card,
         html[data-theme="light"] .category-card { border-color: #e7e5e4; background-color: #fff; box-shadow: 0 10px 28px rgba(28, 25, 23, .07); }
-        html[data-theme="light"] .catalog-tabs a { background: #e7e5e4; color: #292524; }
-        html[data-theme="light"] .catalog-tabs a.is-active { background: var(--primary); color: #fff; }
+        html[data-theme="light"] .catalog-tabs a,
+        html[data-theme="light"] .catalog-tabs button { background: #e7e5e4; color: #292524; }
+        html[data-theme="light"] .catalog-tabs a.is-active,
+        html[data-theme="light"] .catalog-tabs button.is-active { background: var(--primary); color: #fff; }
         html[data-theme="light"] .favorite-card {
             background-image:
                 linear-gradient(90deg, rgba(249, 115, 22, .04), transparent 48%),
@@ -145,7 +148,7 @@
         }
         html[data-theme="light"] .category-cover { background: #f5f5f4; }
         @media (prefers-reduced-motion: reduce) {
-            .favorite-card, .category-card, .category-cover img, .catalog-tabs a { transition: none; }
+            .favorite-card, .category-card, .category-cover img, .catalog-tabs a, .catalog-tabs button { transition: none; }
         }
     </style>
     @yield('head')
