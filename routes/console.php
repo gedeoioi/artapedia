@@ -2,11 +2,11 @@
 
 use App\Jobs\ExpireOverdueInvoices;
 use App\Jobs\PollGatewayInvoice;
-use App\Jobs\PollTransactionStatus;
 use App\Jobs\SyncSupplierProducts;
 use App\Models\CronSetting;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
+use App\Services\OrderService;
 use App\Support\CronGate;
 use Illuminate\Support\Facades\Schedule;
 
@@ -19,12 +19,23 @@ Schedule::call(function () {
     if (! CronGate::allows(CronSetting::KEY_POLL_PROCESSING)) {
         return;
     }
+    // Jalankan langsung dari scheduler. Sebelumnya hanya dispatch ke queue;
+    // bila worker memakai koneksi/config berbeda, job terlihat habis tetapi
+    // status tidak pernah tersinkron. pollStatus() idempoten dan memakai lock.
+    $orders = app(OrderService::class);
     Transaction::where('status', Transaction::STATUS_PROCESSING)
-        ->where('created_at', '>', now()->subDay())
+        ->whereNotNull('supplier_trx_id')
+        ->where('created_at', '>', now()->subDays(7))
         ->orderBy('id')
         ->limit(50)
-        ->each(fn ($trx) => PollTransactionStatus::dispatch($trx->id));
-})->everyMinute()->name('poll-processing-transactions');
+        ->each(function ($trx) use ($orders) {
+            try {
+                $orders->pollStatus($trx->id);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
+})->everyMinute()->name('poll-processing-transactions')->withoutOverlapping(10);
 
 // Polling status PEMBAYARAN ke gateway untuk invoice pending.
 // Backup kalau webhook telat/gagal sampai. Guard: markPaid() menolak
