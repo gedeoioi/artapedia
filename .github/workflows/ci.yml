@@ -26,6 +26,8 @@ jobs:
           php artisan key:generate
       - name: Check PHP formatting
         run: vendor/bin/pint --test
+      - name: Build frontend
+        run: npm ci --no-audit --no-fund && npm run build
       - name: Run test suite
         shell: bash
         run: |
@@ -37,5 +39,3 @@ jobs:
             echo "::error title=Laravel test failure::$message"
           fi
           exit "$status"
-      - name: Build frontend
-        run: npm ci --no-audit --no-fund && npm run build
