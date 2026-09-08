@@ -30,10 +30,10 @@ jobs:
         shell: bash
         run: |
           set +e
-          php artisan test --colors=never 2>&1 | tee test-output.log
+          php artisan test --colors=never --stop-on-failure 2>&1 | tee test-output.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            message=$(tail -n 80 test-output.log | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+            message=$(grep -E 'FAIL|FAILED|Error|Exception|Failed asserting|Expected|Actual|Tests:' test-output.log | tail -n 60 | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=Laravel test failure::$message"
           fi
           exit "$status"
