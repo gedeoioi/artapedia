@@ -9,14 +9,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           extensions: mbstring, curl, sqlite3, pdo_sqlite, intl, zip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
+          package-manager-cache: false
       - name: Install PHP deps
         run: composer install --no-interaction --prefer-dist
       - name: Setup env
@@ -26,6 +27,15 @@ jobs:
       - name: Check PHP formatting
         run: vendor/bin/pint --test
       - name: Run test suite
-        run: php artisan test
+        shell: bash
+        run: |
+          set +e
+          php artisan test --colors=never 2>&1 | tee test-output.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            message=$(tail -n 80 test-output.log | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Laravel test failure::$message"
+          fi
+          exit "$status"
       - name: Build frontend
         run: npm ci --no-audit --no-fund && npm run build
