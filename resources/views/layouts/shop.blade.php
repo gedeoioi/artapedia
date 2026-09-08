@@ -206,6 +206,8 @@
                 <a href="{{ route('home') }}" class="hover:text-orange-500">Topup Game</a>
                 <a href="{{ route('invoice.index') }}" class="hover:text-orange-500">Cek Transaksi</a>
                 <a href="{{ route('member.dashboard') }}" class="hover:text-orange-500">Member</a>
+                <a href="{{ route('legal.terms') }}" class="hover:text-orange-500">Terms &amp; Conditions</a>
+                <a href="{{ route('legal.privacy') }}" class="hover:text-orange-500">Privacy Policy</a>
             </div>
         </div>
         <div>
