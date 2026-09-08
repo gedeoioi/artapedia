@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -95,6 +96,22 @@ class TransactionsTable
                     ->label('Order manual')
                     ->requiresConfirmation()
                     ->action(fn ($record) => app(OrderService::class)->dispatchToSupplier($record->id, null, true)),
+                Action::make('checkSupplierStatus')
+                    ->label('Cek status supplier')
+                    ->visible(fn ($record) => $record->status === 'processing' && filled($record->supplier_trx_id))
+                    ->action(function ($record): void {
+                        $transaction = app(OrderService::class)->pollStatus($record->id);
+
+                        $notification = Notification::make()
+                            ->title('Status supplier diperbarui')
+                            ->body('Status transaksi: '.$transaction->status.'; supplier: '.($transaction->supplier_status ?: '-'));
+
+                        match ($transaction->status) {
+                            'success' => $notification->success(),
+                            'failed' => $notification->danger(),
+                            default => $notification->warning(),
+                        }->send();
+                    }),
                 Action::make('refund')
                     ->label('Refund')
                     ->color('danger')

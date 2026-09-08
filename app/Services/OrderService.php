@@ -173,6 +173,10 @@ class OrderService
                 }
 
                 if ($provider instanceof VipResellerProvider) {
+                    // Produk non-game VIPayment dibuat melalui endpoint prepaid.
+                    // Simpan pilihan channel secara deterministik dari tipe produk agar
+                    // order dan polling status selalu memakai endpoint yang sama.
+                    $orderOptions['channel'] = $this->vipChannelForProduct($trx->product);
                     // VIPayment game: zone dikirim TERPISAH via data_zone (dok game-feature).
                     // Jangan digabung "id|zone" — server menolaknya.
                     if ($trx->target_zone) {
@@ -225,7 +229,7 @@ class OrderService
 
     public function pollStatus(int $transactionId): Transaction
     {
-        $trx = Transaction::with('supplier')->findOrFail($transactionId);
+        $trx = Transaction::with(['supplier', 'product'])->findOrFail($transactionId);
 
         if (! $trx->supplier_trx_id || ! $trx->supplier) {
             return $trx;
@@ -244,12 +248,16 @@ class OrderService
                 'buyer_sku_code' => $trx->product->supplier_code,
                 'customer_no' => $trx->target_user_id,
             ];
+        } elseif ($provider instanceof VipResellerProvider) {
+            $statusOptions = ['channel' => $this->vipChannelForProduct($trx->product)];
         } elseif ($provider instanceof TokoVoucherProvider) {
             $statusOptions = ['ref_id' => $trx->supplier_trx_id];
         }
 
         $res = $provider->checkStatus($trx->supplier_trx_id, $statusOptions);
-        $status = strtolower($res['data']['status'] ?? $res['status'] ?? '');
+        // Bila API status sedang gagal/timeout, pertahankan status supplier
+        // terakhir. Jangan menggantinya menjadi string kosong.
+        $status = strtolower((string) ($res['data']['status'] ?? $res['status'] ?? $trx->supplier_status ?? 'pending'));
 
         return DB::transaction(function () use ($trx, $status, $res) {
             $locked = Transaction::whereKey($trx->id)->lockForUpdate()->firstOrFail();
@@ -280,6 +288,16 @@ class OrderService
 
             return $locked->fresh();
         });
+    }
+
+    protected function vipChannelForProduct(Product $product): string
+    {
+        return in_array($product->product_type, [
+            Product::TYPE_PULSA,
+            Product::TYPE_DATA,
+            Product::TYPE_VOUCHER,
+            Product::TYPE_EMONEY,
+        ], true) ? 'prepaid' : 'game';
     }
 
     public function manualRefund(int $transactionId): Transaction

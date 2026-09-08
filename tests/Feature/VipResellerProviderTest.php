@@ -226,4 +226,47 @@ class VipResellerProviderTest extends TestCase
         Http::assertSent(fn ($req) => ($req->data()['data_zone'] ?? '') === '2685'
             && ($req->data()['data_no'] ?? '') === '136216325');
     }
+
+    public function test_dispatch_dan_poll_vip_prepaid_memakai_endpoint_yang_sama(): void
+    {
+        $config = SupplierConfig::create([
+            'code' => 'vip-reseller', 'name' => 'VIP',
+            'provider_class' => VipResellerProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
+            'credentials' => ['api_id' => 'ID123', 'api_key' => 'KEY456'],
+        ]);
+        $product = Product::create([
+            'supplier_config_id' => $config->id, 'supplier_code' => 'XL10',
+            'name' => 'Pulsa XL 10.000', 'game' => 'XL', 'product_type' => Product::TYPE_PULSA,
+            'cost_basic' => 9000, 'cost_premium' => 9000, 'cost_special' => 9000,
+            'price_guest' => 10000, 'price_biasa' => 10000, 'price_vip' => 10000,
+            'is_active' => true, 'in_stock' => true,
+        ]);
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-VIP-PREPAID', 'product_id' => $product->id,
+            'supplier_config_id' => $config->id,
+            'payment_gateway_code' => 'balance', 'target_user_id' => '081234567890',
+            'quantity' => 1, 'cost_price' => 9000, 'sell_price' => 10000,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 10000, 'profit' => 1000,
+            'payment_method' => 'balance', 'status' => 'paid', 'paid_at' => now(),
+        ]);
+
+        Http::fake([
+            'vip-reseller.co.id/api/prepaid' => Http::sequence()
+                ->push(['result' => true, 'data' => [
+                    'trxid' => 'VP-PREPAID-1', 'status' => 'waiting', 'price' => 9000,
+                ]])
+                ->push(['result' => true, 'data' => [[
+                    'trxid' => 'VP-PREPAID-1', 'status' => 'success', 'note' => 'SN123', 'price' => 9000,
+                ]]]),
+        ]);
+
+        $ordered = app(OrderService::class)->dispatchToSupplier($trx->id);
+        $polled = app(OrderService::class)->pollStatus($ordered->id);
+
+        $this->assertEquals('VP-PREPAID-1', $ordered->supplier_trx_id);
+        $this->assertEquals('success', $polled->status);
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request) => $request->url() === 'https://vip-reseller.co.id/api/prepaid');
+    }
 }
