@@ -141,7 +141,7 @@
                 @endif
                 <span class="muted text-xs">{{ $pageIndex + 1 }} / {{ $typePages->count() }}</span>
                 @if($pageIndex < $typePages->count() - 1)
-                <button type="button" @click="pageByType[@js($type)]++" class="btn-primary px-6 py-2.5 text-sm">
+                <button type="button" @click="pageByType[@js($type)]++" class="catalog-more-button">
                     Lihat Selengkapnya
                 </button>
                 @endif

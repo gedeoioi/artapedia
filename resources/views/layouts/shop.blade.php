@@ -79,6 +79,30 @@
         .catalog-tabs a:hover, .catalog-tabs button:hover { border-color: rgba(249, 115, 22, .6); transform: translateY(-1px); }
         .catalog-tabs a:focus-visible, .catalog-tabs button:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 2px; }
         .catalog-tabs a.is-active, .catalog-tabs button.is-active { background: var(--primary); border-color: var(--primary); }
+        .catalog-more-button {
+            min-width: 164px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 22px;
+            border: 2px solid var(--primary);
+            border-radius: 999px;
+            background: linear-gradient(180deg, #242429 0%, #18181c 100%);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 800;
+            box-shadow: inset 0 0 0 2px #101013, 0 7px 18px rgba(0, 0, 0, .24);
+            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+        }
+        .catalog-more-button:hover {
+            transform: translateY(-2px);
+            border-color: #fb923c;
+            background: linear-gradient(180deg, #2c2c31 0%, #1d1d21 100%);
+            box-shadow: inset 0 0 0 2px #101013, 0 10px 24px rgba(249, 115, 22, .18);
+        }
+        .catalog-more-button:active { transform: translateY(0); }
+        .catalog-more-button:focus-visible { outline: 3px solid rgba(249, 115, 22, .3); outline-offset: 3px; }
         .favorite-card, .category-card {
             position: relative;
             display: block;
@@ -141,6 +165,11 @@
         html[data-theme="light"] .catalog-tabs button { background: #e7e5e4; color: #292524; }
         html[data-theme="light"] .catalog-tabs a.is-active,
         html[data-theme="light"] .catalog-tabs button.is-active { background: var(--primary); color: #fff; }
+        html[data-theme="light"] .catalog-more-button {
+            background: linear-gradient(180deg, #fff 0%, #f5f5f4 100%);
+            color: #292524;
+            box-shadow: inset 0 0 0 2px #fff, 0 7px 18px rgba(28, 25, 23, .12);
+        }
         html[data-theme="light"] .favorite-card {
             background-image:
                 linear-gradient(90deg, rgba(249, 115, 22, .04), transparent 48%),
@@ -148,7 +177,7 @@
         }
         html[data-theme="light"] .category-cover { background: #f5f5f4; }
         @media (prefers-reduced-motion: reduce) {
-            .favorite-card, .category-card, .category-cover img, .catalog-tabs a, .catalog-tabs button { transition: none; }
+            .favorite-card, .category-card, .category-cover img, .catalog-tabs a, .catalog-tabs button, .catalog-more-button { transition: none; }
         }
     </style>
     @yield('head')
