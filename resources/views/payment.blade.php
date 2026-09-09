@@ -10,7 +10,7 @@
         <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
     </div>
     @if($trx->payment_method === 'balance')
-        <p class="text-sm">Dibayar dengan saldo member. Pesanan diteruskan ke supplier otomatis.</p>
+        <p class="text-sm">Dibayar dengan saldo member.</p>
     @else
         <p class="text-sm mb-2">Selesaikan pembayaran via <b>{{ $trx->payment_gateway_code }}</b> sebelum batas waktu.</p>
         @php
