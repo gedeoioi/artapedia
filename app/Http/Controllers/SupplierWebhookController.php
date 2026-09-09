@@ -113,7 +113,7 @@ class SupplierWebhookController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function vipReseller(Request $request)
+    public function vipReseller(Request $request, OrderService $orders)
     {
         $config = SupplierConfig::where('code', 'vip-reseller')->first();
 
@@ -144,6 +144,18 @@ class SupplierWebhookController extends Controller
         $trx = Transaction::where('supplier_trx_id', $trxid)->first();
 
         if (! $trx) {
+            // Batch quantity menyimpan ID kedua dan seterusnya di payload.
+            $trx = Transaction::where('supplier_config_id', $config->id)
+                ->where('quantity', '>', 1)
+                ->where('created_at', '>', now()->subDays(7))
+                ->latest('id')
+                ->limit(200)
+                ->get()
+                ->first(fn (Transaction $candidate) => collect($candidate->payment_payload['supplier_orders'] ?? [])
+                    ->contains(fn (array $order) => (string) ($order['trxid'] ?? '') === $trxid));
+        }
+
+        if (! $trx) {
             AuditLog::record('supplier.webhook.vip-reseller.unmatched', $config, [], [
                 'trxid' => $trxid,
                 'status' => $status,
@@ -156,6 +168,25 @@ class SupplierWebhookController extends Controller
                 'reason' => 'transaction_not_found',
                 'trxid' => $trxid,
                 'received_status' => strtolower($status),
+            ]);
+        }
+
+        if (count($trx->payment_payload['supplier_orders'] ?? []) > 1) {
+            $trx = $orders->applyVipBatchWebhook($trx->id, $trxid, $data);
+
+            AuditLog::record('supplier.webhook.vip-reseller', $config, [], [
+                'trxid' => $trxid,
+                'status' => $status,
+                'batch' => true,
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'matched' => true,
+                'trxid' => $trxid,
+                'received_status' => strtolower($status),
+                'transaction_status' => $trx->status,
+                'supplier_status' => $trx->supplier_status,
             ]);
         }
 

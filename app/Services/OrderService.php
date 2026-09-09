@@ -135,12 +135,31 @@ class OrderService
     {
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
+        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) >= $trx->quantity) {
+            return $trx;
+        }
+
         if (! in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
             return $trx;
         }
 
-        // Idempotency: kalau supplier_trx_id sudah ada, JANGAN order ulang.
-        // Cukup kembalikan — status final ditentukan oleh pollStatus().
+        // Pulihkan transaksi batch lama yang sempat hanya membentuk satu order
+        // supplier walaupun quantity > 1, tanpa mengulang order pertamanya.
+        if ($trx->quantity > 1 && $trx->supplier_trx_id && $trx->supplier?->code === 'vip-reseller') {
+            $payload = $trx->payment_payload ?? [];
+            $payload['supplier_orders'] ??= [[
+                'index' => 1,
+                'trxid' => $trx->supplier_trx_id,
+                'status' => strtolower((string) ($trx->supplier_status ?: 'waiting')),
+            ]];
+            $trx->payment_payload = $payload;
+            $trx->save();
+
+            return $this->dispatchVipBatch($trx, $trx->supplier, $manual);
+        }
+
+        // Idempotency order tunggal: kalau supplier_trx_id sudah ada, jangan
+        // order ulang. Status final ditentukan oleh webhook atau polling.
         if ($trx->supplier_trx_id) {
             return $trx;
         }
@@ -158,15 +177,20 @@ class OrderService
 
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
-        $candidates = SupplierConfig::activeOrdered();
         if ($trx->quantity > 1) {
-            // Hanya VIP Reseller yang menerima parameter quantity dalam satu order.
-            // Jangan fallback ke provider yang hanya akan mengirim satu item.
-            $candidates = $candidates
-                ->where('id', $trx->product->supplier_config_id)
+            $sourceSupplier = SupplierConfig::whereKey($trx->product->supplier_config_id)
                 ->where('code', 'vip-reseller')
-                ->values();
+                ->where('is_active', true)
+                ->first();
+
+            if (! $sourceSupplier) {
+                return $this->markAllSuppliersFailed($trx->id);
+            }
+
+            return $this->dispatchVipBatch($trx, $sourceSupplier, $manual);
         }
+
+        $candidates = SupplierConfig::activeOrdered();
         if ($preferredSupplierId) {
             $candidates = $candidates->sortBy(fn ($s) => $s->id === $preferredSupplierId ? 0 : 1)->values();
         }
@@ -190,7 +214,6 @@ class OrderService
                     // Simpan pilihan channel secara deterministik dari tipe produk agar
                     // order dan polling status selalu memakai endpoint yang sama.
                     $orderOptions['channel'] = $this->vipChannelForProduct($trx->product);
-                    $orderOptions['quantity'] = $trx->quantity;
                     // VIPayment game: zone dikirim TERPISAH via data_zone (dok game-feature).
                     // Jangan digabung "id|zone" — server menolaknya.
                     if ($trx->target_zone) {
@@ -238,6 +261,83 @@ class OrderService
         return $this->markAllSuppliersFailed($trx->id);
     }
 
+    protected function dispatchVipBatch(Transaction $trx, SupplierConfig $supplier, bool $manual = false): Transaction
+    {
+        $provider = ProviderFactory::supplierFor($supplier);
+        if (! $provider instanceof VipResellerProvider) {
+            return $this->markAllSuppliersFailed($trx->id);
+        }
+
+        $orders = $trx->payment_payload['supplier_orders'] ?? [];
+        for ($index = count($orders) + 1; $index <= $trx->quantity; $index++) {
+            $options = [
+                'trx_id' => $trx->id.'-'.$index,
+                'channel' => $this->vipChannelForProduct($trx->product),
+            ];
+            if ($trx->target_zone) {
+                $options['zone'] = $trx->target_zone;
+            }
+
+            try {
+                // Topup game VIPayment tidak mendukung quantity. Buat satu
+                // transaksi supplier untuk setiap item yang dibeli.
+                $result = $provider->order($trx->product->supplier_code, $trx->target_user_id, $options);
+            } catch (\Throwable $e) {
+                report($e);
+                $result = ['result' => false, 'message' => $e->getMessage()];
+            }
+
+            if (! ($result['result'] ?? false) || empty($result['data']['trxid'])) {
+                $orders[] = [
+                    'index' => $index,
+                    'trxid' => null,
+                    'status' => 'failed',
+                    'message' => (string) ($result['message'] ?? 'Order ditolak VIPayment'),
+                ];
+
+                continue;
+            }
+
+            $orders[] = [
+                'index' => $index,
+                'trxid' => (string) $result['data']['trxid'],
+                'status' => strtolower((string) ($result['data']['status'] ?? 'waiting')),
+                'sn' => (string) ($result['data']['sn'] ?? ''),
+                'price' => (int) ($result['data']['price'] ?? 0),
+            ];
+        }
+
+        $accepted = collect($orders)->filter(fn (array $order) => ! empty($order['trxid']));
+        if ($accepted->isEmpty()) {
+            $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['supplier_orders' => $orders]);
+            $trx->save();
+
+            return $this->markAllSuppliersFailed($trx->id);
+        }
+
+        $trx->supplier_config_id = $supplier->id;
+        $trx->supplier_trx_id = (string) $accepted->first()['trxid'];
+        $trx->supplier_status = $accepted->count() === $trx->quantity ? 'waiting' : 'partial_failed';
+        $trx->processed_at = now();
+        $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['supplier_orders' => $orders]);
+        $trx->status = $accepted->count() === $trx->quantity
+            ? Transaction::STATUS_PROCESSING
+            : Transaction::STATUS_FAILED;
+        if ($manual) {
+            $trx->notes = trim(($trx->notes ?? '').' [batch manual by admin]');
+        }
+        if ($accepted->count() !== $trx->quantity) {
+            $trx->notes = trim(($trx->notes ?? '').' [Sebagian order supplier gagal dibuat]');
+        }
+        $trx->save();
+
+        if ($trx->status === Transaction::STATUS_FAILED) {
+            $this->refundFailedBatchItems($trx, $trx->quantity - $accepted->count());
+        }
+
+        return $trx->fresh();
+    }
+
     public function markAllSuppliersFailed(int $transactionId): Transaction
     {
         return DB::transaction(function () use ($transactionId) {
@@ -276,8 +376,20 @@ class OrderService
     {
         $trx = Transaction::with(['supplier', 'product'])->findOrFail($transactionId);
 
+        if ($trx->status === Transaction::STATUS_PROCESSING
+            && $trx->quantity > 1
+            && count($trx->payment_payload['supplier_orders'] ?? []) < $trx->quantity) {
+            // Perbaiki otomatis batch lama pada siklus cron berikutnya sebelum
+            // status order pertama sempat memfinalkan seluruh transaksi.
+            return $this->dispatchToSupplier($trx->id);
+        }
+
         if (! $trx->supplier_trx_id || ! $trx->supplier) {
             return $trx;
+        }
+
+        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) > 1) {
+            return $this->pollVipBatchStatus($trx);
         }
 
         $provider = ProviderFactory::supplierFor($trx->supplier);
@@ -333,6 +445,118 @@ class OrderService
 
             return $locked->fresh();
         });
+    }
+
+    protected function pollVipBatchStatus(Transaction $trx): Transaction
+    {
+        $provider = ProviderFactory::supplierFor($trx->supplier);
+        if (! $provider instanceof VipResellerProvider) {
+            return $trx;
+        }
+
+        $orders = $trx->payment_payload['supplier_orders'] ?? [];
+        foreach ($orders as &$order) {
+            if (empty($order['trxid']) || in_array(VipResellerProvider::mapStatus((string) ($order['status'] ?? '')), ['success', 'failed'], true)) {
+                continue;
+            }
+
+            try {
+                $result = $provider->checkStatus((string) $order['trxid'], [
+                    'channel' => $this->vipChannelForProduct($trx->product),
+                ]);
+                $order['status'] = strtolower((string) ($result['data']['status'] ?? $result['status'] ?? $order['status'] ?? 'waiting'));
+                $order['sn'] = (string) ($result['data']['sn'] ?? $order['sn'] ?? '');
+                $order['poll'] = $result['raw'] ?? $result;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+        unset($order);
+
+        return $this->saveVipBatchStatuses($trx->id, $orders);
+    }
+
+    public function applyVipBatchWebhook(int $transactionId, string $supplierTrxId, array $data): Transaction
+    {
+        $trx = Transaction::findOrFail($transactionId);
+        $orders = $trx->payment_payload['supplier_orders'] ?? [];
+
+        foreach ($orders as &$order) {
+            if ((string) ($order['trxid'] ?? '') !== $supplierTrxId) {
+                continue;
+            }
+            $order['status'] = strtolower((string) ($data['status'] ?? $order['status'] ?? 'waiting'));
+            $order['sn'] = (string) ($data['note'] ?? $order['sn'] ?? '');
+            $order['webhook'] = ['data' => $data, 'at' => now()->toDateTimeString()];
+            break;
+        }
+        unset($order);
+
+        return $this->saveVipBatchStatuses($trx->id, $orders);
+    }
+
+    protected function saveVipBatchStatuses(int $transactionId, array $orders): Transaction
+    {
+        return DB::transaction(function () use ($transactionId, $orders) {
+            $locked = Transaction::whereKey($transactionId)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isFinal()) {
+                return $locked;
+            }
+
+            $payload = $locked->payment_payload ?? [];
+            $payload['supplier_orders'] = $orders;
+            $locked->payment_payload = $payload;
+
+            $mapped = collect($orders)->map(fn (array $order) => empty($order['trxid'])
+                ? 'failed'
+                : VipResellerProvider::mapStatus((string) ($order['status'] ?? 'waiting')));
+            $successCount = $mapped->filter(fn (string $status) => $status === 'success')->count();
+            $failedCount = $mapped->filter(fn (string $status) => $status === 'failed')->count();
+            $pendingCount = $mapped->count() - $successCount - $failedCount;
+
+            if ($successCount === $locked->quantity) {
+                $locked->status = Transaction::STATUS_SUCCESS;
+                $locked->supplier_status = 'success';
+            } elseif ($pendingCount === 0 && $failedCount > 0) {
+                $locked->status = Transaction::STATUS_FAILED;
+                $locked->supplier_status = $successCount > 0 ? 'partial_failed' : 'failed';
+                $locked->notes = trim(($locked->notes ?? '')." [Batch: {$successCount} sukses, {$failedCount} gagal]");
+            } else {
+                $locked->status = Transaction::STATUS_PROCESSING;
+                $locked->supplier_status = "batch_{$successCount}_of_{$locked->quantity}";
+            }
+            $locked->save();
+
+            if ($locked->status === Transaction::STATUS_FAILED) {
+                $this->refundFailedBatchItems($locked, $failedCount);
+            }
+
+            return $locked->fresh();
+        });
+    }
+
+    protected function refundFailedBatchItems(Transaction $trx, int $failedCount): void
+    {
+        if ($failedCount < 1 || $trx->payment_method !== 'balance' || ! $trx->user_id || ! $trx->paid_at) {
+            return;
+        }
+
+        $alreadyRefunded = BalanceMutation::where('transaction_id', $trx->id)
+            ->where('type', BalanceMutation::TYPE_REFUND)
+            ->exists();
+        if ($alreadyRefunded) {
+            return;
+        }
+
+        $unitAmount = intdiv($trx->total_amount, max(1, $trx->quantity));
+        $this->balances->credit(
+            $trx->user,
+            $unitAmount * $failedCount,
+            BalanceMutation::TYPE_REFUND,
+            'Refund '.$trx->invoice_code." {$failedCount} item supplier gagal",
+            $trx->id,
+        );
     }
 
     protected function vipChannelForProduct(Product $product): string

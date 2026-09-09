@@ -29,20 +29,15 @@ class CheckoutQuantityTest extends TestCase
             ->assertSee('max="10"', false);
     }
 
-    public function test_jumlah_mengubah_total_dan_dikirim_ke_vip_reseller(): void
+    public function test_jumlah_dua_membuat_dua_order_supplier_dan_menggabungkan_statusnya(): void
     {
         Queue::fake([DispatchOrderToSupplier::class]);
         Http::fake([
-            'vip-reseller.co.id/api/game-feature' => Http::response([
-                'result' => true,
-                'data' => [
-                    'trxid' => 'VIP-QTY-3',
-                    'status' => 'waiting',
-                    'price' => 30000,
-                    'balance' => 500000,
-                ],
-                'message' => 'Pesanan diterima.',
-            ]),
+            'vip-reseller.co.id/api/game-feature' => Http::sequence()
+                ->push($this->vipOrderResponse('VIP-QTY-1'))
+                ->push($this->vipOrderResponse('VIP-QTY-2'))
+                ->push($this->vipStatusResponse('VIP-QTY-1', 'success'))
+                ->push($this->vipStatusResponse('VIP-QTY-2', 'success')),
         ]);
         [, $product] = $this->vipProduct();
         $user = User::factory()->create(['balance' => 100000, 'level' => 'member']);
@@ -51,19 +46,97 @@ class CheckoutQuantityTest extends TestCase
             'product_id' => $product->id,
             'target_user_id' => '12345678',
             'target_zone' => '1234',
-            'quantity' => 3,
+            'quantity' => 2,
             'gateway_code' => 'balance',
         ], $user);
 
-        $this->assertSame(3, $transaction->quantity);
-        $this->assertSame(36000, $transaction->sell_price);
-        $this->assertSame(36000, $transaction->total_amount);
-        $this->assertSame(64000, $user->fresh()->balance);
+        $this->assertSame(2, $transaction->quantity);
+        $this->assertSame(24000, $transaction->sell_price);
+        $this->assertSame(24000, $transaction->total_amount);
+        $this->assertSame(76000, $user->fresh()->balance);
 
+        $processing = app(OrderService::class)->dispatchToSupplier($transaction->id);
+        $this->assertSame('VIP-QTY-1', $processing->supplier_trx_id);
+        $this->assertSame(
+            ['VIP-QTY-1', 'VIP-QTY-2'],
+            collect($processing->payment_payload['supplier_orders'])->pluck('trxid')->all(),
+        );
+
+        $finished = app(OrderService::class)->pollStatus($transaction->id);
+        $this->assertSame('success', $finished->status);
+
+        $orderRequests = collect(Http::recorded())
+            ->map(fn (array $record) => $record[0])
+            ->filter(fn (Request $request) => $request['type'] === 'order');
+        $this->assertCount(2, $orderRequests);
+        $this->assertTrue($orderRequests->every(fn (Request $request) => ! isset($request['quantity'])));
+    }
+
+    public function test_webhook_id_order_batch_kedua_memperbarui_invoice_yang_sama(): void
+    {
+        Queue::fake([DispatchOrderToSupplier::class]);
+        Http::fake([
+            'vip-reseller.co.id/api/game-feature' => Http::sequence()
+                ->push($this->vipOrderResponse('VIP-WEBHOOK-1'))
+                ->push($this->vipOrderResponse('VIP-WEBHOOK-2')),
+        ]);
+        [, $product] = $this->vipProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'member']);
+        $transaction = app(OrderService::class)->checkout([
+            'product_id' => $product->id,
+            'target_user_id' => '12345678',
+            'target_zone' => '1234',
+            'quantity' => 2,
+            'gateway_code' => 'balance',
+        ], $user);
         app(OrderService::class)->dispatchToSupplier($transaction->id);
+        $signature = md5('test-id'.'test-key');
 
-        Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/api/game-feature')
-            && (int) $request['quantity'] === 3);
+        $this->postJson(route('webhook.supplier.vip-reseller'), [
+            'data' => ['trxid' => 'VIP-WEBHOOK-1', 'status' => 'success', 'note' => 'Success 1'],
+        ], ['X-Client-Signature' => $signature])
+            ->assertOk()
+            ->assertJson(['matched' => true, 'transaction_status' => 'processing']);
+
+        $this->postJson(route('webhook.supplier.vip-reseller'), [
+            'data' => ['trxid' => 'VIP-WEBHOOK-2', 'status' => 'success', 'note' => 'Success 2'],
+        ], ['X-Client-Signature' => $signature])
+            ->assertOk()
+            ->assertJson(['matched' => true, 'transaction_status' => 'success']);
+
+        $this->assertSame('success', $transaction->fresh()->status);
+    }
+
+    public function test_batch_lama_dengan_satu_supplier_id_dilanjutkan_tanpa_mengulang_order_pertama(): void
+    {
+        Queue::fake([DispatchOrderToSupplier::class]);
+        Http::fake([
+            'vip-reseller.co.id/api/game-feature' => Http::response($this->vipOrderResponse('VIP-LEGACY-2')),
+        ]);
+        [$supplier, $product] = $this->vipProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'member']);
+        $transaction = app(OrderService::class)->checkout([
+            'product_id' => $product->id,
+            'target_user_id' => '12345678',
+            'target_zone' => '1234',
+            'quantity' => 2,
+            'gateway_code' => 'balance',
+        ], $user);
+        $transaction->update([
+            'supplier_config_id' => $supplier->id,
+            'supplier_trx_id' => 'VIP-LEGACY-1',
+            'supplier_status' => 'waiting',
+            'status' => 'processing',
+            'payment_payload' => null,
+        ]);
+
+        $recovered = app(OrderService::class)->pollStatus($transaction->id);
+
+        $this->assertSame(
+            ['VIP-LEGACY-1', 'VIP-LEGACY-2'],
+            collect($recovered->payment_payload['supplier_orders'])->pluck('trxid')->all(),
+        );
+        Http::assertSentCount(1);
     }
 
     private function vipProduct(): array
@@ -94,5 +167,33 @@ class CheckoutQuantityTest extends TestCase
         ]);
 
         return [$supplier, $product];
+    }
+
+    private function vipOrderResponse(string $trxid): array
+    {
+        return [
+            'result' => true,
+            'data' => [
+                'trxid' => $trxid,
+                'status' => 'waiting',
+                'price' => 10000,
+                'balance' => 500000,
+            ],
+            'message' => 'Pesanan diterima.',
+        ];
+    }
+
+    private function vipStatusResponse(string $trxid, string $status): array
+    {
+        return [
+            'result' => true,
+            'data' => [[
+                'trxid' => $trxid,
+                'status' => $status,
+                'note' => $status === 'success' ? 'Success' : '',
+                'price' => 10000,
+            ]],
+            'message' => 'Detail transaksi berhasil didapatkan.',
+        ];
     }
 }
