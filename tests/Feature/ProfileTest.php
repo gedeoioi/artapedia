@@ -21,6 +21,17 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_dashboard_member_memiliki_menu_edit_profile(): void
+    {
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $this->actingAs($user)
+            ->get(route('member.dashboard'))
+            ->assertOk()
+            ->assertSee('Edit Profil')
+            ->assertSee(route('profile.edit'), false);
+    }
+
     public function test_profile_information_can_be_updated(): void
     {
         $user = User::factory()->create();

@@ -3,7 +3,7 @@
 @section('title', 'Dashboard Member')
 
 @section('content')
-<div class="grid md:grid-cols-3 gap-3 mb-4">
+<div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
     <div class="card p-4">
         <div class="text-xs text-gray-500">Saldo</div>
         <div class="text-xl font-bold">Rp {{ number_format($user->balance, 0, ',', '.') }}</div>
@@ -17,6 +17,22 @@
     <div class="card p-4">
         <div class="text-xs text-gray-500">Status</div>
         <div class="text-xl font-bold capitalize">{{ $user->status }}</div>
+    </div>
+    <div class="card p-4 flex flex-col">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="inline-flex w-8 h-8 items-center justify-center rounded-lg text-orange-400" style="background:rgba(249,115,22,.1)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            </span>
+            <div>
+                <div class="text-xs text-gray-500">Profil akun</div>
+                <div class="font-bold truncate max-w-40">{{ $user->name }}</div>
+            </div>
+        </div>
+        <div class="text-xs text-gray-500 truncate mt-1">{{ $user->phone ?: 'Nomor HP belum diisi' }}</div>
+        <a href="{{ route('profile.edit') }}" class="btn-primary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm mt-3 w-fit">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            Edit Profil
+        </a>
     </div>
 </div>
 
