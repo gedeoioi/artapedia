@@ -46,8 +46,20 @@
         html[data-theme="light"] .muted { color: #6b7280; }
         .topbar { background: #17171c; border-bottom: 1px solid #26262b; }
         html[data-theme="light"] .topbar { background: #fff; border-color: #e5e5e5; }
-        .navlink { font-size: 14px; color: #d4d4d8; }
-        .navlink:hover { color: #f97316; }
+        .navlink {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 2px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #d4d4d8;
+            white-space: nowrap;
+            transition: color .2s ease, transform .2s ease;
+        }
+        .navlink svg { width: 17px; height: 17px; color: #f97316; }
+        .navlink:hover { color: #f97316; transform: translateY(-1px); }
+        .navlink:focus-visible { outline: 3px solid rgba(249, 115, 22, .3); outline-offset: 3px; border-radius: 6px; }
         html[data-theme="light"] .navlink { color: #374151; }
         .foot { background: #0a0a0c; border-top: 1px solid #26262b; }
         html[data-theme="light"] .foot { background: #f5f5f4; border-color: #e5e5e5; }
@@ -190,19 +202,40 @@
             @if($logo)<img src="{{ $logo }}" alt="{{ $siteName }}" class="h-8 w-auto rounded">@endif
             <span>{{ $siteName }}</span>
         </a>
-        <form action="{{ route('home') }}" class="hidden md:flex flex-1 max-w-md gap-2">
+        <form action="{{ route('home') }}" class="hidden md:flex flex-1 max-w-sm gap-2">
             @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
             <input name="q" value="{{ request('q') }}" placeholder="Cari game / voucher..." class="card flex-1 px-4 py-2 text-sm">
         </form>
-        <nav class="hidden lg:flex items-center gap-5 ml-2">
-            <a href="{{ route('home') }}" class="navlink">Topup</a>
-            <a href="{{ route('invoice.index') }}" class="navlink">Cek Transaksi</a>
+        <nav class="hidden lg:flex items-center gap-7 ml-3">
+            <a href="{{ route('home') }}" class="navlink" aria-label="Topup">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M13 2 4.8 13h6.6L11 22l8.2-11h-6.6L13 2Z"/>
+                </svg>
+                <span>Topup</span>
+            </a>
+            <a href="{{ route('invoice.index') }}" class="navlink" aria-label="Riwayat transaksi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 3-6.7"/>
+                    <path d="M3 4v5h5M12 7v5l3 2"/>
+                </svg>
+                <span>Riwayat</span>
+            </a>
             @auth
-                <a href="{{ route('member.dashboard') }}" class="navlink">Member</a>
+                <a href="{{ route('member.dashboard') }}" class="navlink">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>
+                    </svg>
+                    <span>Member</span>
+                </a>
             @endauth
         </nav>
         <div class="ml-auto flex items-center gap-2">
-            <a href="{{ route('invoice.index') }}" class="lg:hidden text-sm underline">Cek</a>
+            <a href="{{ route('invoice.index') }}" class="navlink lg:hidden" aria-label="Riwayat transaksi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5M12 7v5l3 2"/>
+                </svg>
+                <span class="hidden sm:inline">Riwayat</span>
+            </a>
             @auth
                 <a href="{{ route('member.dashboard') }}" class="btn-primary px-4 py-2 text-sm">Dasbor</a>
             @else
