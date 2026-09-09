@@ -237,7 +237,7 @@
                 <span class="hidden sm:inline">Riwayat</span>
             </a>
             @auth
-                <a href="{{ route('member.dashboard') }}" class="btn-primary px-4 py-2 text-sm">Dasbor</a>
+                <a href="{{ route('member.dashboard') }}" class="btn-primary px-4 py-2 text-sm">Member Area</a>
             @else
                 <a href="{{ route('login') }}" class="btn-primary px-5 py-2 text-sm">Masuk</a>
             @endauth

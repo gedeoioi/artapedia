@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,5 +18,16 @@ class HeaderNavigationTest extends TestCase
             ->assertSee('aria-label="Riwayat transaksi"', false)
             ->assertSee('<span>Riwayat</span>', false)
             ->assertSee('class="navlink"', false);
+    }
+
+    public function test_tombol_dashboard_member_berlabel_member_area(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('Member Area')
+            ->assertDontSee('>Dasbor</a>', false);
     }
 }
