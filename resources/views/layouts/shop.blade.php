@@ -262,21 +262,21 @@
             <p class="muted text-xs">{{ \App\Models\SiteSetting::get('footer_text', 'Topup game & PPOB.') }}</p>
             <p class="muted text-xs mt-2">{{ \App\Models\SiteSetting::get('contact_email') }} {{ \App\Models\SiteSetting::get('contact_whatsapp') }}</p>
         </div>
-        <div>
+        <div data-footer-section="layanan">
             <div class="font-bold mb-2">Layanan</div>
             <div class="flex flex-col gap-1 muted">
                 <a href="{{ route('home') }}" class="hover:text-orange-500">Topup Game</a>
                 <a href="{{ route('invoice.index') }}" class="hover:text-orange-500">Cek Transaksi</a>
                 <a href="{{ route('member.dashboard') }}" class="hover:text-orange-500">Member</a>
-                <a href="{{ route('legal.terms') }}" class="hover:text-orange-500">Terms &amp; Conditions</a>
-                <a href="{{ route('legal.privacy') }}" class="hover:text-orange-500">Privacy Policy</a>
             </div>
         </div>
-        <div>
+        <div data-footer-section="bantuan">
             <div class="font-bold mb-2">Bantuan</div>
             <div class="flex flex-col gap-1 muted">
                 <a href="{{ route('invoice.index') }}" class="hover:text-orange-500">Lacak Invoice</a>
                 <a href="{{ route('login') }}" class="hover:text-orange-500">Masuk / Daftar</a>
+                <a href="{{ route('legal.terms') }}" class="hover:text-orange-500">Terms &amp; Conditions</a>
+                <a href="{{ route('legal.privacy') }}" class="hover:text-orange-500">Privacy Policy</a>
             </div>
         </div>
         <div>
