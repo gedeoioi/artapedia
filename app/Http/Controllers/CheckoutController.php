@@ -15,9 +15,11 @@ class CheckoutController extends Controller
     {
         abort_unless($product->is_active && $product->in_stock, 404);
 
+        $product->loadMissing('supplier');
         $gateways = PaymentGatewayConfig::activeOrdered();
+        $maxQuantity = $product->supplier?->code === 'vip-reseller' ? 10 : 1;
 
-        return view('checkout', compact('product', 'gateways'));
+        return view('checkout', compact('product', 'gateways', 'maxQuantity'));
     }
 
     public function quote(Request $request, PaymentService $payments)
@@ -65,8 +67,7 @@ class CheckoutController extends Controller
             'target_user_id' => 'required|string|max:64',
             'target_zone' => 'nullable|string|max:32',
             'nickname' => 'nullable|string|max:128',
-            // Semua provider saat ini membuat satu order per transaksi.
-            'quantity' => 'nullable|integer|min:1|max:1',
+            'quantity' => 'nullable|integer|min:1|max:10',
             'gateway_code' => 'required|string',
             'buyer_phone' => 'nullable|string|max:32',
             'buyer_email' => 'nullable|email|max:128',

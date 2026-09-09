@@ -47,12 +47,17 @@ class OrderService
             $level = $user?->level ?? 'guest';
             $quote = $this->payments->quote($product, $user, $data['gateway_code'] ?? 'balance');
             $method = $data['gateway_code'] ?? 'balance';
+            $quantity = (int) ($data['quantity'] ?? 1);
 
             if ($user && $user->status === 'suspended') {
                 throw new \RuntimeException('Akun disuspend.');
             }
 
             $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
+
+            if ($quantity > 1 && $supplier?->code !== 'vip-reseller') {
+                throw new \RuntimeException('Produk dari supplier ini hanya dapat dipesan satu kali per transaksi.');
+            }
 
             $trx = Transaction::create([
                 'invoice_code' => $this->payments->invoiceCode(),
@@ -63,12 +68,12 @@ class OrderService
                 'target_user_id' => $data['target_user_id'],
                 'target_zone' => $data['target_zone'] ?? null,
                 'nickname' => $data['nickname'] ?? null,
-                'quantity' => $data['quantity'] ?? 1,
-                'cost_price' => $product->costForLevel($level) * ($data['quantity'] ?? 1),
-                'sell_price' => $quote['sell_price'] * ($data['quantity'] ?? 1),
+                'quantity' => $quantity,
+                'cost_price' => $product->costForLevel($level) * $quantity,
+                'sell_price' => $quote['sell_price'] * $quantity,
                 'admin_fee' => $quote['admin_fee'],
                 'gateway_fee' => $quote['gateway_fee'],
-                'total_amount' => $quote['total'] * ($data['quantity'] ?? 1),
+                'total_amount' => $quote['total'] * $quantity,
                 'payment_method' => $method,
                 'status' => Transaction::STATUS_PENDING,
                 'buyer_phone' => $data['buyer_phone'] ?? $user?->phone,
@@ -154,6 +159,14 @@ class OrderService
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
         $candidates = SupplierConfig::activeOrdered();
+        if ($trx->quantity > 1) {
+            // Hanya VIP Reseller yang menerima parameter quantity dalam satu order.
+            // Jangan fallback ke provider yang hanya akan mengirim satu item.
+            $candidates = $candidates
+                ->where('id', $trx->product->supplier_config_id)
+                ->where('code', 'vip-reseller')
+                ->values();
+        }
         if ($preferredSupplierId) {
             $candidates = $candidates->sortBy(fn ($s) => $s->id === $preferredSupplierId ? 0 : 1)->values();
         }
@@ -177,6 +190,7 @@ class OrderService
                     // Simpan pilihan channel secara deterministik dari tipe produk agar
                     // order dan polling status selalu memakai endpoint yang sama.
                     $orderOptions['channel'] = $this->vipChannelForProduct($trx->product);
+                    $orderOptions['quantity'] = $trx->quantity;
                     // VIPayment game: zone dikirim TERPISAH via data_zone (dok game-feature).
                     // Jangan digabung "id|zone" — server menolaknya.
                     if ($trx->target_zone) {
