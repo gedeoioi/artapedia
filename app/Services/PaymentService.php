@@ -48,12 +48,13 @@ class PaymentService
         return $prefix.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(6));
     }
 
-    public function topupBalance(User $user, int $amount, string $gatewayCode): Transaction
+    public function topupBalance(User $user, int $amount, string $gatewayCode, ?string $customerPhone = null): Transaction
     {
-        return DB::transaction(function () use ($user, $amount, $gatewayCode) {
+        return DB::transaction(function () use ($user, $amount, $gatewayCode, $customerPhone) {
             $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $gw = PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->firstOrFail();
             $fee = $gw->feeFor($amount);
+            $phone = trim((string) ($customerPhone ?: $locked->phone));
 
             $trx = Transaction::create([
                 'invoice_code' => $this->invoiceCode(),
@@ -70,7 +71,7 @@ class PaymentService
                 'profit' => -$fee,
                 'payment_method' => $gw->code,
                 'status' => Transaction::STATUS_PENDING,
-                'buyer_phone' => $locked->phone,
+                'buyer_phone' => $phone,
                 'buyer_email' => $locked->email,
                 'meta' => ['kind' => 'topup'],
             ]);
@@ -83,16 +84,23 @@ class PaymentService
                 'amount' => $trx->total_amount,
                 'description' => 'Topup saldo '.$amount,
                 'customer_email' => $locked->email,
-                'customer_phone' => $locked->phone,
+                'customer_phone' => $phone,
                 'customer_name' => $locked->name,
+                'success_url' => route('payment.show', $trx->invoice_code),
+                'failure_url' => route('topup.create'),
             ]);
 
             if (! ($result['ok'] ?? false) || empty($result['reference_id'])) {
-                throw new \RuntimeException('Gateway gagal membuat pembayaran. Silakan coba metode lain.');
+                $message = trim((string) ($result['message'] ?? ''));
+                throw new \RuntimeException($message !== '' ? $gw->name.': '.$message : 'Gateway gagal membuat pembayaran. Silakan coba metode lain.');
             }
 
+            $payload = array_merge($result['raw'] ?? [], [
+                '_checkout_url' => $result['pay_url'] ?? null,
+                '_gateway_reference' => $result['gateway_ref'] ?? null,
+            ]);
             $trx->payment_reference = $result['reference_id'];
-            $trx->payment_payload = $result['raw'] ?? null;
+            $trx->payment_payload = $payload;
             $trx->save();
 
             Invoice::create([
@@ -103,7 +111,7 @@ class PaymentService
                 'amount' => $trx->total_amount,
                 'status' => 'pending',
                 'expired_at' => now()->addHour(),
-                'payload' => $result['raw'] ?? null,
+                'payload' => $payload,
             ]);
 
             return $trx;

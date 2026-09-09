@@ -34,7 +34,7 @@ class PaymentGatewayConfigForm
                     ->columnSpanFull()
                     ->keyLabel('Key')
                     ->valueLabel('Value')
-                    ->helperText('Tersimpan terenkripsi. Xendit: secret_key + callback_token. Duitku: merchant_code + api_key. iPaymu: va + secret (opsional callback_secret jika berbeda dari VA).'),
+                    ->helperText('Tersimpan terenkripsi. Xendit: secret_key + callback_token. Duitku: merchant_code + api_key. iPaymu: va + secret (isi secret dengan API Key; kredensial Sandbox dan Production berbeda; callback_secret opsional jika berbeda dari VA).'),
                 TextInput::make('fee_flat')
                     ->label('Biaya flat')
                     ->required()

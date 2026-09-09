@@ -19,8 +19,8 @@ class IPaymuGateway extends BasePaymentGateway
 
     protected function sign(string $method, string $bodyHash): string
     {
-        $va = $this->credentials['va'] ?? '';
-        $secret = $this->credentials['secret'] ?? '';
+        $va = trim((string) ($this->credentials['va'] ?? ''));
+        $secret = trim((string) ($this->credentials['secret'] ?? ''));
 
         $stringToSign = strtoupper($method).':'.$va.':'.strtolower($bodyHash).':'.$secret;
 
@@ -29,35 +29,62 @@ class IPaymuGateway extends BasePaymentGateway
 
     public function createPayment(array $params): array
     {
-        $va = $this->credentials['va'] ?? '';
+        $va = trim((string) ($this->credentials['va'] ?? ''));
+        $secret = trim((string) ($this->credentials['secret'] ?? ''));
+        $description = (string) ($params['description'] ?? $params['reference_id']);
+
+        if ($va === '' || $secret === '') {
+            return [
+                'ok' => false,
+                'reference_id' => $params['reference_id'],
+                'gateway_ref' => null,
+                'pay_url' => null,
+                'message' => 'VA atau API Key iPaymu belum dikonfigurasi.',
+                'raw' => [],
+            ];
+        }
+
         $body = [
-            'name' => $params['customer_name'] ?? 'ArtaPedia Buyer',
-            'phone' => $params['customer_phone'] ?? '',
-            'email' => $params['customer_email'] ?? '',
-            'amount' => (int) $params['amount'],
-            'referenceId' => $params['reference_id'],
-            'description' => $params['description'] ?? $params['reference_id'],
-            'expired' => 60,
+            'account' => $va,
+            'product' => [$description],
+            'qty' => [1],
+            'price' => [(int) $params['amount']],
+            'description' => [$description],
+            'notifyUrl' => $this->callbackBase('ipaymu'),
             'returnUrl' => $params['success_url'] ?? config('app.url'),
             'cancelUrl' => $params['failure_url'] ?? config('app.url'),
-            'notifyUrl' => $this->callbackBase('ipaymu'),
+            'name' => (string) ($params['customer_name'] ?? 'ArtaPedia Buyer'),
+            'phone' => (string) ($params['customer_phone'] ?? ''),
+            'email' => (string) ($params['customer_email'] ?? ''),
+            'buyerName' => (string) ($params['customer_name'] ?? 'ArtaPedia Buyer'),
+            'buyerPhone' => (string) ($params['customer_phone'] ?? ''),
+            'buyerEmail' => (string) ($params['customer_email'] ?? ''),
+            'referenceId' => $params['reference_id'],
+            'expired' => 1,
+            'expiredType' => 'hours',
         ];
 
-        $bodyJson = json_encode($body);
-        $res = Http::withHeaders([
-            'Content-Type' => 'application/json',
+        $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $res = Http::acceptJson()->withHeaders([
             'va' => $va,
             'signature' => $this->sign('POST', hash('sha256', $bodyJson)),
             'timestamp' => now()->format('YmdHis'),
-        ])->post($this->baseUrl().'/payment', $body);
+        ])->withBody($bodyJson, 'application/json')
+            ->timeout(30)
+            ->post($this->baseUrl().'/payment');
 
         $json = $res->json() ?? [];
+        $ok = $res->successful()
+            && (int) ($json['Status'] ?? 0) === 200
+            && ! empty($json['Data']['SessionId'])
+            && ! empty($json['Data']['Url']);
 
         return [
-            'ok' => $res->successful() && (($json['Status'] ?? 0) == 200),
+            'ok' => $ok,
             'reference_id' => $params['reference_id'],
             'gateway_ref' => $json['Data']['SessionId'] ?? null,
             'pay_url' => $json['Data']['Url'] ?? null,
+            'message' => (string) ($json['Message'] ?? $json['message'] ?? 'iPaymu menolak pembuatan pembayaran.'),
             'raw' => $json,
         ];
     }
@@ -110,16 +137,17 @@ class IPaymuGateway extends BasePaymentGateway
 
     public function checkStatus(string $referenceId): array
     {
-        $va = $this->credentials['va'] ?? '';
+        $va = trim((string) ($this->credentials['va'] ?? ''));
         $body = ['referenceId' => $referenceId];
-        $bodyJson = json_encode($body);
+        $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-        $res = Http::withHeaders([
-            'Content-Type' => 'application/json',
+        $res = Http::acceptJson()->withHeaders([
             'va' => $va,
             'signature' => $this->sign('POST', hash('sha256', $bodyJson)),
             'timestamp' => now()->format('YmdHis'),
-        ])->post($this->baseUrl().'/payment/check', $body);
+        ])->withBody($bodyJson, 'application/json')
+            ->timeout(30)
+            ->post($this->baseUrl().'/payment/check');
 
         $json = $res->json() ?? [];
         $status = strtolower($json['Data']['Status'] ?? $json['Status'] ?? '');
