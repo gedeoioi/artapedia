@@ -19,14 +19,9 @@ class PaymentService
     public function quote(Product $product, ?User $user, ?string $gatewayCode): array
     {
         $sell = $user ? $user->priceFor($product) : (int) $product->price_guest;
+        // Biaya payment gateway ditanggung toko untuk pembelian produk.
+        // Topup saldo tetap memakai fee yang diatur pada gateway.
         $gatewayFee = 0;
-
-        if ($gatewayCode && $gatewayCode !== 'balance') {
-            $gw = PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->first();
-            if ($gw) {
-                $gatewayFee = $gw->feeFor($sell);
-            }
-        }
 
         $adminFee = 0;
 

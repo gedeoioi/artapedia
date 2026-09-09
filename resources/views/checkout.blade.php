@@ -55,7 +55,7 @@
             </div>
             <div class="grid grid-cols-2 gap-2 mt-1 mb-3" id="gateways">
                 @auth
-                <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="balance">
+                <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="balance" data-pay-name="Saldo Member">
                     <input type="radio" name="gateway_code" value="balance" class="hidden" checked>
                     <span class="pay-logo">W</span>
                     <span class="min-w-0">
@@ -65,7 +65,7 @@
                 </label>
                 @endauth
                 @foreach($gateways as $gw)
-                    <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="{{ $gw->code }}">
+                    <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="{{ $gw->code }}" data-pay-name="{{ $gw->name }}">
                         <input type="radio" name="gateway_code" value="{{ $gw->code }}" class="hidden" @guest @if($loop->first) checked @endif @endguest>
                         <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
                         <span class="min-w-0">
@@ -84,12 +84,49 @@
             <button class="card w-full py-2 font-bold" id="btn-bayar">Bayar</button>
         </form>
     </div>
-    <div class="card p-5 h-fit">
-        <h2 class="font-bold mb-2">Ringkasan</h2>
-        <div class="text-sm flex justify-between"><span>Harga</span><span id="sum-sell">Rp {{ number_format($product->price_guest, 0, ',', '.') }}</span></div>
-        <div class="text-sm flex justify-between"><span>Fee gateway</span><span id="sum-fee">Rp 0</span></div>
-        <div class="font-bold flex justify-between mt-2"><span>Total</span><span id="sum-total">Rp {{ number_format($product->price_guest, 0, ',', '.') }}</span></div>
-    </div>
+    @php
+        $summaryIcon = $product->iconUrl();
+        $initialPrice = auth()->check() ? auth()->user()->priceFor($product) : $product->price_guest;
+        $initialPaymentName = auth()->check() ? 'Saldo Member' : ($gateways->first()?->name ?? '-');
+    @endphp
+    <aside class="order-summary h-fit" aria-label="Ringkasan pesanan">
+        <div class="flex items-center gap-3 mb-5">
+            @if($summaryIcon)
+                <img src="{{ $summaryIcon }}" class="order-summary-icon" alt="{{ $product->game }}">
+            @else
+                <div class="order-summary-icon flex items-center justify-center font-extrabold text-orange-400">{{ mb_strtoupper(mb_substr($product->game, 0, 1)) }}</div>
+            @endif
+            <div class="min-w-0">
+                <div class="font-bold truncate">{{ $product->game }}</div>
+                <div class="text-sm mt-1 truncate">{{ $product->name }}</div>
+            </div>
+        </div>
+
+        <div class="order-summary-rows">
+            <div><span>Metode Pembayaran</span><strong id="sum-method">{{ $initialPaymentName }}</strong></div>
+            <div><span>Harga</span><strong id="sum-sell">Rp {{ number_format($initialPrice, 0, ',', '.') }}</strong></div>
+            <div><span>Jumlah Pembelian</span><strong>1</strong></div>
+        </div>
+
+        <div class="order-summary-total">
+            <span>Total Pembayaran</span>
+            <strong id="sum-total">Rp {{ number_format($initialPrice, 0, ',', '.') }}</strong>
+        </div>
+    </aside>
+    <style>
+        .order-summary { border: 1px dashed #4b4b52; border-radius: 13px; padding: 1.25rem; background: linear-gradient(145deg, #202024, #1a1a1e); box-shadow: 0 18px 50px rgba(0,0,0,.2); }
+        .order-summary-icon { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 9px; object-fit: cover; background: #29292f; }
+        .order-summary-rows { display: grid; gap: .85rem; font-size: .875rem; }
+        .order-summary-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .order-summary-rows span { color: #d4d4d8; }
+        .order-summary-rows strong { max-width: 55%; text-align: right; }
+        .order-summary-total { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #4b4b52; font-size: 1.05rem; font-weight: 800; }
+        .order-summary-total strong { color: #fdba74; font-size: 1.15rem; text-align: right; }
+        html[data-theme="light"] .order-summary { border-color: #a8a29e; background: linear-gradient(145deg, #fff, #fafaf9); box-shadow: 0 15px 40px rgba(28,25,23,.07); }
+        html[data-theme="light"] .order-summary-rows span { color: #57534e; }
+        html[data-theme="light"] .order-summary-total { border-color: #d6d3d1; }
+        html[data-theme="light"] .order-summary-total strong { color: #c2570c; }
+    </style>
 </div>
 @endsection
 
@@ -103,11 +140,12 @@ const token = document.querySelector('meta[name=csrf-token]').content;
 async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
+    const activePayment = document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`);
+    document.getElementById('sum-method').textContent = activePayment?.dataset.payName || '-';
     const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, gateway_code: gw})});
     const j = await r.json();
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     document.getElementById('sum-sell').textContent = f(j.sell_price);
-    document.getElementById('sum-fee').textContent = f(j.gateway_fee);
     document.getElementById('sum-total').textContent = f(j.total);
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));

@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\GameIcon;
+use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
+use App\Payments\XenditGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -60,6 +62,43 @@ class ProductVisibilityTest extends TestCase
 
         $this->postJson('/checkout/quote', ['product_id' => $p->id, 'gateway_code' => 'balance'])
             ->assertNotFound();
+    }
+
+    public function test_ringkasan_checkout_tidak_menampilkan_atau_menagihkan_fee_gateway(): void
+    {
+        $product = $this->makeProduct([
+            'name' => '86 Diamonds',
+            'game' => 'Mobile Legends',
+            'price_guest' => 12000,
+        ]);
+        PaymentGatewayConfig::create([
+            'code' => 'xendit',
+            'name' => 'All Payment',
+            'gateway_class' => XenditGateway::class,
+            'is_active' => true,
+            'is_sandbox' => true,
+            'sort_order' => 0,
+            'credentials' => [],
+            'fee_flat' => 2500,
+            'fee_percent' => 10,
+        ]);
+
+        $this->get(route('checkout.show', $product))
+            ->assertOk()
+            ->assertSee('Ringkasan pesanan', false)
+            ->assertSee('Metode Pembayaran')
+            ->assertSee('Jumlah Pembelian')
+            ->assertSee('Total Pembayaran')
+            ->assertDontSee('Fee gateway');
+
+        $this->postJson(route('checkout.quote'), [
+            'product_id' => $product->id,
+            'gateway_code' => 'xendit',
+        ])->assertOk()->assertJson([
+            'sell_price' => 12000,
+            'gateway_fee' => 0,
+            'total' => 12000,
+        ]);
     }
 
     public function test_beranda_memisahkan_kategori_berdasarkan_tipe_produk(): void
