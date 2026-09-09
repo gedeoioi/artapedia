@@ -35,8 +35,8 @@ class CheckoutQuantityTest extends TestCase
         Http::fake([
             'vip-reseller.co.id/api/game-feature' => Http::sequence()
                 ->push($this->vipOrderResponse('VIP-QTY-1'))
-                ->push($this->vipOrderResponse('VIP-QTY-2'))
                 ->push($this->vipStatusResponse('VIP-QTY-1', 'success'))
+                ->push($this->vipOrderResponse('VIP-QTY-2'))
                 ->push($this->vipStatusResponse('VIP-QTY-2', 'success')),
         ]);
         [, $product] = $this->vipProduct();
@@ -58,8 +58,15 @@ class CheckoutQuantityTest extends TestCase
         $processing = app(OrderService::class)->dispatchToSupplier($transaction->id);
         $this->assertSame('VIP-QTY-1', $processing->supplier_trx_id);
         $this->assertSame(
-            ['VIP-QTY-1', 'VIP-QTY-2'],
+            ['VIP-QTY-1'],
             collect($processing->payment_payload['supplier_orders'])->pluck('trxid')->all(),
+        );
+
+        $secondQueued = app(OrderService::class)->pollStatus($transaction->id);
+        $this->assertSame('processing', $secondQueued->status);
+        $this->assertSame(
+            ['VIP-QTY-1', 'VIP-QTY-2'],
+            collect($secondQueued->payment_payload['supplier_orders'])->pluck('trxid')->all(),
         );
 
         $finished = app(OrderService::class)->pollStatus($transaction->id);
@@ -111,7 +118,9 @@ class CheckoutQuantityTest extends TestCase
     {
         Queue::fake([DispatchOrderToSupplier::class]);
         Http::fake([
-            'vip-reseller.co.id/api/game-feature' => Http::response($this->vipOrderResponse('VIP-LEGACY-2')),
+            'vip-reseller.co.id/api/game-feature' => Http::sequence()
+                ->push($this->vipStatusResponse('VIP-LEGACY-1', 'success'))
+                ->push($this->vipOrderResponse('VIP-LEGACY-2')),
         ]);
         [$supplier, $product] = $this->vipProduct();
         $user = User::factory()->create(['balance' => 100000, 'level' => 'member']);
@@ -136,7 +145,41 @@ class CheckoutQuantityTest extends TestCase
             ['VIP-LEGACY-1', 'VIP-LEGACY-2'],
             collect($recovered->payment_payload['supplier_orders'])->pluck('trxid')->all(),
         );
-        Http::assertSentCount(1);
+        $orderRequests = collect(Http::recorded())
+            ->map(fn (array $record) => $record[0])
+            ->filter(fn (Request $request) => $request['type'] === 'order');
+        $this->assertCount(1, $orderRequests);
+    }
+
+    public function test_order_batch_berikutnya_yang_ditolak_menyimpan_alasan_supplier(): void
+    {
+        Queue::fake([DispatchOrderToSupplier::class]);
+        Http::fake([
+            'vip-reseller.co.id/api/game-feature' => Http::sequence()
+                ->push($this->vipOrderResponse('VIP-PARTIAL-1'))
+                ->push($this->vipStatusResponse('VIP-PARTIAL-1', 'success'))
+                ->push([
+                    'result' => false,
+                    'message' => 'Transaksi serupa masih dalam proses.',
+                ], 200),
+        ]);
+        [, $product] = $this->vipProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'member']);
+        $transaction = app(OrderService::class)->checkout([
+            'product_id' => $product->id,
+            'target_user_id' => '12345678',
+            'target_zone' => '1234',
+            'quantity' => 2,
+            'gateway_code' => 'balance',
+        ], $user);
+
+        app(OrderService::class)->dispatchToSupplier($transaction->id);
+        $failed = app(OrderService::class)->pollStatus($transaction->id);
+
+        $this->assertSame('failed', $failed->status);
+        $this->assertSame('partial_failed', $failed->supplier_status);
+        $this->assertStringContainsString('Transaksi serupa masih dalam proses.', $failed->notes);
+        $this->assertSame(88000, $user->fresh()->balance);
     }
 
     private function vipProduct(): array

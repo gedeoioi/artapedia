@@ -135,12 +135,25 @@ class OrderService
     {
         $trx = Transaction::with(['product', 'supplier'])->findOrFail($transactionId);
 
-        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) >= $trx->quantity) {
+        if (! in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
             return $trx;
         }
 
-        if (! in_array($trx->status, [Transaction::STATUS_PAID, Transaction::STATUS_PROCESSING], true)) {
+        $batchOrders = $trx->payment_payload['supplier_orders'] ?? [];
+        if ($trx->quantity > 1 && count($batchOrders) >= $trx->quantity) {
             return $trx;
+        }
+
+        if ($trx->quantity > 1 && $batchOrders !== []) {
+            $allPreviousSucceeded = collect($batchOrders)->every(
+                fn (array $order) => VipResellerProvider::mapStatus((string) ($order['status'] ?? '')) === 'success'
+            );
+
+            if (! $allPreviousSucceeded) {
+                return $trx;
+            }
+
+            return $this->dispatchVipBatch($trx, $trx->supplier, $manual);
         }
 
         // Pulihkan transaksi batch lama yang sempat hanya membentuk satu order
@@ -155,7 +168,7 @@ class OrderService
             $trx->payment_payload = $payload;
             $trx->save();
 
-            return $this->dispatchVipBatch($trx, $trx->supplier, $manual);
+            return $trx->fresh();
         }
 
         // Idempotency order tunggal: kalau supplier_trx_id sudah ada, jangan
@@ -269,7 +282,8 @@ class OrderService
         }
 
         $orders = $trx->payment_payload['supplier_orders'] ?? [];
-        for ($index = count($orders) + 1; $index <= $trx->quantity; $index++) {
+        $index = count($orders) + 1;
+        if ($index <= $trx->quantity) {
             $options = [
                 'trx_id' => $trx->id.'-'.$index,
                 'channel' => $this->vipChannelForProduct($trx->product),
@@ -295,16 +309,15 @@ class OrderService
                     'message' => (string) ($result['message'] ?? 'Order ditolak VIPayment'),
                 ];
 
-                continue;
+            } else {
+                $orders[] = [
+                    'index' => $index,
+                    'trxid' => (string) $result['data']['trxid'],
+                    'status' => strtolower((string) ($result['data']['status'] ?? 'waiting')),
+                    'sn' => (string) ($result['data']['sn'] ?? ''),
+                    'price' => (int) ($result['data']['price'] ?? 0),
+                ];
             }
-
-            $orders[] = [
-                'index' => $index,
-                'trxid' => (string) $result['data']['trxid'],
-                'status' => strtolower((string) ($result['data']['status'] ?? 'waiting')),
-                'sn' => (string) ($result['data']['sn'] ?? ''),
-                'price' => (int) ($result['data']['price'] ?? 0),
-            ];
         }
 
         $accepted = collect($orders)->filter(fn (array $order) => ! empty($order['trxid']));
@@ -317,22 +330,22 @@ class OrderService
 
         $trx->supplier_config_id = $supplier->id;
         $trx->supplier_trx_id = (string) $accepted->first()['trxid'];
-        $trx->supplier_status = $accepted->count() === $trx->quantity ? 'waiting' : 'partial_failed';
+        $failedCount = collect($orders)->filter(fn (array $order) => empty($order['trxid']))->count();
+        $trx->supplier_status = $failedCount > 0 ? 'partial_failed' : 'waiting';
         $trx->processed_at = now();
         $trx->payment_payload = array_merge($trx->payment_payload ?? [], ['supplier_orders' => $orders]);
-        $trx->status = $accepted->count() === $trx->quantity
-            ? Transaction::STATUS_PROCESSING
-            : Transaction::STATUS_FAILED;
+        $trx->status = $failedCount > 0 ? Transaction::STATUS_FAILED : Transaction::STATUS_PROCESSING;
         if ($manual) {
             $trx->notes = trim(($trx->notes ?? '').' [batch manual by admin]');
         }
-        if ($accepted->count() !== $trx->quantity) {
-            $trx->notes = trim(($trx->notes ?? '').' [Sebagian order supplier gagal dibuat]');
+        if ($failedCount > 0) {
+            $failureMessage = collect($orders)->whereNull('trxid')->pluck('message')->filter()->join('; ');
+            $trx->notes = trim(($trx->notes ?? '').' [Sebagian order supplier gagal dibuat: '.mb_substr($failureMessage, 0, 300).']');
         }
         $trx->save();
 
         if ($trx->status === Transaction::STATUS_FAILED) {
-            $this->refundFailedBatchItems($trx, $trx->quantity - $accepted->count());
+            $this->refundFailedBatchItems($trx, $failedCount);
         }
 
         return $trx->fresh();
@@ -378,17 +391,26 @@ class OrderService
 
         if ($trx->status === Transaction::STATUS_PROCESSING
             && $trx->quantity > 1
-            && count($trx->payment_payload['supplier_orders'] ?? []) < $trx->quantity) {
-            // Perbaiki otomatis batch lama pada siklus cron berikutnya sebelum
-            // status order pertama sempat memfinalkan seluruh transaksi.
-            return $this->dispatchToSupplier($trx->id);
+            && empty($trx->payment_payload['supplier_orders'])
+            && $trx->supplier_trx_id) {
+            // Ubah transaksi lama menjadi batch satu-item terlebih dahulu;
+            // item berikutnya baru dibuat setelah status item ini sukses.
+            $payload = $trx->payment_payload ?? [];
+            $payload['supplier_orders'] = [[
+                'index' => 1,
+                'trxid' => $trx->supplier_trx_id,
+                'status' => strtolower((string) ($trx->supplier_status ?: 'waiting')),
+            ]];
+            $trx->payment_payload = $payload;
+            $trx->save();
+            $trx = $trx->fresh(['supplier', 'product']);
         }
 
         if (! $trx->supplier_trx_id || ! $trx->supplier) {
             return $trx;
         }
 
-        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) > 1) {
+        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) > 0) {
             return $this->pollVipBatchStatus($trx);
         }
 
@@ -473,7 +495,9 @@ class OrderService
         }
         unset($order);
 
-        return $this->saveVipBatchStatuses($trx->id, $orders);
+        $updated = $this->saveVipBatchStatuses($trx->id, $orders);
+
+        return $this->dispatchNextVipBatchItemIfReady($updated);
     }
 
     public function applyVipBatchWebhook(int $transactionId, string $supplierTrxId, array $data): Transaction
@@ -492,7 +516,23 @@ class OrderService
         }
         unset($order);
 
-        return $this->saveVipBatchStatuses($trx->id, $orders);
+        $updated = $this->saveVipBatchStatuses($trx->id, $orders);
+
+        return $this->dispatchNextVipBatchItemIfReady($updated);
+    }
+
+    protected function dispatchNextVipBatchItemIfReady(Transaction $trx): Transaction
+    {
+        $orders = $trx->payment_payload['supplier_orders'] ?? [];
+        if ($trx->status !== Transaction::STATUS_PROCESSING || count($orders) >= $trx->quantity) {
+            return $trx;
+        }
+
+        $allSucceeded = collect($orders)->every(
+            fn (array $order) => VipResellerProvider::mapStatus((string) ($order['status'] ?? '')) === 'success'
+        );
+
+        return $allSucceeded ? $this->dispatchVipBatch($trx, $trx->supplier) : $trx;
     }
 
     protected function saveVipBatchStatuses(int $transactionId, array $orders): Transaction

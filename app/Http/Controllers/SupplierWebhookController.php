@@ -171,7 +171,7 @@ class SupplierWebhookController extends Controller
             ]);
         }
 
-        if (count($trx->payment_payload['supplier_orders'] ?? []) > 1) {
+        if ($trx->quantity > 1 && count($trx->payment_payload['supplier_orders'] ?? []) > 0) {
             $trx = $orders->applyVipBatchWebhook($trx->id, $trxid, $data);
 
             AuditLog::record('supplier.webhook.vip-reseller', $config, [], [
