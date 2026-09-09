@@ -17,6 +17,7 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200)
             ->assertSee('Selamat datang kembali')
             ->assertSee('auth-card', false)
+            ->assertSee('auth-brand-name', false)
             ->assertSee('Daftar gratis');
     }
 

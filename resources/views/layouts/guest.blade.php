@@ -52,6 +52,8 @@
                 background: rgba(255, 255, 255, .96);
                 box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
             }
+            .auth-brand-name { color: var(--auth-primary); }
+            .auth-brand-name:hover { color: #fb923c; }
             .auth-card {
                 border: 1px solid #2c2c33;
                 border-radius: 18px;
@@ -111,7 +113,7 @@
                     @else
                         <span class="auth-brand-mark"><x-application-logo class="w-8 h-8 fill-current text-orange-500" /></span>
                     @endif
-                    <span class="font-extrabold text-2xl tracking-tight group-hover:text-orange-400 transition">{{ $siteName }}</span>
+                    <span class="auth-brand-name font-extrabold text-2xl tracking-tight transition">{{ $siteName }}</span>
                 </a>
                 @php
                     $tagline = null;
