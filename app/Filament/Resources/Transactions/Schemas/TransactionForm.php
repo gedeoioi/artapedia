@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Transactions\Schemas;
 
+use App\Models\Transaction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -72,8 +74,35 @@ class TransactionForm
                 TextInput::make('status')
                     ->required()
                     ->default('pending'),
-                TextInput::make('supplier_trx_id'),
-                TextInput::make('supplier_status'),
+                TextInput::make('supplier_trx_id')
+                    ->label('Supplier trx id')
+                    ->visible(fn (?Transaction $record): bool => ($record?->quantity ?? 1) <= 1),
+                TextInput::make('supplier_status')
+                    ->label('Supplier status'),
+                Repeater::make('payment_payload.supplier_orders')
+                    ->label('Supplier trx id per pembelian')
+                    ->visible(fn (?Transaction $record): bool => ($record?->quantity ?? 1) > 1)
+                    ->schema([
+                        TextInput::make('index')
+                            ->label('Pembelian ke'),
+                        TextInput::make('trxid')
+                            ->label('Supplier trx id'),
+                        TextInput::make('status')
+                            ->label('Status'),
+                        TextInput::make('sn')
+                            ->label('Serial number / catatan supplier'),
+                        Textarea::make('message')
+                            ->label('Pesan error supplier')
+                            ->columnSpanFull(),
+                    ])
+                    ->itemLabel(fn (array $state): string => 'Pembelian #'.($state['index'] ?? '?'))
+                    ->columns(2)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false)
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->columnSpanFull(),
                 DateTimePicker::make('paid_at'),
                 DateTimePicker::make('processed_at'),
                 TextInput::make('buyer_phone')

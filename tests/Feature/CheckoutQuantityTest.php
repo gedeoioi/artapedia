@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\DispatchOrderToSupplier;
 use App\Models\Product;
 use App\Models\SupplierConfig;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\OrderService;
 use App\Suppliers\VipResellerProvider;
@@ -180,6 +181,39 @@ class CheckoutQuantityTest extends TestCase
         $this->assertSame('partial_failed', $failed->supplier_status);
         $this->assertStringContainsString('Transaksi serupa masih dalam proses.', $failed->notes);
         $this->assertSame(88000, $user->fresh()->balance);
+    }
+
+    public function test_admin_melihat_supplier_trx_id_terpisah_untuk_setiap_pembelian(): void
+    {
+        [$supplier, $product] = $this->vipProduct();
+        $admin = User::factory()->create(['level' => 'admin']);
+        $transaction = Transaction::create([
+            'invoice_code' => 'INV-QTY-ADMIN-1',
+            'user_id' => $admin->id,
+            'product_id' => $product->id,
+            'supplier_config_id' => $supplier->id,
+            'target_user_id' => '12345678',
+            'quantity' => 2,
+            'status' => 'processing',
+            'supplier_trx_id' => 'VIP-ADMIN-1',
+            'supplier_status' => 'batch_1_of_2',
+            'payment_payload' => [
+                'supplier_orders' => [
+                    ['index' => 1, 'trxid' => 'VIP-ADMIN-1', 'status' => 'success', 'sn' => 'SN-001'],
+                    ['index' => 2, 'trxid' => 'VIP-ADMIN-2', 'status' => 'waiting'],
+                ],
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get("/admin/transactions/{$transaction->id}/edit")
+            ->assertOk()
+            ->assertSee('Supplier trx id per pembelian')
+            ->assertSee('Pembelian #1')
+            ->assertSee('Pembelian #2')
+            ->assertSee('VIP-ADMIN-1')
+            ->assertSee('VIP-ADMIN-2')
+            ->assertSee('SN-001');
     }
 
     private function vipProduct(): array

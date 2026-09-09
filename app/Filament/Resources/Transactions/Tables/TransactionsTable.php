@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Transactions\Tables;
 
+use App\Models\Transaction;
 use App\Services\OrderService;
 use App\Support\Rupiah;
 use Filament\Actions\Action;
@@ -64,8 +65,27 @@ class TransactionsTable
                     ->searchable(),
                 TextColumn::make('status')
                     ->searchable(),
-                TextColumn::make('supplier_trx_id')
-                    ->searchable(),
+                TextColumn::make('supplier_orders_display')
+                    ->label('Supplier trx id')
+                    ->state(function (Transaction $record): array {
+                        $orders = collect($record->payment_payload['supplier_orders'] ?? [])
+                            ->map(function (array $order): string {
+                                $index = $order['index'] ?? '?';
+                                $trxId = $order['trxid'] ?? '-';
+                                $status = $order['status'] ?? '-';
+
+                                return "#{$index} {$trxId} ({$status})";
+                            })
+                            ->all();
+
+                        return $orders !== [] ? $orders : [(string) ($record->supplier_trx_id ?: '-')];
+                    })
+                    ->listWithLineBreaks()
+                    ->bulleted()
+                    ->searchable(query: fn ($query, string $search) => $query->where(function ($query) use ($search): void {
+                        $query->where('supplier_trx_id', 'like', "%{$search}%")
+                            ->orWhere('payment_payload', 'like', "%{$search}%");
+                    })),
                 TextColumn::make('supplier_status')
                     ->searchable(),
                 TextColumn::make('paid_at')
