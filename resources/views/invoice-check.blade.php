@@ -19,7 +19,7 @@
             <ol class="text-sm space-y-2">
                 <li>✅ Order dibuat ({{ $trx->created_at }})</li>
                 <li>{{ $trx->paid_at ? '✅' : '⏳' }} Pembayaran {{ $trx->paid_at ? 'diterima '.$trx->paid_at : 'menunggu' }}</li>
-                <li>{{ $trx->processed_at ? '✅' : '⏳' }} Diproses ke supplier {{ $trx->processed_at ?? '' }}</li>
+                <li>{{ $trx->processed_at ? '✅' : '⏳' }} Transaksi Diproses {{ $trx->processed_at ?? '' }}</li>
                 <li>
                     @if($trx->status === 'success') ✅ Sukses
                     @elseif($trx->status === 'failed') ❌ Gagal
