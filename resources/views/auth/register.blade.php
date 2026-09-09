@@ -21,6 +21,13 @@
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
+        <!-- Nomor HP -->
+        <div class="mt-4">
+            <x-input-label for="phone" value="Nomor WhatsApp / HP" />
+            <x-text-input id="phone" class="block mt-1 w-full" type="tel" name="phone" :value="old('phone')" required autocomplete="tel" inputmode="tel" placeholder="081234567890" />
+            <x-input-error :messages="$errors->get('phone')" class="mt-2" />
+        </div>
+
         <!-- Kata Sandi -->
         <div class="mt-4">
             <x-input-label for="password" value="Kata Sandi" />

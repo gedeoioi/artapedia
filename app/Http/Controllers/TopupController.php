@@ -20,11 +20,10 @@ class TopupController extends Controller
         $data = $request->validate([
             'amount' => 'required|integer|min:10000|max:10000000',
             'gateway_code' => 'required|string|exists:payment_gateway_configs,code',
-            'phone' => ['required', 'string', 'max:20', 'regex:/^(?:\+?62|0)8[0-9]{8,12}$/'],
         ]);
 
         try {
-            $trx = $payments->topupBalance($request->user(), $data['amount'], $data['gateway_code'], $data['phone']);
+            $trx = $payments->topupBalance($request->user(), $data['amount'], $data['gateway_code']);
         } catch (\RuntimeException $e) {
             report($e);
 

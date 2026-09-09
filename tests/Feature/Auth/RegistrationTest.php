@@ -21,11 +21,29 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'phone' => '081234567890',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertDatabaseHas('users', [
+            'email' => 'test@example.com',
+            'phone' => '081234567890',
+        ]);
+    }
+
+    public function test_nomor_hp_wajib_dan_harus_valid_saat_mendaftar(): void
+    {
+        $this->post('/register', [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'phone' => '12345',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertSessionHasErrors('phone');
+
+        $this->assertGuest();
     }
 }

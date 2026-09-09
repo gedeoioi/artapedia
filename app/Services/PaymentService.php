@@ -56,6 +56,10 @@ class PaymentService
             $fee = $gw->feeFor($amount);
             $phone = trim((string) ($customerPhone ?: $locked->phone));
 
+            if (! preg_match('/^(?:\+?62|0)8[0-9]{8,12}$/', $phone)) {
+                throw new \RuntimeException('Nomor HP akun belum diisi atau tidak valid. Silakan perbarui profil terlebih dahulu.');
+            }
+
             $trx = Transaction::create([
                 'invoice_code' => $this->invoiceCode(),
                 'user_id' => $locked->id,

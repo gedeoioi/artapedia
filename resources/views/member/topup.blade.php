@@ -11,9 +11,11 @@
         <input name="amount" type="number" min="10000" max="10000000" step="1000" value="{{ old('amount', 50000) }}" required class="card px-3 py-2">
         @error('amount') <p class="text-sm text-red-500">{{ $message }}</p> @enderror
 
-        <label class="text-sm mt-1">Nomor WhatsApp / HP</label>
-        <input name="phone" type="tel" inputmode="tel" value="{{ old('phone', auth()->user()->phone) }}" placeholder="081234567890" required class="card px-3 py-2">
-        @error('phone') <p class="text-sm text-red-500">Nomor HP wajib diisi dengan format Indonesia, contoh 081234567890.</p> @enderror
+        @if(auth()->user()->phone)
+            <div class="text-sm muted mb-1">Pembayaran menggunakan nomor akun <b>{{ auth()->user()->phone }}</b>. <a href="{{ route('profile.edit') }}" class="underline">Ubah</a></div>
+        @else
+            <div class="card p-3 text-sm text-red-500 mb-1">Nomor HP akun belum tersedia. <a href="{{ route('profile.edit') }}" class="underline font-semibold">Lengkapi profil</a> sebelum melakukan topup.</div>
+        @endif
 
         @foreach($gateways as $gw)
             <label class="card p-3 flex items-center gap-2 text-sm">
@@ -22,7 +24,7 @@
             </label>
         @endforeach
         @error('gateway_code') <p class="text-sm text-red-500">{{ $message }}</p> @enderror
-        <button class="card py-2 font-bold">Buat Pembayaran</button>
+        <button class="card py-2 font-bold" @disabled(! auth()->user()->phone)>Buat Pembayaran</button>
     </form>
 </div>
 @endsection

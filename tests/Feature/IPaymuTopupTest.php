@@ -62,7 +62,7 @@ class IPaymuTopupTest extends TestCase
         });
     }
 
-    public function test_topup_memerlukan_nomor_hp_yang_valid(): void
+    public function test_topup_memerlukan_nomor_hp_valid_yang_tersimpan_di_akun(): void
     {
         $user = User::factory()->create(['phone' => null]);
         $this->createGateway();
@@ -72,10 +72,9 @@ class IPaymuTopupTest extends TestCase
             ->post(route('topup.store'), [
                 'amount' => 50000,
                 'gateway_code' => 'ipaymu',
-                'phone' => '',
             ])
             ->assertRedirect(route('topup.create'))
-            ->assertSessionHasErrors('phone');
+            ->assertSessionHasErrors('topup');
 
         Http::assertNothingSent();
     }
@@ -92,13 +91,12 @@ class IPaymuTopupTest extends TestCase
                 ],
             ]),
         ]);
-        $user = User::factory()->create(['phone' => null]);
+        $user = User::factory()->create(['phone' => '081234567890']);
         $this->createGateway();
 
         $response = $this->actingAs($user)->post(route('topup.store'), [
             'amount' => 50000,
             'gateway_code' => 'ipaymu',
-            'phone' => '081234567890',
         ]);
 
         $transaction = Transaction::firstOrFail();
