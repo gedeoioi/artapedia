@@ -40,7 +40,7 @@ Schedule::call(function () {
         ->each(function ($trx) use ($orders) {
             try {
                 $orders->pollStatus($trx->id);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 report($e);
             }
         });
