@@ -20,7 +20,7 @@
                 <div class="hidden sm:flex items-center gap-1">
                     <a href="{{ route('member.dashboard') }}" class="member-nav-button {{ request()->routeIs('member.dashboard', 'dashboard') ? 'is-active' : '' }}">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                        Dasbor
+                        Member Area
                     </a>
                     <a href="{{ route('topup.create') }}" class="member-nav-button {{ request()->routeIs('topup.*') ? 'is-active' : '' }}">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z"/></svg>
