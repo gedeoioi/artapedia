@@ -227,6 +227,58 @@ class IPaymuTopupTest extends TestCase
         });
     }
 
+    public function test_checkout_ipaymu_menagihkan_biaya_layanan_dari_pengaturan_admin(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/api/v2/payment/direct' => Http::response([
+                'Status' => 200,
+                'Message' => 'Success',
+                'Data' => [
+                    'TransactionId' => 'fee-session-123',
+                    'Via' => 'qris',
+                    'Channel' => 'mpm',
+                    'PaymentNo' => 'QRIS-FEE-123',
+                    'PaymentName' => 'QRIS',
+                    'Total' => 13600,
+                    'Expired' => '2030-09-10 21:46:08',
+                    'Url' => 'https://sandbox.ipaymu.com/payment/fee-session-123',
+                ],
+            ]),
+        ]);
+        $this->createGateway()->update([
+            'fee_flat' => 1000,
+            'fee_percent' => 5,
+        ]);
+        $product = $this->createProduct(12000);
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $response = $this->actingAs($user)->post(route('checkout.store'), [
+            'product_id' => $product->id,
+            'target_user_id' => '12345678',
+            'target_zone' => '1234',
+            'quantity' => 1,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'qris',
+            'ipaymu_channel' => 'mpm',
+        ]);
+
+        $transaction = Transaction::firstOrFail();
+        $response->assertRedirect(route('payment.show', $transaction->invoice_code));
+        $this->assertSame(12000, $transaction->sell_price);
+        $this->assertSame(1600, $transaction->gateway_fee);
+        $this->assertSame(13600, $transaction->total_amount);
+        $this->assertSame(11000, $transaction->profit);
+
+        $this->get(route('payment.show', $transaction->invoice_code))
+            ->assertOk()
+            ->assertSee('Biaya layanan')
+            ->assertSee('Rp 1.600')
+            ->assertSee('Rp 13.600');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment/direct'
+            && $request['amount'] === 13600);
+    }
+
     public function test_topup_ipaymu_menyimpan_url_checkout_dan_bisa_membuka_invoice(): void
     {
         Http::fake([

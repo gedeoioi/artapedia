@@ -141,6 +141,9 @@ class Transaction extends Model
 
     public function recalculateProfit(): void
     {
-        $this->profit = $this->sell_price - $this->cost_price - $this->gateway_fee;
+        // Biaya gateway dibayar pelanggan sebagai bagian dari total, lalu
+        // diteruskan ke provider. Karena itu biaya tersebut tidak boleh
+        // mengurangi profit produk untuk kedua kalinya.
+        $this->profit = $this->total_amount - $this->cost_price - $this->gateway_fee;
     }
 }

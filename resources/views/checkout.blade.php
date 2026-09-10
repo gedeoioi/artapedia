@@ -191,6 +191,7 @@
             <div><span>Metode Pembayaran</span><strong id="sum-method">{{ $initialPaymentName }}</strong></div>
             <div><span>Harga</span><strong id="sum-sell">Rp {{ number_format($initialPrice, 0, ',', '.') }}</strong></div>
             <div><span>Jumlah Pembelian</span><strong id="sum-quantity">{{ $initialQuantity }}</strong></div>
+            <div><span>Biaya layanan</span><strong id="sum-service">Rp 0</strong></div>
         </div>
 
         <div class="order-summary-total">
@@ -245,10 +246,11 @@ async function refreshQuote() {
     })});
     const j = await r.json();
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
-    document.getElementById('sum-sell').textContent = f(j.sell_price);
+    document.getElementById('sum-sell').textContent = f(j.subtotal ?? (j.sell_price * quantity));
     document.getElementById('sum-quantity').textContent = quantity;
-    document.getElementById('sum-total').textContent = f(j.checkout_total ?? (j.total * quantity));
-    document.querySelectorAll('.ipaymu-channel-total').forEach(el => { el.textContent = f(j.checkout_total ?? (j.total * quantity)); });
+    document.getElementById('sum-service').textContent = f((j.admin_fee || 0) + (j.gateway_fee || 0));
+    document.getElementById('sum-total').textContent = f(j.checkout_total ?? j.total);
+    document.querySelectorAll('.ipaymu-channel-total').forEach(el => { el.textContent = f(j.checkout_total ?? j.total); });
     const warning = document.getElementById('gateway-warning');
     const payButton = document.getElementById('btn-bayar');
     warning.textContent = j.message || '';

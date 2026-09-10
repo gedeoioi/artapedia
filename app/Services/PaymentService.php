@@ -16,20 +16,24 @@ class PaymentService
 {
     public function __construct(protected BalanceService $balances) {}
 
-    public function quote(Product $product, ?User $user, ?string $gatewayCode): array
+    public function quote(Product $product, ?User $user, ?string $gatewayCode, int $quantity = 1): array
     {
+        $quantity = max(1, $quantity);
         $sell = $user ? $user->priceFor($product) : (int) $product->price_guest;
-        // Biaya payment gateway ditanggung toko untuk pembelian produk.
-        // Topup saldo tetap memakai fee yang diatur pada gateway.
-        $gatewayFee = 0;
+        $subtotal = $sell * $quantity;
+        $gateway = $gatewayCode && $gatewayCode !== 'balance'
+            ? PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->first()
+            : null;
+        $gatewayFee = $gateway?->feeFor($subtotal) ?? 0;
 
         $adminFee = 0;
 
         return [
             'sell_price' => $sell,
+            'subtotal' => $subtotal,
             'admin_fee' => $adminFee,
             'gateway_fee' => $gatewayFee,
-            'total' => $sell + $adminFee + $gatewayFee,
+            'total' => $subtotal + $adminFee + $gatewayFee,
         ];
     }
 

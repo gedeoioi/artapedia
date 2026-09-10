@@ -47,9 +47,9 @@ class OrderService
             }
 
             $level = $user?->level ?? 'guest';
-            $quote = $this->payments->quote($product, $user, $data['gateway_code'] ?? 'balance');
             $method = $data['gateway_code'] ?? 'balance';
             $quantity = (int) ($data['quantity'] ?? 1);
+            $quote = $this->payments->quote($product, $user, $method, $quantity);
             $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
 
             if ($method === 'ipaymu') {
@@ -61,10 +61,12 @@ class OrderService
                 }
 
                 $minimumAmount = IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel);
-                if (($quote['total'] * $quantity) < $minimumAmount) {
-                    $minimumQuantity = (int) ceil($minimumAmount / max(1, $quote['total']));
+                if ($quote['total'] < $minimumAmount) {
                     $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
-                    $quantityHint = $minimumQuantity <= $maximumQuantity
+                    $minimumQuantity = collect(range(1, $maximumQuantity))->first(
+                        fn (int $candidate) => $this->payments->quote($product, $user, $method, $candidate)['total'] >= $minimumAmount
+                    );
+                    $quantityHint = $minimumQuantity !== null
                         ? " Tingkatkan jumlah pesanan menjadi minimal {$minimumQuantity}."
                         : '';
 
@@ -91,10 +93,10 @@ class OrderService
                 'nickname' => $data['nickname'] ?? null,
                 'quantity' => $quantity,
                 'cost_price' => $product->costForLevel($level) * $quantity,
-                'sell_price' => $quote['sell_price'] * $quantity,
+                'sell_price' => $quote['subtotal'],
                 'admin_fee' => $quote['admin_fee'],
                 'gateway_fee' => $quote['gateway_fee'],
-                'total_amount' => $quote['total'] * $quantity,
+                'total_amount' => $quote['total'],
                 'payment_method' => $method,
                 'status' => Transaction::STATUS_PENDING,
                 'buyer_phone' => $data['buyer_phone'] ?? $user?->phone,

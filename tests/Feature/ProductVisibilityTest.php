@@ -64,7 +64,7 @@ class ProductVisibilityTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_ringkasan_checkout_tidak_menampilkan_atau_menagihkan_fee_gateway(): void
+    public function test_ringkasan_checkout_menampilkan_biaya_layanan_sesuai_pengaturan_gateway(): void
     {
         $product = $this->makeProduct([
             'name' => '86 Diamonds',
@@ -88,16 +88,20 @@ class ProductVisibilityTest extends TestCase
             ->assertSee('Ringkasan pesanan', false)
             ->assertSee('Metode Pembayaran')
             ->assertSee('Jumlah Pembelian')
+            ->assertSee('Biaya layanan')
             ->assertSee('Total Pembayaran')
             ->assertDontSee('Fee gateway');
 
         $this->postJson(route('checkout.quote'), [
             'product_id' => $product->id,
             'gateway_code' => 'xendit',
+            'quantity' => 2,
         ])->assertOk()->assertJson([
             'sell_price' => 12000,
-            'gateway_fee' => 0,
-            'total' => 12000,
+            'subtotal' => 24000,
+            'gateway_fee' => 4900,
+            'total' => 28900,
+            'checkout_total' => 28900,
         ]);
     }
 

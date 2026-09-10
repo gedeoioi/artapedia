@@ -43,10 +43,9 @@ class PaymentController extends Controller
             }
         }
 
-        $gatewayTotal = data_get($gatewayPayload, 'Data.Total');
-        $paymentTotal = is_numeric($gatewayTotal) ? (int) round((float) $gatewayTotal) : (int) $trx->total_amount;
         $priceAmount = (int) $trx->sell_price;
-        $serviceFee = max(0, $paymentTotal - $priceAmount);
+        $serviceFee = (int) $trx->admin_fee + (int) $trx->gateway_fee;
+        $paymentTotal = (int) $trx->total_amount;
 
         return view('payment', compact(
             'trx',

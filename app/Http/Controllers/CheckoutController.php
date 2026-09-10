@@ -40,9 +40,9 @@ class CheckoutController extends Controller
         }
 
         $product = Product::available()->findOrFail($data['product_id']);
-        $quote = $payments->quote($product, $request->user(), $gateway);
         $quantity = (int) ($data['quantity'] ?? 1);
-        $checkoutTotal = $quote['total'] * $quantity;
+        $quote = $payments->quote($product, $request->user(), $gateway, $quantity);
+        $checkoutTotal = $quote['total'];
         $minimumAmount = $gateway === 'ipaymu'
             ? IPaymuGateway::minimumAmountFor($data['ipaymu_method'] ?? 'qris', $data['ipaymu_channel'] ?? 'mpm')
             : 0;
