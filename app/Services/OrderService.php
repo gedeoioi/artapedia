@@ -49,22 +49,49 @@ class OrderService
             $level = $user?->level ?? 'guest';
             $method = $data['gateway_code'] ?? 'balance';
             $quantity = (int) ($data['quantity'] ?? 1);
-            $quote = $this->payments->quote($product, $user, $method, $quantity);
             $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
+            $gatewayConfig = $method !== 'balance'
+                ? PaymentGatewayConfig::where('code', $method)->where('is_active', true)->firstOrFail()
+                : null;
+            $ipaymuMethod = null;
+            $ipaymuChannel = null;
 
             if ($method === 'ipaymu') {
-                $ipaymuMethod = (string) ($data['ipaymu_method'] ?? 'qris');
-                $ipaymuChannel = (string) ($data['ipaymu_channel'] ?? 'mpm');
+                $enabledChannels = $gatewayConfig->enabledCheckoutChannels();
+                $ipaymuMethod = filled($data['ipaymu_method'] ?? null)
+                    ? (string) $data['ipaymu_method']
+                    : array_key_first($enabledChannels);
+                $ipaymuChannel = filled($data['ipaymu_channel'] ?? null)
+                    ? (string) $data['ipaymu_channel']
+                    : ($ipaymuMethod !== null ? array_key_first($enabledChannels[$ipaymuMethod]['channels'] ?? []) : null);
 
-                if (! IPaymuGateway::supportsCheckoutChannel($ipaymuMethod, $ipaymuChannel)) {
-                    throw new \RuntimeException('Channel pembayaran iPaymu tidak valid. Silakan pilih kembali.');
+                if (! $gatewayConfig->isCheckoutChannelEnabled($ipaymuMethod, $ipaymuChannel)) {
+                    throw new \RuntimeException('Channel pembayaran iPaymu tidak aktif. Silakan pilih metode lain.');
                 }
+            }
 
+            $quote = $this->payments->quote(
+                $product,
+                $user,
+                $method,
+                $quantity,
+                $ipaymuMethod,
+                $ipaymuChannel,
+            );
+
+            if ($method === 'ipaymu') {
                 $minimumAmount = IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel);
                 if ($quote['total'] < $minimumAmount) {
                     $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
                     $minimumQuantity = collect(range(1, $maximumQuantity))->first(
-                        fn (int $candidate) => $this->payments->quote($product, $user, $method, $candidate)['total'] >= $minimumAmount
+                        fn (int $candidate) => $this->payments->quote(
+                            $product,
+                            $user,
+                            $method,
+                            $candidate,
+                            $ipaymuMethod,
+                            $ipaymuChannel,
+                        )['total'] >= $minimumAmount
                     );
                     $quantityHint = $minimumQuantity !== null
                         ? " Tingkatkan jumlah pesanan menjadi minimal {$minimumQuantity}."
@@ -128,7 +155,7 @@ class OrderService
                 return $trx->fresh();
             }
 
-            $gw = PaymentGatewayConfig::where('code', $method)->where('is_active', true)->firstOrFail();
+            $gw = $gatewayConfig;
             $gateway = ProviderFactory::gatewayFor($gw);
             $reference = $this->payments->referenceId('PAY');
             $result = $gateway->createPayment([

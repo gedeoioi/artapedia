@@ -137,8 +137,115 @@ class IPaymuTopupTest extends TestCase
             ->assertSee('Virtual Account')
             ->assertSee('E-Wallet')
             ->assertSee('BCA')
+            ->assertSee('BNI')
+            ->assertSee('CIMB Niaga')
+            ->assertSee('Mandiri')
+            ->assertSee('Bank Muamalat')
+            ->assertSee('BRI')
+            ->assertSee('BSI')
+            ->assertSee('Permata')
+            ->assertSee('Danamon')
+            ->assertSee('BTN')
+            ->assertSee('Bank Artha Graha')
             ->assertSee('DANA')
             ->assertSee('Alfamart');
+    }
+
+    public function test_checkout_hanya_menampilkan_channel_aktif_dan_memakai_fee_per_kelompok(): void
+    {
+        $gateway = $this->createGateway();
+        $gateway->update(['channel_settings' => [
+            'qris' => ['channels' => ['mpm'], 'fee_flat' => 500, 'fee_percent' => 1],
+            'ewallet' => ['channels' => [], 'fee_flat' => 1000, 'fee_percent' => 2],
+            'va' => ['channels' => ['bca', 'bni'], 'fee_flat' => 4000, 'fee_percent' => 0],
+            'cstore' => ['channels' => [], 'fee_flat' => 2500, 'fee_percent' => 0],
+        ]]);
+        $product = $this->createProduct(12000);
+
+        $this->get(route('checkout.show', $product))
+            ->assertOk()
+            ->assertSee('QRIS')
+            ->assertSee('BCA')
+            ->assertSee('BNI')
+            ->assertDontSee('DANA')
+            ->assertDontSee('Alfamart');
+
+        $this->postJson(route('checkout.quote'), [
+            'product_id' => $product->id,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'va',
+            'ipaymu_channel' => 'bca',
+        ])->assertOk()->assertJson([
+            'gateway_fee' => 4000,
+            'total' => 16000,
+        ]);
+
+        $this->postJson(route('checkout.quote'), [
+            'product_id' => $product->id,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'qris',
+            'ipaymu_channel' => 'mpm',
+        ])->assertOk()->assertJson([
+            'gateway_fee' => 620,
+            'total' => 12620,
+        ]);
+
+        $this->postJson(route('checkout.quote'), [
+            'product_id' => $product->id,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'va',
+            'ipaymu_channel' => 'bri',
+        ])->assertUnprocessable();
+    }
+
+    public function test_ipaymu_dapat_mengambil_channel_aktif_dari_akun_merchant(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/api/v2/payment-channels' => Http::response([
+                'Status' => 200,
+                'Success' => true,
+                'Data' => [
+                    [
+                        'Code' => 'va',
+                        'Channels' => [
+                            ['Code' => 'bca', 'FeatureStatus' => 'active'],
+                            ['Code' => 'bri', 'FeatureStatus' => 'inactive'],
+                        ],
+                    ],
+                    [
+                        'Code' => 'qris',
+                        'Channels' => [['Code' => 'mpm', 'FeatureStatus' => 'active']],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $gateway = new IPaymuGateway(['va' => '123456', 'secret' => 'api-secret'], true);
+
+        $this->assertSame(['va' => ['bca'], 'qris' => ['mpm']], $gateway->activePaymentChannels());
+        Http::assertSent(function (Request $request): bool {
+            $expected = hash_hmac('sha256', 'GET:123456:{}:api-secret', 'api-secret');
+
+            return $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment-channels'
+                && $request->header('signature')[0] === $expected;
+        });
+    }
+
+    public function test_admin_dapat_mengatur_channel_dan_fee_ipaymu_per_kelompok(): void
+    {
+        $gateway = $this->createGateway();
+        $admin = User::factory()->create(['level' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('filament.admin.resources.payment-gateway-configs.edit', $gateway))
+            ->assertOk()
+            ->assertSee('Sinkronkan Channel iPaymu')
+            ->assertSee('Channel QRIS aktif')
+            ->assertSee('Channel E-Wallet aktif')
+            ->assertSee('Bank Virtual Account aktif')
+            ->assertSee('Gerai Retail aktif')
+            ->assertSee('Biaya flat QRIS')
+            ->assertSee('Biaya persen Virtual Account');
     }
 
     public function test_checkout_ipaymu_di_bawah_minimum_ditolak_dengan_pesan_yang_jelas(): void

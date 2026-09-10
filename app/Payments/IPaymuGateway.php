@@ -55,6 +55,46 @@ class IPaymuGateway extends BasePaymentGateway
         return 'ipaymu';
     }
 
+    public function activePaymentChannels(): array
+    {
+        $va = trim((string) ($this->credentials['va'] ?? ''));
+        $secret = trim((string) ($this->credentials['secret'] ?? ''));
+        if ($va === '' || $secret === '') {
+            throw new \RuntimeException('VA atau API Key iPaymu belum dikonfigurasi.');
+        }
+
+        // Endpoint GET tanpa query memakai JSON object kosong sebagai bagian
+        // signature sesuai dokumentasi iPaymu API v2.
+        $res = Http::acceptJson()->withHeaders([
+            'va' => $va,
+            'signature' => $this->sign('GET', '{}'),
+            'timestamp' => now()->format('YmdHis'),
+        ])->timeout(30)->get($this->baseUrl().'/payment-channels');
+        $json = $res->json() ?? [];
+
+        if (! $res->successful() || (int) ($json['Status'] ?? 0) !== 200) {
+            throw new \RuntimeException((string) ($json['Message'] ?? 'Daftar channel iPaymu gagal dimuat.'));
+        }
+
+        $active = [];
+        foreach ($json['Data'] ?? [] as $method) {
+            $methodCode = strtolower((string) ($method['Code'] ?? ''));
+            if (! isset(self::CHECKOUT_CHANNELS[$methodCode])) {
+                continue;
+            }
+
+            foreach ($method['Channels'] ?? [] as $channel) {
+                $channelCode = strtolower((string) ($channel['Code'] ?? ''));
+                $featureStatus = strtolower((string) ($channel['FeatureStatus'] ?? 'active'));
+                if ($featureStatus === 'active' && self::supportsCheckoutChannel($methodCode, $channelCode)) {
+                    $active[$methodCode][] = $channelCode;
+                }
+            }
+        }
+
+        return $active;
+    }
+
     protected function baseUrl(): string
     {
         return $this->credentials['base_url']

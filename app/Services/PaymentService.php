@@ -16,15 +16,21 @@ class PaymentService
 {
     public function __construct(protected BalanceService $balances) {}
 
-    public function quote(Product $product, ?User $user, ?string $gatewayCode, int $quantity = 1): array
-    {
+    public function quote(
+        Product $product,
+        ?User $user,
+        ?string $gatewayCode,
+        int $quantity = 1,
+        ?string $paymentMethod = null,
+        ?string $paymentChannel = null,
+    ): array {
         $quantity = max(1, $quantity);
         $sell = $user ? $user->priceFor($product) : (int) $product->price_guest;
         $subtotal = $sell * $quantity;
         $gateway = $gatewayCode && $gatewayCode !== 'balance'
             ? PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->first()
             : null;
-        $gatewayFee = $gateway?->feeFor($subtotal) ?? 0;
+        $gatewayFee = $gateway?->feeFor($subtotal, $paymentMethod, $paymentChannel) ?? 0;
 
         $adminFee = 0;
 

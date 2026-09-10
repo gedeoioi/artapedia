@@ -19,7 +19,12 @@ class CheckoutController extends Controller
         $product->loadMissing('supplier');
         $gateways = PaymentGatewayConfig::activeOrdered();
         $maxQuantity = $product->supplier?->code === 'vip-reseller' ? 10 : 1;
-        $ipaymuChannels = IPaymuGateway::CHECKOUT_CHANNELS;
+        $ipaymuGateway = $gateways->firstWhere('code', 'ipaymu');
+        $ipaymuChannels = $ipaymuGateway?->enabledCheckoutChannels() ?? [];
+
+        if ($ipaymuGateway && $ipaymuChannels === []) {
+            $gateways = $gateways->reject(fn (PaymentGatewayConfig $gateway): bool => $gateway->code === 'ipaymu');
+        }
 
         return view('checkout', compact('product', 'gateways', 'maxQuantity', 'ipaymuChannels'));
     }
@@ -41,10 +46,16 @@ class CheckoutController extends Controller
 
         $product = Product::available()->findOrFail($data['product_id']);
         $quantity = (int) ($data['quantity'] ?? 1);
-        $quote = $payments->quote($product, $request->user(), $gateway, $quantity);
+        $ipaymuMethod = $data['ipaymu_method'] ?? null;
+        $ipaymuChannel = $data['ipaymu_channel'] ?? null;
+        if ($gateway === 'ipaymu') {
+            $config = PaymentGatewayConfig::where('code', 'ipaymu')->where('is_active', true)->firstOrFail();
+            [$ipaymuMethod, $ipaymuChannel] = $this->resolveIPaymuChannel($config, $ipaymuMethod, $ipaymuChannel);
+        }
+        $quote = $payments->quote($product, $request->user(), $gateway, $quantity, $ipaymuMethod, $ipaymuChannel);
         $checkoutTotal = $quote['total'];
         $minimumAmount = $gateway === 'ipaymu'
-            ? IPaymuGateway::minimumAmountFor($data['ipaymu_method'] ?? 'qris', $data['ipaymu_channel'] ?? 'mpm')
+            ? IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel)
             : 0;
         $available = $minimumAmount === 0 || $checkoutTotal >= $minimumAmount;
 
@@ -103,5 +114,16 @@ class CheckoutController extends Controller
         }
 
         return redirect()->route('payment.show', $trx->invoice_code);
+    }
+
+    private function resolveIPaymuChannel(PaymentGatewayConfig $config, ?string $method, ?string $channel): array
+    {
+        $enabled = $config->enabledCheckoutChannels();
+        $method ??= array_key_first($enabled);
+        $channel ??= $method !== null ? array_key_first($enabled[$method]['channels'] ?? []) : null;
+
+        abort_unless($config->isCheckoutChannelEnabled($method, $channel), 422, 'Channel pembayaran iPaymu tidak tersedia.');
+
+        return [$method, $channel];
     }
 }

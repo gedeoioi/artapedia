@@ -81,15 +81,26 @@
                         <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
                         <span class="min-w-0">
                             <span class="block text-sm font-semibold truncate">{{ $gw->name }}</span>
-                            <span class="block text-xs muted">{{ $gw->code === 'ipaymu' ? 'Min. Rp 10.000 • QRIS / VA / E-Wallet' : 'QRIS / VA / E-Wallet' }}</span>
+                            <span class="block text-xs muted">{{ $gw->code === 'ipaymu' ? 'Min. Rp 10.000 • '.collect($ipaymuChannels)->pluck('label')->join(' / ') : 'QRIS / VA / E-Wallet' }}</span>
                         </span>
                     </label>
                 @endforeach
             </div>
             @php
-                $selectedIPaymuMethod = old('ipaymu_method', 'qris');
-                $selectedIPaymuChannel = old('ipaymu_channel', 'mpm');
+                $defaultIPaymuMethod = array_key_first($ipaymuChannels);
+                $selectedIPaymuMethod = old('ipaymu_method', $defaultIPaymuMethod);
+                $defaultIPaymuChannel = $selectedIPaymuMethod
+                    ? array_key_first($ipaymuChannels[$selectedIPaymuMethod]['channels'] ?? [])
+                    : null;
+                $selectedIPaymuChannel = old('ipaymu_channel', $defaultIPaymuChannel);
+                if (!isset($ipaymuChannels[$selectedIPaymuMethod]['channels'][$selectedIPaymuChannel])) {
+                    $selectedIPaymuMethod = $defaultIPaymuMethod;
+                    $selectedIPaymuChannel = $selectedIPaymuMethod
+                        ? array_key_first($ipaymuChannels[$selectedIPaymuMethod]['channels'] ?? [])
+                        : null;
+                }
             @endphp
+            @if($ipaymuChannels !== [])
             <div id="ipaymu-channel-panel" class="ipaymu-channel-panel hidden mb-3">
                 <input type="hidden" name="ipaymu_method" id="ipaymu-method" value="{{ $selectedIPaymuMethod }}">
                 <div class="ipaymu-panel-heading">
@@ -100,7 +111,7 @@
                     <span class="ipaymu-secure">Pembayaran aman</span>
                 </div>
                 @foreach($ipaymuChannels as $methodCode => $method)
-                    <details class="ipaymu-method" @if($methodCode === 'qris') open @endif>
+                    <details class="ipaymu-method" @if($methodCode === $selectedIPaymuMethod) open @endif>
                         <summary>
                             <span>{{ $method['label'] }}</span>
                             <span class="ipaymu-chevron" aria-hidden="true">⌄</span>
@@ -119,6 +130,7 @@
                     </details>
                 @endforeach
             </div>
+            @endif
             <div id="gateway-warning" class="hidden card p-3 mb-3 text-sm" style="border-color:#ef4444;color:#fca5a5;background:rgba(239,68,68,.08)" role="alert"></div>
             <style>
                 .pay-card { border-width: 1.5px; }
@@ -235,24 +247,30 @@ async function refreshQuote() {
         ? `${activePayment?.dataset.payName || 'iPaymu'} • ${selectedChannel.dataset.channelName}`
         : (activePayment?.dataset.payName || '-');
     document.getElementById('sum-method').textContent = methodName;
-    document.getElementById('ipaymu-channel-panel').classList.toggle('hidden', gw !== 'ipaymu');
+    document.getElementById('ipaymu-channel-panel')?.classList.toggle('hidden', gw !== 'ipaymu');
     const quantity = currentQuantity();
     const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({
         product_id: productId,
         gateway_code: gw,
         quantity,
-        ipaymu_method: document.getElementById('ipaymu-method').value,
+        ipaymu_method: document.getElementById('ipaymu-method')?.value,
         ipaymu_channel: selectedChannel?.value,
     })});
     const j = await r.json();
+    const warning = document.getElementById('gateway-warning');
+    const payButton = document.getElementById('btn-bayar');
+    if (!r.ok) {
+        warning.textContent = j.message || 'Perhitungan pembayaran gagal dimuat.';
+        warning.classList.remove('hidden');
+        payButton.disabled = true;
+        return;
+    }
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     document.getElementById('sum-sell').textContent = f(j.subtotal ?? (j.sell_price * quantity));
     document.getElementById('sum-quantity').textContent = quantity;
     document.getElementById('sum-service').textContent = f((j.admin_fee || 0) + (j.gateway_fee || 0));
     document.getElementById('sum-total').textContent = f(j.checkout_total ?? j.total);
     document.querySelectorAll('.ipaymu-channel-total').forEach(el => { el.textContent = f(j.checkout_total ?? j.total); });
-    const warning = document.getElementById('gateway-warning');
-    const payButton = document.getElementById('btn-bayar');
     warning.textContent = j.message || '';
     warning.classList.toggle('hidden', j.available !== false);
     payButton.disabled = j.available === false;
