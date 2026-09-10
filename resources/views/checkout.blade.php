@@ -236,10 +236,31 @@ const token = document.querySelector('meta[name=csrf-token]').content;
 const quantityInput = document.getElementById('order-quantity');
 const maxQuantity = Number(quantityInput.max || 1);
 const currentQuantity = () => Math.max(1, Math.min(maxQuantity, Number(quantityInput.value) || 1));
-const scrollToOrderSummary = () => document.querySelector('.order-summary')?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-});
+const scrollToOrderSummary = () => {
+    const summary = document.querySelector('.order-summary');
+    if (!summary) return;
+
+    const start = window.scrollY;
+    const target = Math.max(0, summary.getBoundingClientRect().top + start - 110);
+    const distance = target - start;
+    const duration = 850;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        window.scrollTo(0, target);
+        return;
+    }
+
+    const startedAt = performance.now();
+    const animateScroll = now => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = progress < .5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        window.scrollTo(0, start + (distance * eased));
+        if (progress < 1) requestAnimationFrame(animateScroll);
+    };
+    requestAnimationFrame(animateScroll);
+};
 async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
