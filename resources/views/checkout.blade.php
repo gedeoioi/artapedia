@@ -122,7 +122,6 @@
                                 <label class="ipaymu-channel-card {{ $channelSelected ? 'is-selected' : '' }}">
                                     <input type="radio" name="ipaymu_channel" value="{{ $channelCode }}" data-method="{{ $methodCode }}" data-channel-name="{{ $channelName }}" class="ipaymu-channel-input hidden" @checked($channelSelected)>
                                     <span class="ipaymu-channel-logo brand-{{ $channelCode }}">{{ $channelName }}</span>
-                                    <strong class="ipaymu-channel-total">Rp0</strong>
                                     <small>Diproses otomatis</small>
                                 </label>
                             @endforeach
@@ -158,7 +157,6 @@
                 .ipaymu-channel-card:hover { border-color: #71717a; transform: translateY(-1px); }
                 .ipaymu-channel-card.is-selected { border-color: #f97316; box-shadow: 0 0 0 1px rgba(249,115,22,.35); background: rgba(249,115,22,.08); }
                 .ipaymu-channel-logo { display: flex; min-height: 34px; align-items: center; overflow: hidden; border-radius: 6px; padding: .35rem .5rem; background: #fff; color: #18181b; font-size: .76rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
-                .ipaymu-channel-total { font-size: .74rem; }
                 .ipaymu-channel-card small { padding-top: .35rem; border-top: 1px dashed #57575f; color: #a1a1aa; font-size: .62rem; font-style: italic; }
                 .brand-bca { color:#07549b; } .brand-bni { color:#e66018; } .brand-mandiri { color:#173d73; }
                 .brand-bri { color:#075ca8; } .brand-bsi { color:#159688; } .brand-cimb { color:#a71930; }
@@ -270,7 +268,6 @@ async function refreshQuote() {
     document.getElementById('sum-quantity').textContent = quantity;
     document.getElementById('sum-service').textContent = f((j.admin_fee || 0) + (j.gateway_fee || 0));
     document.getElementById('sum-total').textContent = f(j.checkout_total ?? j.total);
-    document.querySelectorAll('.ipaymu-channel-total').forEach(el => { el.textContent = f(j.checkout_total ?? j.total); });
     warning.textContent = j.message || '';
     warning.classList.toggle('hidden', j.available !== false);
     payButton.disabled = j.available === false;
