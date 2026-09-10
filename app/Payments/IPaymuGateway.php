@@ -8,6 +8,48 @@ class IPaymuGateway extends BasePaymentGateway
 {
     public const MINIMUM_AMOUNT = 10_000;
 
+    public const CHECKOUT_CHANNELS = [
+        'qris' => [
+            'label' => 'QRIS',
+            'channels' => ['mpm' => 'QRIS'],
+        ],
+        'ewallet' => [
+            'label' => 'E-Wallet',
+            'channels' => ['dana' => 'DANA', 'shopeepay' => 'ShopeePay'],
+        ],
+        'va' => [
+            'label' => 'Virtual Account',
+            'channels' => [
+                'bca' => 'BCA',
+                'bni' => 'BNI',
+                'mandiri' => 'Mandiri',
+                'bri' => 'BRI',
+                'bsi' => 'BSI',
+                'cimb' => 'CIMB Niaga',
+                'permata' => 'Permata',
+                'danamon' => 'Danamon',
+                'btn' => 'BTN',
+                'bpd_bali' => 'BPD Bali',
+                'bmi' => 'Bank Muamalat',
+                'bag' => 'Bank Artha Graha',
+            ],
+        ],
+        'cstore' => [
+            'label' => 'Gerai Retail',
+            'channels' => ['alfamart' => 'Alfamart', 'indomaret' => 'Indomaret'],
+        ],
+    ];
+
+    public static function supportsCheckoutChannel(?string $method, ?string $channel): bool
+    {
+        return isset(self::CHECKOUT_CHANNELS[$method]['channels'][$channel]);
+    }
+
+    public static function minimumAmountFor(?string $method, ?string $channel): int
+    {
+        return $method === 'cstore' && $channel === 'indomaret' ? 15_000 : self::MINIMUM_AMOUNT;
+    }
+
     public function code(): string
     {
         return 'ipaymu';
@@ -46,7 +88,28 @@ class IPaymuGateway extends BasePaymentGateway
             ];
         }
 
-        $body = [
+        $direct = self::supportsCheckoutChannel(
+            $params['payment_method'] ?? null,
+            $params['payment_channel'] ?? null,
+        );
+
+        $body = $direct ? [
+            'name' => (string) ($params['customer_name'] ?? 'ArtaPedia Buyer'),
+            'phone' => (string) ($params['customer_phone'] ?? ''),
+            'email' => (string) ($params['customer_email'] ?? ''),
+            'amount' => (int) $params['amount'],
+            'notifyUrl' => $this->callbackBase('ipaymu'),
+            'referenceId' => $params['reference_id'],
+            'paymentMethod' => $params['payment_method'],
+            'paymentChannel' => $params['payment_channel'],
+            'product' => [$description],
+            'qty' => [1],
+            'price' => [(int) $params['amount']],
+            'comments' => $description,
+            'feeDirection' => 'MERCHANT',
+            'expired' => 1,
+            'expiredType' => 'hours',
+        ] : [
             'product' => [$description],
             'qty' => [1],
             'price' => [(int) $params['amount']],
@@ -79,17 +142,19 @@ class IPaymuGateway extends BasePaymentGateway
             'timestamp' => now()->format('YmdHis'),
         ])->withBody($bodyJson, 'application/json')
             ->timeout(30)
-            ->post($this->baseUrl().'/payment');
+            ->post($this->baseUrl().($direct ? '/payment/direct' : '/payment'));
 
         $json = $res->json() ?? [];
         // Dokumentasi terbaru memakai `SessionID`, sedangkan sebagian respons
         // lama/sandbox memakai `SessionId`. Terima keduanya.
-        $sessionId = $json['Data']['SessionID'] ?? $json['Data']['SessionId'] ?? null;
+        $sessionId = $direct
+            ? ($json['Data']['TransactionId'] ?? $json['Data']['ReferenceId'] ?? null)
+            : ($json['Data']['SessionID'] ?? $json['Data']['SessionId'] ?? null);
         $checkoutUrl = $json['Data']['Url'] ?? null;
         $ok = $res->successful()
             && (int) ($json['Status'] ?? 0) === 200
             && filled($sessionId)
-            && filled($checkoutUrl);
+            && ($direct || filled($checkoutUrl));
 
         $message = $json['Message'] ?? $json['message'] ?? 'iPaymu menolak pembuatan pembayaran.';
         if (is_array($message)) {

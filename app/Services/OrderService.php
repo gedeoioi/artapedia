@@ -51,14 +51,24 @@ class OrderService
             $quantity = (int) ($data['quantity'] ?? 1);
             $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
 
-            if ($method === 'ipaymu' && ($quote['total'] * $quantity) < IPaymuGateway::MINIMUM_AMOUNT) {
-                $minimumQuantity = (int) ceil(IPaymuGateway::MINIMUM_AMOUNT / max(1, $quote['total']));
-                $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
-                $quantityHint = $minimumQuantity <= $maximumQuantity
-                    ? " Tingkatkan jumlah pesanan menjadi minimal {$minimumQuantity}."
-                    : '';
+            if ($method === 'ipaymu') {
+                $ipaymuMethod = (string) ($data['ipaymu_method'] ?? 'qris');
+                $ipaymuChannel = (string) ($data['ipaymu_channel'] ?? 'mpm');
 
-                throw new \RuntimeException('Minimal transaksi iPaymu adalah Rp 10.000.'.$quantityHint.' Atau gunakan Saldo Member.');
+                if (! IPaymuGateway::supportsCheckoutChannel($ipaymuMethod, $ipaymuChannel)) {
+                    throw new \RuntimeException('Channel pembayaran iPaymu tidak valid. Silakan pilih kembali.');
+                }
+
+                $minimumAmount = IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel);
+                if (($quote['total'] * $quantity) < $minimumAmount) {
+                    $minimumQuantity = (int) ceil($minimumAmount / max(1, $quote['total']));
+                    $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
+                    $quantityHint = $minimumQuantity <= $maximumQuantity
+                        ? " Tingkatkan jumlah pesanan menjadi minimal {$minimumQuantity}."
+                        : '';
+
+                    throw new \RuntimeException('Minimal channel iPaymu ini adalah Rp '.number_format($minimumAmount, 0, ',', '.').'.'.$quantityHint.' Atau gunakan Saldo Member.');
+                }
             }
 
             if ($user && $user->status === 'suspended') {
@@ -92,6 +102,15 @@ class OrderService
             $trx->recalculateProfit();
             $trx->save();
 
+            if ($method === 'ipaymu') {
+                if (! preg_match('/^(?:\+?62|0)8[0-9]{8,12}$/', (string) $trx->buyer_phone)) {
+                    throw new \RuntimeException('Nomor HP wajib diisi dengan format yang valid untuk pembayaran iPaymu.');
+                }
+                if (! filter_var($trx->buyer_email, FILTER_VALIDATE_EMAIL)) {
+                    throw new \RuntimeException('Email wajib diisi dengan format yang valid untuk pembayaran iPaymu.');
+                }
+            }
+
             if ($method === 'balance') {
                 if (! $user) {
                     throw new \RuntimeException('Checkout saldo wajib login.');
@@ -118,6 +137,8 @@ class OrderService
                 'customer_name' => $user?->name ?? 'Guest',
                 'success_url' => route('payment.show', $trx->invoice_code),
                 'failure_url' => route('checkout.show', $product),
+                'payment_method' => $ipaymuMethod ?? null,
+                'payment_channel' => $ipaymuChannel ?? null,
             ]);
 
             if (! ($result['ok'] ?? false)) {

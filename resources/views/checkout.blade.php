@@ -86,6 +86,39 @@
                     </label>
                 @endforeach
             </div>
+            @php
+                $selectedIPaymuMethod = old('ipaymu_method', 'qris');
+                $selectedIPaymuChannel = old('ipaymu_channel', 'mpm');
+            @endphp
+            <div id="ipaymu-channel-panel" class="ipaymu-channel-panel hidden mb-3">
+                <input type="hidden" name="ipaymu_method" id="ipaymu-method" value="{{ $selectedIPaymuMethod }}">
+                <div class="ipaymu-panel-heading">
+                    <span>
+                        <strong>Pilih Channel iPaymu</strong>
+                        <small>Minimal pembayaran Rp10.000</small>
+                    </span>
+                    <span class="ipaymu-secure">Pembayaran aman</span>
+                </div>
+                @foreach($ipaymuChannels as $methodCode => $method)
+                    <details class="ipaymu-method" @if($methodCode === 'qris') open @endif>
+                        <summary>
+                            <span>{{ $method['label'] }}</span>
+                            <span class="ipaymu-chevron" aria-hidden="true">⌄</span>
+                        </summary>
+                        <div class="ipaymu-channel-grid">
+                            @foreach($method['channels'] as $channelCode => $channelName)
+                                @php $channelSelected = $selectedIPaymuMethod === $methodCode && $selectedIPaymuChannel === $channelCode; @endphp
+                                <label class="ipaymu-channel-card {{ $channelSelected ? 'is-selected' : '' }}">
+                                    <input type="radio" name="ipaymu_channel" value="{{ $channelCode }}" data-method="{{ $methodCode }}" data-channel-name="{{ $channelName }}" class="ipaymu-channel-input hidden" @checked($channelSelected)>
+                                    <span class="ipaymu-channel-logo brand-{{ $channelCode }}">{{ $channelName }}</span>
+                                    <strong class="ipaymu-channel-total">Rp0</strong>
+                                    <small>Diproses otomatis</small>
+                                </label>
+                            @endforeach
+                        </div>
+                    </details>
+                @endforeach
+            </div>
             <div id="gateway-warning" class="hidden card p-3 mb-3 text-sm" style="border-color:#ef4444;color:#fca5a5;background:rgba(239,68,68,.08)" role="alert"></div>
             <style>
                 .pay-card { border-width: 1.5px; }
@@ -98,12 +131,38 @@
                 .quantity-button:disabled { cursor: not-allowed; color: #52525b; }
                 .quantity-stepper input { width: 100%; border: 0; border-right: 1px solid #393941; border-left: 1px solid #393941; background: transparent; color: #fff; text-align: center; font-weight: 800; appearance: textfield; }
                 .quantity-stepper input::-webkit-inner-spin-button, .quantity-stepper input::-webkit-outer-spin-button { margin: 0; appearance: none; }
+                .ipaymu-channel-panel { overflow: hidden; border: 1px solid #3f3f46; border-radius: 12px; background: #18181c; }
+                .ipaymu-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; background: #29292f; }
+                .ipaymu-panel-heading strong, .ipaymu-panel-heading small { display: block; }
+                .ipaymu-panel-heading small { margin-top: .15rem; color: #a1a1aa; font-size: .7rem; }
+                .ipaymu-secure { border-radius: 999px; padding: .3rem .55rem; background: rgba(249,115,22,.12); color: #fdba74; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+                .ipaymu-method { border-top: 1px solid #35353b; }
+                .ipaymu-method summary { display: flex; cursor: pointer; list-style: none; align-items: center; justify-content: space-between; padding: .8rem 1rem; font-size: .82rem; font-weight: 800; }
+                .ipaymu-method summary::-webkit-details-marker { display: none; }
+                .ipaymu-method[open] .ipaymu-chevron { transform: rotate(180deg); }
+                .ipaymu-chevron { transition: transform .15s ease; }
+                .ipaymu-channel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; padding: 0 .75rem .8rem; }
+                .ipaymu-channel-card { display: flex; min-width: 0; cursor: pointer; flex-direction: column; gap: .4rem; border: 1px solid #45454d; border-radius: 10px; padding: .65rem; background: #303036; transition: .15s ease; }
+                .ipaymu-channel-card:hover { border-color: #71717a; transform: translateY(-1px); }
+                .ipaymu-channel-card.is-selected { border-color: #f97316; box-shadow: 0 0 0 1px rgba(249,115,22,.35); background: rgba(249,115,22,.08); }
+                .ipaymu-channel-logo { display: flex; min-height: 34px; align-items: center; overflow: hidden; border-radius: 6px; padding: .35rem .5rem; background: #fff; color: #18181b; font-size: .76rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+                .ipaymu-channel-total { font-size: .74rem; }
+                .ipaymu-channel-card small { padding-top: .35rem; border-top: 1px dashed #57575f; color: #a1a1aa; font-size: .62rem; font-style: italic; }
+                .brand-bca { color:#07549b; } .brand-bni { color:#e66018; } .brand-mandiri { color:#173d73; }
+                .brand-bri { color:#075ca8; } .brand-bsi { color:#159688; } .brand-cimb { color:#a71930; }
+                .brand-dana { color:#158bd2; } .brand-shopeepay { color:#ee4d2d; } .brand-permata { color:#168270; }
                 html[data-theme="light"] .pay-logo { background: #fff7ed; color: #c2570c; }
                 html[data-theme="light"] .quantity-stepper { border-color: #d6d3d1; background: #fff; }
                 html[data-theme="light"] .quantity-stepper input { border-color: #d6d3d1; color: #1c1917; }
+                html[data-theme="light"] .ipaymu-channel-panel { border-color: #d6d3d1; background: #fff; }
+                html[data-theme="light"] .ipaymu-panel-heading { background: #f5f5f4; }
+                html[data-theme="light"] .ipaymu-method { border-color: #e7e5e4; }
+                html[data-theme="light"] .ipaymu-channel-card { border-color: #d6d3d1; background: #fafaf9; color: #1c1917; }
+                html[data-theme="light"] .ipaymu-channel-card.is-selected { border-color: #f97316; background: #fff7ed; }
                 @media (max-width: 420px) {
                     .quantity-section { align-items: stretch; flex-direction: column; }
                     .quantity-stepper { width: 100%; grid-template-columns: 1fr 1.15fr 1fr; }
+                    .ipaymu-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 }
             </style>
             <button class="card w-full py-2 font-bold" id="btn-bayar">Bayar</button>
@@ -170,14 +229,26 @@ async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
     const activePayment = document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`);
-    document.getElementById('sum-method').textContent = activePayment?.dataset.payName || '-';
+    const selectedChannel = document.querySelector('.ipaymu-channel-input:checked');
+    const methodName = gw === 'ipaymu' && selectedChannel
+        ? `${activePayment?.dataset.payName || 'iPaymu'} • ${selectedChannel.dataset.channelName}`
+        : (activePayment?.dataset.payName || '-');
+    document.getElementById('sum-method').textContent = methodName;
+    document.getElementById('ipaymu-channel-panel').classList.toggle('hidden', gw !== 'ipaymu');
     const quantity = currentQuantity();
-    const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, gateway_code: gw, quantity})});
+    const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({
+        product_id: productId,
+        gateway_code: gw,
+        quantity,
+        ipaymu_method: document.getElementById('ipaymu-method').value,
+        ipaymu_channel: selectedChannel?.value,
+    })});
     const j = await r.json();
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     document.getElementById('sum-sell').textContent = f(j.sell_price);
     document.getElementById('sum-quantity').textContent = quantity;
     document.getElementById('sum-total').textContent = f(j.checkout_total ?? (j.total * quantity));
+    document.querySelectorAll('.ipaymu-channel-total').forEach(el => { el.textContent = f(j.checkout_total ?? (j.total * quantity)); });
     const warning = document.getElementById('gateway-warning');
     const payButton = document.getElementById('btn-bayar');
     warning.textContent = j.message || '';
@@ -187,6 +258,11 @@ async function refreshQuote() {
     payButton.style.cursor = j.available === false ? 'not-allowed' : '';
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
+document.querySelectorAll('.ipaymu-channel-input').forEach(el => el.addEventListener('change', event => {
+    document.getElementById('ipaymu-method').value = event.currentTarget.dataset.method;
+    document.querySelectorAll('.ipaymu-channel-card').forEach(card => card.classList.toggle('is-selected', card.contains(event.currentTarget)));
+    refreshQuote();
+}));
 document.querySelectorAll('[data-quantity-action]').forEach(button => button.addEventListener('click', () => {
     const direction = button.dataset.quantityAction === 'plus' ? 1 : -1;
     quantityInput.value = Math.max(1, Math.min(maxQuantity, currentQuantity() + direction));

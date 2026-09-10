@@ -82,6 +82,65 @@ class IPaymuTopupTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_ipaymu_direct_payment_mengirim_method_dan_channel_pilihan(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/api/v2/payment/direct' => Http::response([
+                'Status' => 200,
+                'Success' => true,
+                'Message' => 'Success',
+                'Data' => [
+                    'TransactionId' => 98765,
+                    'ReferenceId' => 'PAY-DIRECT-1',
+                    'Via' => 'va',
+                    'Channel' => 'bca',
+                    'PaymentNo' => '1234567890',
+                    'PaymentName' => 'BCA Virtual Account',
+                    'Url' => 'https://sandbox.ipaymu.com/payment/98765',
+                ],
+            ]),
+        ]);
+
+        $gateway = new IPaymuGateway(['va' => '123456', 'secret' => 'api-secret'], true);
+        $result = $gateway->createPayment([
+            'reference_id' => 'PAY-DIRECT-1',
+            'amount' => 10000,
+            'description' => 'Pembelian Diamond',
+            'customer_name' => 'Member Test',
+            'customer_phone' => '081234567890',
+            'customer_email' => 'member@example.com',
+            'payment_method' => 'va',
+            'payment_channel' => 'bca',
+        ]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(98765, $result['gateway_ref']);
+
+        Http::assertSent(function (Request $request): bool {
+            return $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment/direct'
+                && $request['paymentMethod'] === 'va'
+                && $request['paymentChannel'] === 'bca'
+                && $request['amount'] === 10000
+                && $request['feeDirection'] === 'MERCHANT'
+                && $request['referenceId'] === 'PAY-DIRECT-1';
+        });
+    }
+
+    public function test_checkout_menampilkan_kelompok_channel_ipaymu(): void
+    {
+        $this->createGateway();
+        $product = $this->createProduct(12000);
+
+        $this->get(route('checkout.show', $product))
+            ->assertOk()
+            ->assertSee('Pilih Channel iPaymu')
+            ->assertSee('Virtual Account')
+            ->assertSee('E-Wallet')
+            ->assertSee('BCA')
+            ->assertSee('DANA')
+            ->assertSee('Alfamart');
+    }
+
     public function test_checkout_ipaymu_di_bawah_minimum_ditolak_dengan_pesan_yang_jelas(): void
     {
         $this->createGateway();
@@ -98,7 +157,7 @@ class IPaymuTopupTest extends TestCase
                 'gateway_code' => 'ipaymu',
             ])
             ->assertRedirect(route('checkout.show', $product))
-            ->assertSessionHasErrors(['checkout' => 'Minimal transaksi iPaymu adalah Rp 10.000. Tingkatkan jumlah pesanan menjadi minimal 7. Atau gunakan Saldo Member.']);
+            ->assertSessionHasErrors(['checkout' => 'Minimal channel iPaymu ini adalah Rp 10.000. Tingkatkan jumlah pesanan menjadi minimal 7. Atau gunakan Saldo Member.']);
 
         $this->assertDatabaseCount('transactions', 0);
         Http::assertNothingSent();
@@ -107,11 +166,15 @@ class IPaymuTopupTest extends TestCase
     public function test_checkout_ipaymu_menerima_session_id_resmi_dan_menyimpan_url_pembayaran(): void
     {
         Http::fake([
-            'sandbox.ipaymu.com/api/v2/payment' => Http::response([
+            'sandbox.ipaymu.com/api/v2/payment/direct' => Http::response([
                 'Status' => 200,
                 'Message' => 'Success',
                 'Data' => [
-                    'SessionID' => 'checkout-session-123',
+                    'TransactionId' => 'checkout-session-123',
+                    'Via' => 'qris',
+                    'Channel' => 'mpm',
+                    'PaymentNo' => 'QRIS-123456',
+                    'PaymentName' => 'QRIS',
                     'Url' => 'https://sandbox.ipaymu.com/payment/checkout-session-123',
                 ],
             ]),
@@ -126,6 +189,8 @@ class IPaymuTopupTest extends TestCase
             'target_zone' => '1234',
             'quantity' => 7,
             'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'qris',
+            'ipaymu_channel' => 'mpm',
         ]);
 
         $transaction = Transaction::firstOrFail();
@@ -134,12 +199,19 @@ class IPaymuTopupTest extends TestCase
         $this->assertSame('checkout-session-123', $transaction->payment_payload['_gateway_reference']);
         $this->assertSame('https://sandbox.ipaymu.com/payment/checkout-session-123', $transaction->payment_payload['_checkout_url']);
 
-        Http::assertSent(function (Request $request) use ($transaction): bool {
+        $this->get(route('payment.show', $transaction->invoice_code))
+            ->assertOk()
+            ->assertSee('Channel pembayaran')
+            ->assertSee('QRIS-123456')
+            ->assertSee('Bayar Sekarang');
+
+        Http::assertSent(function (Request $request): bool {
             $data = $request->data();
 
             return ! array_key_exists('account', $data)
-                && $data['returnUrl'] === route('payment.show', $transaction->invoice_code)
-                && $data['cancelUrl'] === route('checkout.show', $transaction->product_id);
+                && $data['paymentMethod'] === 'qris'
+                && $data['paymentChannel'] === 'mpm'
+                && $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment/direct';
         });
     }
 

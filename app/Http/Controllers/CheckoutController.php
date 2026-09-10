@@ -19,8 +19,9 @@ class CheckoutController extends Controller
         $product->loadMissing('supplier');
         $gateways = PaymentGatewayConfig::activeOrdered();
         $maxQuantity = $product->supplier?->code === 'vip-reseller' ? 10 : 1;
+        $ipaymuChannels = IPaymuGateway::CHECKOUT_CHANNELS;
 
-        return view('checkout', compact('product', 'gateways', 'maxQuantity'));
+        return view('checkout', compact('product', 'gateways', 'maxQuantity', 'ipaymuChannels'));
     }
 
     public function quote(Request $request, PaymentService $payments)
@@ -29,6 +30,8 @@ class CheckoutController extends Controller
             'product_id' => 'required|integer',
             'gateway_code' => 'nullable|string|max:64',
             'quantity' => 'nullable|integer|min:1|max:10',
+            'ipaymu_method' => 'nullable|string|max:32',
+            'ipaymu_channel' => 'nullable|string|max:32',
         ]);
         $gateway = $data['gateway_code'] ?? 'balance';
 
@@ -40,14 +43,16 @@ class CheckoutController extends Controller
         $quote = $payments->quote($product, $request->user(), $gateway);
         $quantity = (int) ($data['quantity'] ?? 1);
         $checkoutTotal = $quote['total'] * $quantity;
-        $minimumAmount = $gateway === 'ipaymu' ? IPaymuGateway::MINIMUM_AMOUNT : 0;
+        $minimumAmount = $gateway === 'ipaymu'
+            ? IPaymuGateway::minimumAmountFor($data['ipaymu_method'] ?? 'qris', $data['ipaymu_channel'] ?? 'mpm')
+            : 0;
         $available = $minimumAmount === 0 || $checkoutTotal >= $minimumAmount;
 
         return response()->json(array_merge($quote, [
             'checkout_total' => $checkoutTotal,
             'minimum_amount' => $minimumAmount,
             'available' => $available,
-            'message' => $available ? null : 'Minimal transaksi iPaymu Rp 10.000. Tambah jumlah pesanan atau gunakan Saldo Member.',
+            'message' => $available ? null : 'Minimal channel ini Rp '.number_format($minimumAmount, 0, ',', '.').'. Tambah jumlah pesanan atau gunakan Saldo Member.',
         ]));
     }
 
@@ -81,6 +86,8 @@ class CheckoutController extends Controller
             'nickname' => 'nullable|string|max:128',
             'quantity' => 'nullable|integer|min:1|max:10',
             'gateway_code' => 'required|string',
+            'ipaymu_method' => 'nullable|string|max:32',
+            'ipaymu_channel' => 'nullable|string|max:32',
             'buyer_phone' => 'nullable|string|max:32',
             'buyer_email' => 'nullable|email|max:128',
         ]);

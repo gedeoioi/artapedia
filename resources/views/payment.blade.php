@@ -16,7 +16,25 @@
         @php
             $gatewayPayload = $trx->invoice?->payload ?? $trx->payment_payload ?? [];
             $checkoutUrl = data_get($gatewayPayload, '_checkout_url') ?? data_get($gatewayPayload, 'Data.Url');
+            $paymentNumber = data_get($gatewayPayload, 'Data.PaymentNo');
+            $paymentName = data_get($gatewayPayload, 'Data.PaymentName');
+            $paymentChannel = data_get($gatewayPayload, 'Data.Channel');
         @endphp
+        @if($paymentName || $paymentChannel)
+            <div class="card p-3 mb-3">
+                <div class="text-xs text-gray-500">Channel pembayaran</div>
+                <div class="font-semibold mt-1">{{ $paymentName ?: strtoupper((string) $paymentChannel) }}</div>
+            </div>
+        @endif
+        @if($paymentNumber)
+            <div class="card p-3 mb-3">
+                <div class="text-xs text-gray-500">Nomor pembayaran / Virtual Account</div>
+                <div class="flex items-center gap-2 mt-1">
+                    <code id="payment-number" class="font-bold text-lg flex-1">{{ $paymentNumber }}</code>
+                    <button type="button" class="btn-primary px-3 py-2 text-xs" onclick="navigator.clipboard.writeText(document.getElementById('payment-number').textContent.trim())">Salin</button>
+                </div>
+            </div>
+        @endif
         @if($checkoutUrl)
             <a href="{{ $checkoutUrl }}" class="btn-primary block w-full py-3 text-center font-bold mb-3" rel="nofollow">Bayar Sekarang</a>
         @endif
