@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\PaymentGatewayConfig;
+use App\Models\Product;
+use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Payments\IPaymuGateway;
+use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -22,7 +25,7 @@ class IPaymuTopupTest extends TestCase
                 'Status' => 200,
                 'Message' => 'Success',
                 'Data' => [
-                    'SessionId' => 'session-123',
+                    'SessionID' => 'session-123',
                     'Url' => 'https://sandbox.ipaymu.com/payment/session-123',
                 ],
             ]),
@@ -53,7 +56,7 @@ class IPaymuTopupTest extends TestCase
 
             return $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment'
                 && $request->header('signature')[0] === $expectedSignature
-                && $data['account'] === '123456'
+                && ! array_key_exists('account', $data)
                 && $data['product'] === ['Topup saldo 50000']
                 && $data['qty'] === [1]
                 && $data['price'] === [50000]
@@ -77,6 +80,67 @@ class IPaymuTopupTest extends TestCase
             ->assertSessionHasErrors('topup');
 
         Http::assertNothingSent();
+    }
+
+    public function test_checkout_ipaymu_di_bawah_minimum_ditolak_dengan_pesan_yang_jelas(): void
+    {
+        $this->createGateway();
+        $product = $this->createProduct(1530);
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $this->actingAs($user)
+            ->from(route('checkout.show', $product))
+            ->post(route('checkout.store'), [
+                'product_id' => $product->id,
+                'target_user_id' => '12345678',
+                'target_zone' => '1234',
+                'quantity' => 1,
+                'gateway_code' => 'ipaymu',
+            ])
+            ->assertRedirect(route('checkout.show', $product))
+            ->assertSessionHasErrors(['checkout' => 'Minimal transaksi iPaymu adalah Rp 10.000. Tingkatkan jumlah pesanan menjadi minimal 7. Atau gunakan Saldo Member.']);
+
+        $this->assertDatabaseCount('transactions', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_checkout_ipaymu_menerima_session_id_resmi_dan_menyimpan_url_pembayaran(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/api/v2/payment' => Http::response([
+                'Status' => 200,
+                'Message' => 'Success',
+                'Data' => [
+                    'SessionID' => 'checkout-session-123',
+                    'Url' => 'https://sandbox.ipaymu.com/payment/checkout-session-123',
+                ],
+            ]),
+        ]);
+        $this->createGateway();
+        $product = $this->createProduct(1530);
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $response = $this->actingAs($user)->post(route('checkout.store'), [
+            'product_id' => $product->id,
+            'target_user_id' => '12345678',
+            'target_zone' => '1234',
+            'quantity' => 7,
+            'gateway_code' => 'ipaymu',
+        ]);
+
+        $transaction = Transaction::firstOrFail();
+        $response->assertRedirect(route('payment.show', $transaction->invoice_code));
+        $this->assertSame(10710, $transaction->total_amount);
+        $this->assertSame('checkout-session-123', $transaction->payment_payload['_gateway_reference']);
+        $this->assertSame('https://sandbox.ipaymu.com/payment/checkout-session-123', $transaction->payment_payload['_checkout_url']);
+
+        Http::assertSent(function (Request $request) use ($transaction): bool {
+            $data = $request->data();
+
+            return ! array_key_exists('account', $data)
+                && $data['returnUrl'] === route('payment.show', $transaction->invoice_code)
+                && $data['cancelUrl'] === route('checkout.show', $transaction->product_id);
+        });
     }
 
     public function test_topup_ipaymu_menyimpan_url_checkout_dan_bisa_membuka_invoice(): void
@@ -123,6 +187,35 @@ class IPaymuTopupTest extends TestCase
             'credentials' => ['va' => '123456', 'secret' => 'api-secret'],
             'fee_flat' => 0,
             'fee_percent' => 0,
+        ]);
+    }
+
+    private function createProduct(int $price): Product
+    {
+        $supplier = SupplierConfig::create([
+            'code' => 'vip-reseller',
+            'name' => 'VIP Reseller',
+            'provider_class' => VipResellerProvider::class,
+            'is_active' => true,
+            'is_sandbox' => true,
+            'priority' => 0,
+            'credentials' => ['api_id' => 'test-id', 'api_key' => 'test-key'],
+        ]);
+
+        return Product::create([
+            'supplier_config_id' => $supplier->id,
+            'supplier_code' => 'ML-IPAYMU',
+            'name' => '5 Diamonds',
+            'game' => 'Mobile Legends',
+            'product_type' => Product::TYPE_GAME,
+            'cost_basic' => 1000,
+            'cost_premium' => 1000,
+            'cost_special' => 1000,
+            'price_guest' => $price,
+            'price_biasa' => $price,
+            'price_vip' => $price,
+            'is_active' => true,
+            'in_stock' => true,
         ]);
     }
 }

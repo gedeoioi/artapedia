@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Http;
 
 class IPaymuGateway extends BasePaymentGateway
 {
+    public const MINIMUM_AMOUNT = 10_000;
+
     public function code(): string
     {
         return 'ipaymu';
@@ -45,7 +47,6 @@ class IPaymuGateway extends BasePaymentGateway
         }
 
         $body = [
-            'account' => $va,
             'product' => [$description],
             'qty' => [1],
             'price' => [(int) $params['amount']],
@@ -64,6 +65,13 @@ class IPaymuGateway extends BasePaymentGateway
             'expiredType' => 'hours',
         ];
 
+        // `account` pada API redirect adalah VA child account, bukan VA merchant
+        // yang sudah dikirim melalui header. Hanya kirim bila memang dikonfigurasi.
+        $childAccount = trim((string) ($this->credentials['account'] ?? ''));
+        if ($childAccount !== '') {
+            $body['account'] = $childAccount;
+        }
+
         $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $res = Http::acceptJson()->withHeaders([
             'va' => $va,
@@ -74,17 +82,26 @@ class IPaymuGateway extends BasePaymentGateway
             ->post($this->baseUrl().'/payment');
 
         $json = $res->json() ?? [];
+        // Dokumentasi terbaru memakai `SessionID`, sedangkan sebagian respons
+        // lama/sandbox memakai `SessionId`. Terima keduanya.
+        $sessionId = $json['Data']['SessionID'] ?? $json['Data']['SessionId'] ?? null;
+        $checkoutUrl = $json['Data']['Url'] ?? null;
         $ok = $res->successful()
             && (int) ($json['Status'] ?? 0) === 200
-            && ! empty($json['Data']['SessionId'])
-            && ! empty($json['Data']['Url']);
+            && filled($sessionId)
+            && filled($checkoutUrl);
+
+        $message = $json['Message'] ?? $json['message'] ?? 'iPaymu menolak pembuatan pembayaran.';
+        if (is_array($message)) {
+            $message = implode(' ', array_map('strval', $message));
+        }
 
         return [
             'ok' => $ok,
             'reference_id' => $params['reference_id'],
-            'gateway_ref' => $json['Data']['SessionId'] ?? null,
-            'pay_url' => $json['Data']['Url'] ?? null,
-            'message' => (string) ($json['Message'] ?? $json['message'] ?? 'iPaymu menolak pembuatan pembayaran.'),
+            'gateway_ref' => $sessionId,
+            'pay_url' => $checkoutUrl,
+            'message' => (string) $message,
             'raw' => $json,
         ];
     }

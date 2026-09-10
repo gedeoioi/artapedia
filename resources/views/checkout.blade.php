@@ -46,8 +46,8 @@
             <input type="hidden" name="nickname" id="nickname">
             @endif
             <div class="grid grid-cols-2 gap-2 mb-2">
-                <div><label class="text-sm">No. HP</label><input name="buyer_phone" class="card w-full px-3 py-2 mt-1"></div>
-                <div><label class="text-sm">Email</label><input name="buyer_email" type="email" class="card w-full px-3 py-2 mt-1"></div>
+                <div><label class="text-sm">No. HP</label><input name="buyer_phone" value="{{ old('buyer_phone', auth()->user()?->phone) }}" class="card w-full px-3 py-2 mt-1"></div>
+                <div><label class="text-sm">Email</label><input name="buyer_email" value="{{ old('buyer_email', auth()->user()?->email) }}" type="email" class="card w-full px-3 py-2 mt-1"></div>
             </div>
             <div class="quantity-section mb-4 mt-3">
                 <div>
@@ -81,11 +81,12 @@
                         <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
                         <span class="min-w-0">
                             <span class="block text-sm font-semibold truncate">{{ $gw->name }}</span>
-                            <span class="block text-xs muted">QRIS / VA / E-Wallet</span>
+                            <span class="block text-xs muted">{{ $gw->code === 'ipaymu' ? 'Min. Rp 10.000 • QRIS / VA / E-Wallet' : 'QRIS / VA / E-Wallet' }}</span>
                         </span>
                     </label>
                 @endforeach
             </div>
+            <div id="gateway-warning" class="hidden card p-3 mb-3 text-sm" style="border-color:#ef4444;color:#fca5a5;background:rgba(239,68,68,.08)" role="alert"></div>
             <style>
                 .pay-card { border-width: 1.5px; }
                 .pay-card.pay-active { border-color: #f97316; background: rgba(249,115,22,.07); }
@@ -170,13 +171,20 @@ async function refreshQuote() {
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
     const activePayment = document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`);
     document.getElementById('sum-method').textContent = activePayment?.dataset.payName || '-';
-    const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, gateway_code: gw})});
+    const quantity = currentQuantity();
+    const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, gateway_code: gw, quantity})});
     const j = await r.json();
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
-    const quantity = currentQuantity();
     document.getElementById('sum-sell').textContent = f(j.sell_price);
     document.getElementById('sum-quantity').textContent = quantity;
-    document.getElementById('sum-total').textContent = f(j.total * quantity);
+    document.getElementById('sum-total').textContent = f(j.checkout_total ?? (j.total * quantity));
+    const warning = document.getElementById('gateway-warning');
+    const payButton = document.getElementById('btn-bayar');
+    warning.textContent = j.message || '';
+    warning.classList.toggle('hidden', j.available !== false);
+    payButton.disabled = j.available === false;
+    payButton.style.opacity = j.available === false ? '.55' : '';
+    payButton.style.cursor = j.available === false ? 'not-allowed' : '';
 }
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
 document.querySelectorAll('[data-quantity-action]').forEach(button => button.addEventListener('click', () => {

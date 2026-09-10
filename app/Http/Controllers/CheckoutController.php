@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
+use App\Payments\IPaymuGateway;
 use App\Services\NicknameService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
@@ -27,6 +28,7 @@ class CheckoutController extends Controller
         $data = $request->validate([
             'product_id' => 'required|integer',
             'gateway_code' => 'nullable|string|max:64',
+            'quantity' => 'nullable|integer|min:1|max:10',
         ]);
         $gateway = $data['gateway_code'] ?? 'balance';
 
@@ -35,8 +37,18 @@ class CheckoutController extends Controller
         }
 
         $product = Product::available()->findOrFail($data['product_id']);
+        $quote = $payments->quote($product, $request->user(), $gateway);
+        $quantity = (int) ($data['quantity'] ?? 1);
+        $checkoutTotal = $quote['total'] * $quantity;
+        $minimumAmount = $gateway === 'ipaymu' ? IPaymuGateway::MINIMUM_AMOUNT : 0;
+        $available = $minimumAmount === 0 || $checkoutTotal >= $minimumAmount;
 
-        return response()->json($payments->quote($product, $request->user(), $gateway));
+        return response()->json(array_merge($quote, [
+            'checkout_total' => $checkoutTotal,
+            'minimum_amount' => $minimumAmount,
+            'available' => $available,
+            'message' => $available ? null : 'Minimal transaksi iPaymu Rp 10.000. Tambah jumlah pesanan atau gunakan Saldo Member.',
+        ]));
     }
 
     public function checkNickname(Request $request, NicknameService $nicknames)

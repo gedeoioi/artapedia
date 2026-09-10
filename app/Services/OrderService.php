@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Payments\IPaymuGateway;
 use App\Suppliers\DigiflazzProvider;
 use App\Suppliers\TokoVoucherProvider;
 use App\Suppliers\VipResellerProvider;
@@ -48,12 +49,21 @@ class OrderService
             $quote = $this->payments->quote($product, $user, $data['gateway_code'] ?? 'balance');
             $method = $data['gateway_code'] ?? 'balance';
             $quantity = (int) ($data['quantity'] ?? 1);
+            $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
+
+            if ($method === 'ipaymu' && ($quote['total'] * $quantity) < IPaymuGateway::MINIMUM_AMOUNT) {
+                $minimumQuantity = (int) ceil(IPaymuGateway::MINIMUM_AMOUNT / max(1, $quote['total']));
+                $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
+                $quantityHint = $minimumQuantity <= $maximumQuantity
+                    ? " Tingkatkan jumlah pesanan menjadi minimal {$minimumQuantity}."
+                    : '';
+
+                throw new \RuntimeException('Minimal transaksi iPaymu adalah Rp 10.000.'.$quantityHint.' Atau gunakan Saldo Member.');
+            }
 
             if ($user && $user->status === 'suspended') {
                 throw new \RuntimeException('Akun disuspend.');
             }
-
-            $supplier = SupplierConfig::whereKey($product->supplier_config_id)->first();
 
             if ($quantity > 1 && $supplier?->code !== 'vip-reseller') {
                 throw new \RuntimeException('Produk dari supplier ini hanya dapat dipesan satu kali per transaksi.');
@@ -106,14 +116,23 @@ class OrderService
                 'customer_email' => $trx->buyer_email,
                 'customer_phone' => $trx->buyer_phone,
                 'customer_name' => $user?->name ?? 'Guest',
+                'success_url' => route('payment.show', $trx->invoice_code),
+                'failure_url' => route('checkout.show', $product),
             ]);
 
             if (! ($result['ok'] ?? false)) {
-                throw new \RuntimeException('Gateway gagal membuat pembayaran. Silakan coba metode lain.');
+                $message = mb_substr(strip_tags(trim((string) ($result['message'] ?? ''))), 0, 300);
+
+                throw new \RuntimeException($message !== ''
+                    ? $gw->name.': '.$message
+                    : 'Gateway gagal membuat pembayaran. Silakan coba metode lain.');
             }
 
             $trx->payment_reference = $reference;
-            $trx->payment_payload = $result['raw'] ?? null;
+            $trx->payment_payload = array_merge($result['raw'] ?? [], [
+                '_checkout_url' => $result['pay_url'] ?? null,
+                '_gateway_reference' => $result['gateway_ref'] ?? null,
+            ]);
             $trx->save();
 
             Invoice::create([
@@ -124,7 +143,7 @@ class OrderService
                 'amount' => $trx->total_amount,
                 'status' => 'pending',
                 'expired_at' => now()->addHour(),
-                'payload' => $result['raw'] ?? null,
+                'payload' => $trx->payment_payload,
             ]);
 
             return $trx->fresh();
