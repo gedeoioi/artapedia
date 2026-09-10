@@ -554,6 +554,14 @@ class IPaymuTopupTest extends TestCase
         app(PaymentService::class)->markPaid($transaction->payment_reference, 'ipaymu', [], 51000);
         $this->assertSame(50000, $user->fresh()->balance);
         $this->assertSame(Transaction::STATUS_SUCCESS, $transaction->fresh()->status);
+
+        $this->actingAs($user)
+            ->get(route('payment.show', $transaction->invoice_code))
+            ->assertOk()
+            ->assertSee('Saldo berhasil ditambahkan. Mengarahkan ke Member Area...')
+            ->assertSee('topupSuccessRedirectUrl', false)
+            ->assertSee(route('member.dashboard'), false)
+            ->assertSee('window.location.replace(topupSuccessRedirectUrl)', false);
     }
 
     private function createGateway(): PaymentGatewayConfig

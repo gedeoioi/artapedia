@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\MemberStats;
 use App\Filament\Widgets\SalesStats;
 use App\Models\SiteSetting;
 use Filament\Http\Middleware\Authenticate;
@@ -42,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 SalesStats::class,
+                MemberStats::class,
             ])
             ->middleware([
                 EncryptCookies::class,
