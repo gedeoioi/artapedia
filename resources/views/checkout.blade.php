@@ -66,7 +66,7 @@
             <div class="grid grid-cols-2 gap-2 mt-1 mb-3" id="gateways">
                 @auth
                 <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="balance" data-pay-name="Saldo Member">
-                    <input type="radio" name="gateway_code" value="balance" class="hidden" checked>
+                    <input type="radio" name="gateway_code" value="balance" class="hidden" @checked(old('gateway_code') === 'balance')>
                     <span class="pay-logo">W</span>
                     <span class="min-w-0">
                         <span class="block text-sm font-semibold truncate">Saldo Member</span>
@@ -76,7 +76,7 @@
                 @endauth
                 @foreach($gateways as $gw)
                     <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="{{ $gw->code }}" data-pay-name="{{ $gw->name }}">
-                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" class="hidden" @guest @if($loop->first) checked @endif @endguest>
+                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" class="hidden" @checked(old('gateway_code') === $gw->code)>
                         <span class="pay-logo">{{ mb_strtoupper(mb_substr($gw->name, 0, 1)) }}</span>
                         <span class="min-w-0">
                             <span class="block text-sm font-semibold truncate">{{ $gw->name }}</span>
@@ -86,17 +86,11 @@
                 @endforeach
             </div>
             @php
-                $defaultIPaymuMethod = array_key_first($ipaymuChannels);
-                $selectedIPaymuMethod = old('ipaymu_method', $defaultIPaymuMethod);
-                $defaultIPaymuChannel = $selectedIPaymuMethod
-                    ? array_key_first($ipaymuChannels[$selectedIPaymuMethod]['channels'] ?? [])
-                    : null;
-                $selectedIPaymuChannel = old('ipaymu_channel', $defaultIPaymuChannel);
+                $selectedIPaymuMethod = old('gateway_code') === 'ipaymu' ? old('ipaymu_method') : null;
+                $selectedIPaymuChannel = old('gateway_code') === 'ipaymu' ? old('ipaymu_channel') : null;
                 if (!isset($ipaymuChannels[$selectedIPaymuMethod]['channels'][$selectedIPaymuChannel])) {
-                    $selectedIPaymuMethod = $defaultIPaymuMethod;
-                    $selectedIPaymuChannel = $selectedIPaymuMethod
-                        ? array_key_first($ipaymuChannels[$selectedIPaymuMethod]['channels'] ?? [])
-                        : null;
+                    $selectedIPaymuMethod = null;
+                    $selectedIPaymuChannel = null;
                 }
             @endphp
             @if($ipaymuChannels !== [])
@@ -178,7 +172,7 @@
     @php
         $summaryIcon = $product->iconUrl();
         $initialPrice = auth()->check() ? auth()->user()->priceFor($product) : $product->price_guest;
-        $initialPaymentName = auth()->check() ? 'Saldo Member' : ($gateways->first()?->name ?? '-');
+        $initialPaymentName = 'Pilih metode pembayaran';
         $initialQuantity = max(1, min($maxQuantity, (int) old('quantity', 1)));
     @endphp
     <aside class="order-summary h-fit" aria-label="Ringkasan pesanan">
@@ -205,7 +199,7 @@
             <span>Total Pembayaran</span>
             <strong id="sum-total">Rp {{ number_format($initialPrice * $initialQuantity, 0, ',', '.') }}</strong>
         </div>
-        <button type="submit" form="checkout-form" class="btn-primary w-full py-3 font-bold mt-4" id="btn-bayar">Bayar Sekarang</button>
+        <button type="submit" form="checkout-form" class="btn-primary w-full py-3 font-bold mt-4" id="btn-bayar" disabled>Bayar Sekarang</button>
     </aside>
     <style>
         .order-summary { border: 1px dashed #4b4b52; border-radius: 13px; padding: 1.25rem; background: linear-gradient(145deg, #202024, #1a1a1e); box-shadow: 0 18px 50px rgba(0,0,0,.2); }
@@ -260,15 +254,26 @@ const scrollToOrderSummary = () => {
     requestAnimationFrame(animateScroll);
 };
 async function refreshQuote() {
-    const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
+    const selectedGateway = document.querySelector('input[name=gateway_code]:checked');
+    const gw = selectedGateway?.value;
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
-    const activePayment = document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`);
+    const activePayment = gw ? document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`) : null;
     const selectedChannel = document.querySelector('.ipaymu-channel-input:checked');
+    const warning = document.getElementById('gateway-warning');
+    const payButton = document.getElementById('btn-bayar');
     const methodName = gw === 'ipaymu' && selectedChannel
         ? `${activePayment?.dataset.payName || 'iPaymu'} • ${selectedChannel.dataset.channelName}`
-        : (activePayment?.dataset.payName || '-');
+        : (activePayment?.dataset.payName || 'Pilih metode pembayaran');
     document.getElementById('sum-method').textContent = methodName;
     document.getElementById('ipaymu-channel-panel')?.classList.toggle('hidden', gw !== 'ipaymu');
+    if (!gw || (gw === 'ipaymu' && !selectedChannel)) {
+        warning.textContent = gw === 'ipaymu' ? 'Pilih channel pembayaran terlebih dahulu.' : '';
+        warning.classList.toggle('hidden', gw !== 'ipaymu');
+        payButton.disabled = true;
+        payButton.style.opacity = '.55';
+        payButton.style.cursor = 'not-allowed';
+        return;
+    }
     const quantity = currentQuantity();
     const r = await fetch(quoteUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({
         product_id: productId,
@@ -278,8 +283,6 @@ async function refreshQuote() {
         ipaymu_channel: selectedChannel?.value,
     })});
     const j = await r.json();
-    const warning = document.getElementById('gateway-warning');
-    const payButton = document.getElementById('btn-bayar');
     if (!r.ok) {
         warning.textContent = j.message || 'Perhitungan pembayaran gagal dimuat.';
         warning.classList.remove('hidden');

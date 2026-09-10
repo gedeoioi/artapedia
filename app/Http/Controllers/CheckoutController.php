@@ -98,8 +98,8 @@ class CheckoutController extends Controller
             'nickname' => 'nullable|string|max:128',
             'quantity' => 'nullable|integer|min:1|max:10',
             'gateway_code' => 'required|string',
-            'ipaymu_method' => 'nullable|string|max:32',
-            'ipaymu_channel' => 'nullable|string|max:32',
+            'ipaymu_method' => 'required_if:gateway_code,ipaymu|nullable|string|max:32',
+            'ipaymu_channel' => 'required_if:gateway_code,ipaymu|nullable|string|max:32',
             'buyer_phone' => [$guestRule, 'string', 'max:32', 'regex:/^(?:\+?62|0)8[0-9]{8,12}$/'],
             'buyer_email' => [$guestRule, 'email', 'max:128'],
         ]);
@@ -119,10 +119,6 @@ class CheckoutController extends Controller
 
     private function resolveIPaymuChannel(PaymentGatewayConfig $config, ?string $method, ?string $channel): array
     {
-        $enabled = $config->enabledCheckoutChannels();
-        $method ??= array_key_first($enabled);
-        $channel ??= $method !== null ? array_key_first($enabled[$method]['channels'] ?? []) : null;
-
         abort_unless($config->isCheckoutChannelEnabled($method, $channel), 422, 'Channel pembayaran iPaymu tidak tersedia.');
 
         return [$method, $channel];

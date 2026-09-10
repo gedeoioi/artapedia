@@ -131,7 +131,8 @@ class IPaymuTopupTest extends TestCase
         $this->createGateway();
         $product = $this->createProduct(12000);
 
-        $this->get(route('checkout.show', $product))
+        $response = $this->get(route('checkout.show', $product));
+        $response
             ->assertOk()
             ->assertDontSee('Pilih Channel iPaymu')
             ->assertDontSee('>4</div>', false)
@@ -154,6 +155,31 @@ class IPaymuTopupTest extends TestCase
             ->assertSee('Bank Artha Graha')
             ->assertSee('DANA')
             ->assertSee('Alfamart');
+
+        $this->assertDoesNotMatchRegularExpression('/name="gateway_code"[^>]*checked/', $response->getContent());
+        $this->assertDoesNotMatchRegularExpression('/name="ipaymu_channel"[^>]*checked/', $response->getContent());
+        $response->assertSee('id="btn-bayar" disabled', false);
+    }
+
+    public function test_checkout_ipaymu_mewajibkan_user_memilih_channel_manual(): void
+    {
+        $this->createGateway();
+        $product = $this->createProduct(12000);
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $this->actingAs($user)
+            ->from(route('checkout.show', $product))
+            ->post(route('checkout.store'), [
+                'product_id' => $product->id,
+                'target_user_id' => '12345678',
+                'target_zone' => '1234',
+                'gateway_code' => 'ipaymu',
+            ])
+            ->assertRedirect(route('checkout.show', $product))
+            ->assertSessionHasErrors(['ipaymu_method', 'ipaymu_channel']);
+
+        $this->assertDatabaseCount('transactions', 0);
+        Http::assertNothingSent();
     }
 
     public function test_checkout_guest_mewajibkan_nomor_hp_dan_email(): void
@@ -287,6 +313,8 @@ class IPaymuTopupTest extends TestCase
                 'target_zone' => '1234',
                 'quantity' => 1,
                 'gateway_code' => 'ipaymu',
+                'ipaymu_method' => 'qris',
+                'ipaymu_channel' => 'mpm',
             ])
             ->assertRedirect(route('checkout.show', $product))
             ->assertSessionHasErrors(['checkout' => 'Minimal channel iPaymu ini adalah Rp 10.000. Tingkatkan jumlah pesanan menjadi minimal 7. Atau gunakan Saldo Member.']);

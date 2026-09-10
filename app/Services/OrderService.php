@@ -57,13 +57,12 @@ class OrderService
             $ipaymuChannel = null;
 
             if ($method === 'ipaymu') {
-                $enabledChannels = $gatewayConfig->enabledCheckoutChannels();
                 $ipaymuMethod = filled($data['ipaymu_method'] ?? null)
                     ? (string) $data['ipaymu_method']
-                    : array_key_first($enabledChannels);
+                    : null;
                 $ipaymuChannel = filled($data['ipaymu_channel'] ?? null)
                     ? (string) $data['ipaymu_channel']
-                    : ($ipaymuMethod !== null ? array_key_first($enabledChannels[$ipaymuMethod]['channels'] ?? []) : null);
+                    : null;
 
                 if (! $gatewayConfig->isCheckoutChannelEnabled($ipaymuMethod, $ipaymuChannel)) {
                     throw new \RuntimeException('Channel pembayaran iPaymu tidak aktif. Silakan pilih metode lain.');
