@@ -243,7 +243,7 @@ const scrollToOrderSummary = () => {
     const start = window.scrollY;
     const target = Math.max(0, summary.getBoundingClientRect().top + start - 110);
     const distance = target - start;
-    const duration = 850;
+    const duration = 550;
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         window.scrollTo(0, target);
