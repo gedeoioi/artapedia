@@ -359,7 +359,7 @@ class IPaymuTopupTest extends TestCase
         ]);
 
         $transaction = Transaction::firstOrFail();
-        $response->assertRedirect(route('payment.show', $transaction->invoice_code));
+        $response->assertRedirect(route('payment.show', ['invoice' => $transaction->invoice_code, 'auto_return' => 1]));
         $this->assertSame(10710, $transaction->total_amount);
         $this->assertSame('checkout-session-123', $transaction->payment_payload['_gateway_reference']);
         $this->assertSame('https://sandbox.ipaymu.com/payment/checkout-session-123', $transaction->payment_payload['_checkout_url']);
@@ -426,7 +426,7 @@ class IPaymuTopupTest extends TestCase
         ]);
 
         $transaction = Transaction::firstOrFail();
-        $response->assertRedirect(route('payment.show', $transaction->invoice_code));
+        $response->assertRedirect(route('payment.show', ['invoice' => $transaction->invoice_code, 'auto_return' => 1]));
         $this->assertSame(12000, $transaction->sell_price);
         $this->assertSame(1600, $transaction->gateway_fee);
         $this->assertSame(13600, $transaction->total_amount);
@@ -528,7 +528,7 @@ class IPaymuTopupTest extends TestCase
         ]);
 
         $transaction = Transaction::firstOrFail();
-        $response->assertRedirect(route('payment.show', $transaction->invoice_code));
+        $response->assertRedirect(route('payment.show', ['invoice' => $transaction->invoice_code, 'auto_return' => 1]));
         $this->assertSame('081234567890', $transaction->buyer_phone);
         $this->assertSame('https://sandbox.ipaymu.com/payment/session-456', $transaction->payment_payload['_checkout_url']);
         $this->assertSame(50000, $transaction->sell_price);
@@ -556,7 +556,7 @@ class IPaymuTopupTest extends TestCase
         $this->assertSame(Transaction::STATUS_SUCCESS, $transaction->fresh()->status);
 
         $this->actingAs($user)
-            ->get(route('payment.show', $transaction->invoice_code))
+            ->get(route('payment.show', ['invoice' => $transaction->invoice_code, 'auto_return' => 1]))
             ->assertOk()
             ->assertSee('Saldo berhasil ditambahkan. Mengarahkan ke Member Area...')
             ->assertSee('memberAreaRedirectUrl', false)

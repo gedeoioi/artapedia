@@ -114,7 +114,10 @@ class CheckoutController extends Controller
             return back()->withErrors(['checkout' => 'Checkout gagal diproses. Silakan coba lagi.'])->withInput();
         }
 
-        return redirect()->route('payment.show', $trx->invoice_code);
+        return redirect()->route('payment.show', [
+            'invoice' => $trx->invoice_code,
+            'auto_return' => 1,
+        ]);
     }
 
     private function resolveIPaymuChannel(PaymentGatewayConfig $config, ?string $method, ?string $channel): array

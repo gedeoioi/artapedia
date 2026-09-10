@@ -9,11 +9,11 @@
     <div class="card p-3 text-sm mb-3 {{ $trx->statusBadgeClass() }}" id="pay-status">
         <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
     </div>
-    @auth
+    @if($shouldAutoReturn)
         <div id="member-success-redirect" class="hidden card p-3 text-sm mb-3 text-center" style="border-color:#22c55e;color:#86efac;background:rgba(34,197,94,.08)">
             {{ ($trx->meta['kind'] ?? null) === 'topup' ? 'Saldo berhasil ditambahkan.' : 'Pesanan berhasil diproses.' }} Mengarahkan ke Member Area...
         </div>
-    @endauth
+    @endif
     @if($trx->payment_method === 'balance')
         <p class="text-sm">Dibayar dengan saldo member.</p>
     @else
@@ -82,7 +82,7 @@
 <script>
 const statusUrl = @json(route('payment.status', $trx->invoice_code));
 const initialPaymentStatus = @json($trx->status);
-const memberAreaRedirectUrl = @json(auth()->check() ? route('member.dashboard') : null);
+const memberAreaRedirectUrl = @json($shouldAutoReturn ? route('member.dashboard') : null);
 let timer;
 const countdown = document.getElementById('payment-countdown');
 let countdownTimer;

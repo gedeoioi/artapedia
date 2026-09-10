@@ -82,6 +82,9 @@ class TopupController extends Controller
             return back()->withErrors(['topup' => 'Topup gagal dibuat. Silakan coba metode lain.'])->withInput();
         }
 
-        return redirect()->route('payment.show', $trx->invoice_code);
+        return redirect()->route('payment.show', [
+            'invoice' => $trx->invoice_code,
+            'auto_return' => 1,
+        ]);
     }
 }

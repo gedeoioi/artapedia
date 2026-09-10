@@ -102,7 +102,10 @@ class PaymentService
                 'customer_email' => $locked->email,
                 'customer_phone' => $phone,
                 'customer_name' => $locked->name,
-                'success_url' => route('payment.show', $trx->invoice_code),
+                'success_url' => route('payment.show', [
+                    'invoice' => $trx->invoice_code,
+                    'auto_return' => 1,
+                ]),
                 'failure_url' => route('topup.create'),
                 'payment_method' => $paymentMethod,
                 'payment_channel' => $paymentChannel,

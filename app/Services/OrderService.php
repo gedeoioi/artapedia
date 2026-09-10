@@ -164,7 +164,10 @@ class OrderService
                 'customer_email' => $trx->buyer_email,
                 'customer_phone' => $trx->buyer_phone,
                 'customer_name' => $user?->name ?? 'Guest',
-                'success_url' => route('payment.show', $trx->invoice_code),
+                'success_url' => route('payment.show', [
+                    'invoice' => $trx->invoice_code,
+                    'auto_return' => 1,
+                ]),
                 'failure_url' => route('checkout.show', $product),
                 'payment_method' => $ipaymuMethod ?? null,
                 'payment_channel' => $ipaymuChannel ?? null,

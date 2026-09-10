@@ -46,6 +46,7 @@ class PaymentController extends Controller
         $priceAmount = (int) $trx->sell_price;
         $serviceFee = (int) $trx->admin_fee + (int) $trx->gateway_fee;
         $paymentTotal = (int) $trx->total_amount;
+        $shouldAutoReturn = auth()->check() && request()->boolean('auto_return');
 
         return view('payment', compact(
             'trx',
@@ -56,6 +57,7 @@ class PaymentController extends Controller
             'priceAmount',
             'serviceFee',
             'paymentTotal',
+            'shouldAutoReturn',
         ));
     }
 
