@@ -46,8 +46,8 @@
             <input type="hidden" name="nickname" id="nickname">
             @endif
             <div class="grid grid-cols-2 gap-2 mb-2">
-                <div><label class="text-sm">No. HP</label><input name="buyer_phone" value="{{ old('buyer_phone', auth()->user()?->phone) }}" class="card w-full px-3 py-2 mt-1"></div>
-                <div><label class="text-sm">Email</label><input name="buyer_email" value="{{ old('buyer_email', auth()->user()?->email) }}" type="email" class="card w-full px-3 py-2 mt-1"></div>
+                <div><label class="text-sm">No. HP @guest<span class="text-red-400">*</span>@endguest</label><input name="buyer_phone" value="{{ old('buyer_phone', auth()->user()?->phone) }}" type="tel" autocomplete="tel" class="card w-full px-3 py-2 mt-1" @guest required @endguest></div>
+                <div><label class="text-sm">Email @guest<span class="text-red-400">*</span>@endguest</label><input name="buyer_email" value="{{ old('buyer_email', auth()->user()?->email) }}" type="email" autocomplete="email" class="card w-full px-3 py-2 mt-1" @guest required @endguest></div>
             </div>
             <div class="quantity-section mb-4 mt-3">
                 <div>
@@ -61,7 +61,6 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 mb-2">
-                <div class="w-7 h-7 flex items-center justify-center font-extrabold text-sm btn-primary" style="border-radius:999px">4</div>
                 <label class="font-semibold">Pilih Pembayaran</label>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-1 mb-3" id="gateways">
@@ -105,7 +104,6 @@
                 <input type="hidden" name="ipaymu_method" id="ipaymu-method" value="{{ $selectedIPaymuMethod }}">
                 <div class="ipaymu-panel-heading">
                     <span>
-                        <strong>Pilih Channel iPaymu</strong>
                         <small>Minimal pembayaran Rp10.000</small>
                     </span>
                     <span class="ipaymu-secure">Pembayaran aman</span>
@@ -175,7 +173,6 @@
                     .ipaymu-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 }
             </style>
-            <button class="card w-full py-2 font-bold" id="btn-bayar">Bayar</button>
         </form>
     </div>
     @php
@@ -208,6 +205,7 @@
             <span>Total Pembayaran</span>
             <strong id="sum-total">Rp {{ number_format($initialPrice * $initialQuantity, 0, ',', '.') }}</strong>
         </div>
+        <button type="submit" form="checkout-form" class="btn-primary w-full py-3 font-bold mt-4" id="btn-bayar">Bayar Sekarang</button>
     </aside>
     <style>
         .order-summary { border: 1px dashed #4b4b52; border-radius: 13px; padding: 1.25rem; background: linear-gradient(145deg, #202024, #1a1a1e); box-shadow: 0 18px 50px rgba(0,0,0,.2); }

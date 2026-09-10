@@ -133,7 +133,10 @@ class IPaymuTopupTest extends TestCase
 
         $this->get(route('checkout.show', $product))
             ->assertOk()
-            ->assertSee('Pilih Channel iPaymu')
+            ->assertDontSee('Pilih Channel iPaymu')
+            ->assertDontSee('>4</div>', false)
+            ->assertSee('form="checkout-form"', false)
+            ->assertSee('Bayar Sekarang')
             ->assertDontSee('ipaymu-channel-total', false)
             ->assertSee('scrollToOrderSummary', false)
             ->assertSee('Virtual Account')
@@ -151,6 +154,26 @@ class IPaymuTopupTest extends TestCase
             ->assertSee('Bank Artha Graha')
             ->assertSee('DANA')
             ->assertSee('Alfamart');
+    }
+
+    public function test_checkout_guest_mewajibkan_nomor_hp_dan_email(): void
+    {
+        $this->createGateway();
+        $product = $this->createProduct(12000);
+
+        $this->from(route('checkout.show', $product))
+            ->post(route('checkout.store'), [
+                'product_id' => $product->id,
+                'target_user_id' => '12345678',
+                'target_zone' => '1234',
+                'gateway_code' => 'ipaymu',
+                'ipaymu_method' => 'qris',
+                'ipaymu_channel' => 'mpm',
+            ])
+            ->assertRedirect(route('checkout.show', $product))
+            ->assertSessionHasErrors(['buyer_phone', 'buyer_email']);
+
+        Http::assertNothingSent();
     }
 
     public function test_checkout_hanya_menampilkan_channel_aktif_dan_memakai_fee_per_kelompok(): void

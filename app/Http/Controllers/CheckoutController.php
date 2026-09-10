@@ -90,6 +90,7 @@ class CheckoutController extends Controller
 
     public function store(Request $request, OrderService $orders)
     {
+        $guestRule = $request->user() ? 'nullable' : 'required';
         $data = $request->validate([
             'product_id' => 'required|exists:products,id',
             'target_user_id' => 'required|string|max:64',
@@ -99,8 +100,8 @@ class CheckoutController extends Controller
             'gateway_code' => 'required|string',
             'ipaymu_method' => 'nullable|string|max:32',
             'ipaymu_channel' => 'nullable|string|max:32',
-            'buyer_phone' => 'nullable|string|max:32',
-            'buyer_email' => 'nullable|email|max:128',
+            'buyer_phone' => [$guestRule, 'string', 'max:32', 'regex:/^(?:\+?62|0)8[0-9]{8,12}$/'],
+            'buyer_email' => [$guestRule, 'email', 'max:128'],
         ]);
 
         try {
