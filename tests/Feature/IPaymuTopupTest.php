@@ -175,6 +175,7 @@ class IPaymuTopupTest extends TestCase
                     'Channel' => 'mpm',
                     'PaymentNo' => 'QRIS-123456',
                     'PaymentName' => 'QRIS',
+                    'Expired' => '2030-09-10 21:46:08',
                     'Url' => 'https://sandbox.ipaymu.com/payment/checkout-session-123',
                 ],
             ]),
@@ -198,11 +199,15 @@ class IPaymuTopupTest extends TestCase
         $this->assertSame(10710, $transaction->total_amount);
         $this->assertSame('checkout-session-123', $transaction->payment_payload['_gateway_reference']);
         $this->assertSame('https://sandbox.ipaymu.com/payment/checkout-session-123', $transaction->payment_payload['_checkout_url']);
+        $this->assertSame('2030-09-10 21:46:08', $transaction->invoice->expired_at->format('Y-m-d H:i:s'));
 
         $this->get(route('payment.show', $transaction->invoice_code))
             ->assertOk()
-            ->assertSee('Channel pembayaran')
-            ->assertSee('QRIS-123456')
+            ->assertSee('Pembayaran QRIS')
+            ->assertSee('data:image/svg+xml;base64,', false)
+            ->assertSee('id="payment-countdown"', false)
+            ->assertDontSee('Channel pembayaran')
+            ->assertDontSee('QRIS-123456')
             ->assertSee('Bayar Sekarang');
 
         Http::assertSent(function (Request $request): bool {

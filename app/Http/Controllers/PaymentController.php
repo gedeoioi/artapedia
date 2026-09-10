@@ -4,14 +4,46 @@ namespace App\Http\Controllers;
 
 use App\Models\Transaction;
 use App\Services\SupplierStatusSynchronizer;
+use Carbon\Carbon;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 class PaymentController extends Controller
 {
     public function show(string $invoice)
     {
         $trx = Transaction::with(['product', 'invoice'])->where('invoice_code', $invoice)->firstOrFail();
+        $gatewayPayload = $trx->invoice?->payload ?? $trx->payment_payload ?? [];
+        $paymentVia = strtolower((string) data_get($gatewayPayload, 'Data.Via'));
+        $paymentChannel = strtolower((string) data_get($gatewayPayload, 'Data.Channel'));
+        $isQris = $paymentVia === 'qris' || in_array($paymentChannel, ['qris', 'mpm'], true);
+        $qrisImage = null;
 
-        return view('payment', compact('trx'));
+        if ($isQris) {
+            $qrisPayload = (string) (data_get($gatewayPayload, 'Data.QrString') ?: data_get($gatewayPayload, 'Data.PaymentNo'));
+            if ($qrisPayload !== '' && mb_strlen($qrisPayload) <= 4096) {
+                try {
+                    $qrisImage = (new QRCode(new QROptions([
+                        'outputType' => QRCode::OUTPUT_MARKUP_SVG,
+                        'outputBase64' => true,
+                        'scale' => 6,
+                    ])))->render($qrisPayload);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
+
+        $expiresAt = $trx->invoice?->expired_at;
+        if ($gatewayExpiry = data_get($gatewayPayload, 'Data.Expired')) {
+            try {
+                $expiresAt = Carbon::parse($gatewayExpiry, config('app.timezone'));
+            } catch (\Throwable) {
+                // Gunakan waktu kedaluwarsa invoice sebagai fallback.
+            }
+        }
+
+        return view('payment', compact('trx', 'gatewayPayload', 'isQris', 'qrisImage', 'expiresAt'));
     }
 
     public function status(string $invoice, SupplierStatusSynchronizer $synchronizer)

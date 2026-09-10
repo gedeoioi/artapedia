@@ -14,6 +14,7 @@ use App\Payments\IPaymuGateway;
 use App\Suppliers\DigiflazzProvider;
 use App\Suppliers\TokoVoucherProvider;
 use App\Suppliers\VipResellerProvider;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
@@ -156,6 +157,15 @@ class OrderService
             ]);
             $trx->save();
 
+            $expiresAt = now()->addHour();
+            if ($gatewayExpiry = data_get($trx->payment_payload, 'Data.Expired')) {
+                try {
+                    $expiresAt = Carbon::parse($gatewayExpiry, config('app.timezone'));
+                } catch (\Throwable) {
+                    // Pertahankan waktu default jika format gateway tidak valid.
+                }
+            }
+
             Invoice::create([
                 'transaction_id' => $trx->id,
                 'invoice_code' => $trx->invoice_code,
@@ -163,7 +173,7 @@ class OrderService
                 'reference_id' => $reference,
                 'amount' => $trx->total_amount,
                 'status' => 'pending',
-                'expired_at' => now()->addHour(),
+                'expired_at' => $expiresAt,
                 'payload' => $trx->payment_payload,
             ]);
 
