@@ -8,6 +8,7 @@ use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Payments\IPaymuGateway;
+use App\Services\PaymentService;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -75,6 +76,8 @@ class IPaymuTopupTest extends TestCase
             ->post(route('topup.store'), [
                 'amount' => 50000,
                 'gateway_code' => 'ipaymu',
+                'ipaymu_method' => 'qris',
+                'ipaymu_channel' => 'mpm',
             ])
             ->assertRedirect(route('topup.create'))
             ->assertSessionHasErrors('topup');
@@ -439,36 +442,118 @@ class IPaymuTopupTest extends TestCase
             && $request['amount'] === 13600);
     }
 
+    public function test_halaman_topup_memakai_pilihan_channel_dan_ringkasan_seperti_checkout(): void
+    {
+        $this->createGateway();
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $response = $this->actingAs($user)->get(route('topup.create'));
+
+        $response->assertOk()
+            ->assertSee('Pilih Pembayaran')
+            ->assertSee('Ringkasan Pembayaran')
+            ->assertSee('Nominal Topup')
+            ->assertSee('Biaya layanan')
+            ->assertSee('Virtual Account')
+            ->assertSee('E-Wallet')
+            ->assertSee('BCA')
+            ->assertSee('DANA')
+            ->assertSee('Gerai Retail')
+            ->assertSee('id="topup-submit" disabled', false);
+        $this->assertDoesNotMatchRegularExpression('/name="gateway_code"[^>]*checked/', $response->getContent());
+        $this->assertDoesNotMatchRegularExpression('/name="ipaymu_channel"[^>]*checked/', $response->getContent());
+    }
+
+    public function test_quote_topup_memakai_fee_channel_yang_dipilih(): void
+    {
+        $gateway = $this->createGateway();
+        $gateway->update(['channel_settings' => [
+            'qris' => ['channels' => ['mpm'], 'fee_flat' => 500, 'fee_percent' => 1],
+            'ewallet' => ['channels' => ['dana'], 'fee_flat' => 1000, 'fee_percent' => 2],
+            'va' => ['channels' => ['bca'], 'fee_flat' => 4000, 'fee_percent' => 0],
+            'cstore' => ['channels' => ['alfamart'], 'fee_flat' => 2500, 'fee_percent' => 0],
+        ]]);
+        $user = User::factory()->create(['phone' => '081234567890']);
+
+        $this->actingAs($user)->postJson(route('topup.quote'), [
+            'amount' => 50000,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'qris',
+            'ipaymu_channel' => 'mpm',
+        ])->assertOk()->assertJson([
+            'amount' => 50000,
+            'gateway_fee' => 1000,
+            'total' => 51000,
+            'available' => true,
+        ]);
+
+        $this->actingAs($user)->postJson(route('topup.quote'), [
+            'amount' => 50000,
+            'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'va',
+            'ipaymu_channel' => 'bca',
+        ])->assertOk()->assertJson([
+            'gateway_fee' => 4000,
+            'total' => 54000,
+        ]);
+    }
+
     public function test_topup_ipaymu_menyimpan_url_checkout_dan_bisa_membuka_invoice(): void
     {
         Http::fake([
-            'sandbox.ipaymu.com/api/v2/payment' => Http::response([
+            'sandbox.ipaymu.com/api/v2/payment/direct' => Http::response([
                 'Status' => 200,
                 'Message' => 'Success',
                 'Data' => [
-                    'SessionId' => 'session-456',
+                    'TransactionId' => 'session-456',
+                    'Via' => 'qris',
+                    'Channel' => 'mpm',
+                    'PaymentNo' => 'QRIS-TOPUP-456',
+                    'Total' => 51000,
+                    'Expired' => '2030-09-11 21:46:08',
                     'Url' => 'https://sandbox.ipaymu.com/payment/session-456',
                 ],
             ]),
         ]);
         $user = User::factory()->create(['phone' => '081234567890']);
-        $this->createGateway();
+        $this->createGateway()->update(['channel_settings' => [
+            'qris' => ['channels' => ['mpm'], 'fee_flat' => 500, 'fee_percent' => 1],
+        ]]);
 
         $response = $this->actingAs($user)->post(route('topup.store'), [
             'amount' => 50000,
             'gateway_code' => 'ipaymu',
+            'ipaymu_method' => 'qris',
+            'ipaymu_channel' => 'mpm',
         ]);
 
         $transaction = Transaction::firstOrFail();
         $response->assertRedirect(route('payment.show', $transaction->invoice_code));
         $this->assertSame('081234567890', $transaction->buyer_phone);
         $this->assertSame('https://sandbox.ipaymu.com/payment/session-456', $transaction->payment_payload['_checkout_url']);
+        $this->assertSame(50000, $transaction->sell_price);
+        $this->assertSame(1000, $transaction->gateway_fee);
+        $this->assertSame(51000, $transaction->total_amount);
+        $this->assertSame(0, $transaction->profit);
+        $this->assertSame('2030-09-11 21:46:08', $transaction->invoice->expired_at->format('Y-m-d H:i:s'));
 
         $this->get(route('payment.show', $transaction->invoice_code))
             ->assertOk()
             ->assertSee('Topup Saldo')
+            ->assertSee('Pembayaran QRIS')
+            ->assertSee('Rp 1.000')
+            ->assertSee('Rp 51.000')
             ->assertSee('Bayar Sekarang')
             ->assertSee('https://sandbox.ipaymu.com/payment/session-456', false);
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://sandbox.ipaymu.com/api/v2/payment/direct'
+            && $request['paymentMethod'] === 'qris'
+            && $request['paymentChannel'] === 'mpm'
+            && $request['amount'] === 51000);
+
+        app(PaymentService::class)->markPaid($transaction->payment_reference, 'ipaymu', [], 51000);
+        $this->assertSame(50000, $user->fresh()->balance);
+        $this->assertSame(Transaction::STATUS_SUCCESS, $transaction->fresh()->status);
     }
 
     private function createGateway(): PaymentGatewayConfig

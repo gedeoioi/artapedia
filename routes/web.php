@@ -45,6 +45,7 @@ Route::get('/sitemap.xml', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/member', [MemberController::class, 'dashboard'])->name('member.dashboard');
     Route::get('/member/topup', [TopupController::class, 'create'])->name('topup.create');
+    Route::post('/member/topup/quote', [TopupController::class, 'quote'])->name('topup.quote');
     Route::post('/member/topup', [TopupController::class, 'store'])->name('topup.store');
     Route::get('/dashboard', [MemberController::class, 'dashboard'])->name('dashboard');
     Route::post('/member/rate/{transaction}', [MemberController::class, 'rate'])->name('member.rate');

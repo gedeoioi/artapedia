@@ -9,6 +9,7 @@ use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
 use App\Models\Transaction;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -53,12 +54,21 @@ class PaymentService
         return $prefix.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(6));
     }
 
-    public function topupBalance(User $user, int $amount, string $gatewayCode, ?string $customerPhone = null): Transaction
-    {
-        return DB::transaction(function () use ($user, $amount, $gatewayCode, $customerPhone) {
+    public function topupBalance(
+        User $user,
+        int $amount,
+        string $gatewayCode,
+        ?string $customerPhone = null,
+        ?string $paymentMethod = null,
+        ?string $paymentChannel = null,
+    ): Transaction {
+        return DB::transaction(function () use ($user, $amount, $gatewayCode, $customerPhone, $paymentMethod, $paymentChannel) {
             $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $gw = PaymentGatewayConfig::where('code', $gatewayCode)->where('is_active', true)->firstOrFail();
-            $fee = $gw->feeFor($amount);
+            if ($gw->code === 'ipaymu' && ! $gw->isCheckoutChannelEnabled($paymentMethod, $paymentChannel)) {
+                throw new \RuntimeException('Channel pembayaran iPaymu tidak aktif. Silakan pilih metode lain.');
+            }
+            $fee = $gw->feeFor($amount, $paymentMethod, $paymentChannel);
             $phone = trim((string) ($customerPhone ?: $locked->phone));
 
             if (! preg_match('/^(?:\+?62|0)8[0-9]{8,12}$/', $phone)) {
@@ -77,16 +87,13 @@ class PaymentService
                 'admin_fee' => 0,
                 'gateway_fee' => $fee,
                 'total_amount' => $amount + $fee,
-                'profit' => -$fee,
+                'profit' => 0,
                 'payment_method' => $gw->code,
                 'status' => Transaction::STATUS_PENDING,
                 'buyer_phone' => $phone,
                 'buyer_email' => $locked->email,
                 'meta' => ['kind' => 'topup'],
             ]);
-            $trx->profit = -$fee;
-            $trx->save();
-
             $gateway = ProviderFactory::gatewayFor($gw);
             $result = $gateway->createPayment([
                 'reference_id' => $this->referenceId('TOPUP'),
@@ -97,6 +104,8 @@ class PaymentService
                 'customer_name' => $locked->name,
                 'success_url' => route('payment.show', $trx->invoice_code),
                 'failure_url' => route('topup.create'),
+                'payment_method' => $paymentMethod,
+                'payment_channel' => $paymentChannel,
             ]);
 
             if (! ($result['ok'] ?? false) || empty($result['reference_id'])) {
@@ -112,6 +121,15 @@ class PaymentService
             $trx->payment_payload = $payload;
             $trx->save();
 
+            $expiresAt = now()->addHour();
+            if ($gatewayExpiry = data_get($payload, 'Data.Expired')) {
+                try {
+                    $expiresAt = Carbon::parse($gatewayExpiry, config('app.timezone'));
+                } catch (\Throwable) {
+                    // Pertahankan waktu default jika format gateway tidak valid.
+                }
+            }
+
             Invoice::create([
                 'transaction_id' => $trx->id,
                 'invoice_code' => $trx->invoice_code,
@@ -119,7 +137,7 @@ class PaymentService
                 'reference_id' => $result['reference_id'],
                 'amount' => $trx->total_amount,
                 'status' => 'pending',
-                'expired_at' => now()->addHour(),
+                'expired_at' => $expiresAt,
                 'payload' => $payload,
             ]);
 
