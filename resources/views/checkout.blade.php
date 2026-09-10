@@ -267,7 +267,7 @@ async function refreshQuote() {
     document.getElementById('sum-method').textContent = methodName;
     document.getElementById('ipaymu-channel-panel')?.classList.toggle('hidden', gw !== 'ipaymu');
     if (!gw || (gw === 'ipaymu' && !selectedChannel)) {
-        warning.textContent = gw === 'ipaymu' ? 'Pilih channel pembayaran terlebih dahulu.' : '';
+        warning.textContent = gw === 'ipaymu' ? 'Pilih metode pembayaran terlebih dahulu.' : '';
         warning.classList.toggle('hidden', gw !== 'ipaymu');
         payButton.disabled = true;
         payButton.style.opacity = '.55';
