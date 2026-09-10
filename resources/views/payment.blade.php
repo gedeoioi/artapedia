@@ -9,11 +9,11 @@
     <div class="card p-3 text-sm mb-3 {{ $trx->statusBadgeClass() }}" id="pay-status">
         <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
     </div>
-    @if(($trx->meta['kind'] ?? null) === 'topup')
-        <div id="topup-success-redirect" class="hidden card p-3 text-sm mb-3 text-center" style="border-color:#22c55e;color:#86efac;background:rgba(34,197,94,.08)">
-            Saldo berhasil ditambahkan. Mengarahkan ke Member Area...
+    @auth
+        <div id="member-success-redirect" class="hidden card p-3 text-sm mb-3 text-center" style="border-color:#22c55e;color:#86efac;background:rgba(34,197,94,.08)">
+            {{ ($trx->meta['kind'] ?? null) === 'topup' ? 'Saldo berhasil ditambahkan.' : 'Pesanan berhasil diproses.' }} Mengarahkan ke Member Area...
         </div>
-    @endif
+    @endauth
     @if($trx->payment_method === 'balance')
         <p class="text-sm">Dibayar dengan saldo member.</p>
     @else
@@ -82,16 +82,16 @@
 <script>
 const statusUrl = @json(route('payment.status', $trx->invoice_code));
 const initialPaymentStatus = @json($trx->status);
-const topupSuccessRedirectUrl = @json(($trx->meta['kind'] ?? null) === 'topup' ? route('member.dashboard') : null);
+const memberAreaRedirectUrl = @json(auth()->check() ? route('member.dashboard') : null);
 let timer;
 const countdown = document.getElementById('payment-countdown');
 let countdownTimer;
-let topupRedirectTimer;
+let memberRedirectTimer;
 
-function scheduleTopupSuccessRedirect(status) {
-    if (status !== 'success' || !topupSuccessRedirectUrl || topupRedirectTimer) return;
-    document.getElementById('topup-success-redirect')?.classList.remove('hidden');
-    topupRedirectTimer = setTimeout(() => window.location.replace(topupSuccessRedirectUrl), 1500);
+function scheduleMemberSuccessRedirect(status) {
+    if (status !== 'success' || !memberAreaRedirectUrl || memberRedirectTimer) return;
+    document.getElementById('member-success-redirect')?.classList.remove('hidden');
+    memberRedirectTimer = setTimeout(() => window.location.replace(memberAreaRedirectUrl), 1500);
 }
 
 function refreshCountdown() {
@@ -120,13 +120,13 @@ async function refreshStatus() {
         const box = document.getElementById('pay-status');
         box.className = 'card p-3 text-sm mb-3 ' + j.badge;
         document.getElementById('pay-status-label').textContent = j.status_label;
-        scheduleTopupSuccessRedirect(j.status);
+        scheduleMemberSuccessRedirect(j.status);
 
         if (['success', 'failed', 'expired'].includes(j.status) && timer) clearInterval(timer);
     } catch (e) {}
 }
 
-scheduleTopupSuccessRedirect(initialPaymentStatus);
+scheduleMemberSuccessRedirect(initialPaymentStatus);
 refreshStatus();
 timer = setInterval(refreshStatus, 5000);
 refreshCountdown();

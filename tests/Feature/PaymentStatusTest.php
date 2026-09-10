@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -13,6 +14,32 @@ use Tests\TestCase;
 class PaymentStatusTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_produk_sukses_otomatis_mengarahkan_member_ke_member_area(): void
+    {
+        $member = User::factory()->create();
+        $product = Product::create([
+            'supplier_code' => 'ML-SUCCESS', 'name' => '5 Diamonds', 'game' => 'Mobile Legends',
+            'cost_basic' => 1000, 'cost_premium' => 1000, 'cost_special' => 1000,
+            'price_guest' => 1200, 'price_biasa' => 1150, 'price_vip' => 1100,
+            'is_active' => true, 'in_stock' => true,
+        ]);
+        $trx = Transaction::create([
+            'invoice_code' => 'INV-PRODUCT-SUCCESS', 'product_id' => $product->id,
+            'user_id' => $member->id, 'payment_gateway_code' => 'balance', 'target_user_id' => '123456',
+            'quantity' => 1, 'cost_price' => 1000, 'sell_price' => 1100,
+            'admin_fee' => 0, 'gateway_fee' => 0, 'total_amount' => 1100, 'profit' => 100,
+            'payment_method' => 'balance', 'status' => Transaction::STATUS_SUCCESS,
+            'supplier_trx_id' => 'VP-SUCCESS', 'supplier_status' => 'success', 'paid_at' => now(),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('payment.show', $trx->invoice_code))
+            ->assertOk()
+            ->assertSee('Pesanan berhasil diproses. Mengarahkan ke Member Area...')
+            ->assertSee(route('member.dashboard'), false)
+            ->assertSee('window.location.replace(memberAreaRedirectUrl)', false);
+    }
 
     public function test_halaman_processing_menampilkan_proses_supplier_bukan_menunggu_pembayaran(): void
     {

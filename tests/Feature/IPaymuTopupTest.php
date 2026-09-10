@@ -559,9 +559,9 @@ class IPaymuTopupTest extends TestCase
             ->get(route('payment.show', $transaction->invoice_code))
             ->assertOk()
             ->assertSee('Saldo berhasil ditambahkan. Mengarahkan ke Member Area...')
-            ->assertSee('topupSuccessRedirectUrl', false)
+            ->assertSee('memberAreaRedirectUrl', false)
             ->assertSee(route('member.dashboard'), false)
-            ->assertSee('window.location.replace(topupSuccessRedirectUrl)', false);
+            ->assertSee('window.location.replace(memberAreaRedirectUrl)', false);
     }
 
     private function createGateway(): PaymentGatewayConfig
