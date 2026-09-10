@@ -12,7 +12,30 @@
     @if($trx->payment_method === 'balance')
         <p class="text-sm">Dibayar dengan saldo member.</p>
     @else
-        <p class="text-sm mb-2">Selesaikan pembayaran via <b>{{ $trx->payment_gateway_code }}</b> sebelum batas waktu.</p>
+        <p class="text-sm mb-2">Selesaikan pembayaran sebelum batas waktu.</p>
+        <div class="payment-bill card p-4 mb-3" aria-label="Rincian tagihan pembayaran">
+            <div class="payment-bill-row">
+                <span>Harga</span>
+                <strong>Rp {{ number_format($priceAmount, 0, ',', '.') }}</strong>
+            </div>
+            <div class="payment-bill-row">
+                <span>Biaya layanan</span>
+                <strong>Rp {{ number_format($serviceFee, 0, ',', '.') }}</strong>
+            </div>
+            <div class="payment-bill-row payment-bill-total">
+                <span>Total Bayar</span>
+                <strong>Rp {{ number_format($paymentTotal, 0, ',', '.') }}</strong>
+            </div>
+        </div>
+        <style>
+            .payment-bill { display: grid; gap: .8rem; }
+            .payment-bill-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; font-size: .875rem; }
+            .payment-bill-row strong { min-width: 7.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+            .payment-bill-total { margin-top: .1rem; padding-top: .85rem; border-top: 1px solid #3f3f46; font-size: 1rem; }
+            .payment-bill-total strong { color: #fdba74; font-size: 1.1rem; }
+            html[data-theme="light"] .payment-bill-total { border-color: #d6d3d1; }
+            html[data-theme="light"] .payment-bill-total strong { color: #c2570c; }
+        </style>
         @php
             $checkoutUrl = data_get($gatewayPayload, '_checkout_url') ?? data_get($gatewayPayload, 'Data.Url');
             $paymentNumber = data_get($gatewayPayload, 'Data.PaymentNo');

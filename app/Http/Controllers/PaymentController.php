@@ -43,7 +43,21 @@ class PaymentController extends Controller
             }
         }
 
-        return view('payment', compact('trx', 'gatewayPayload', 'isQris', 'qrisImage', 'expiresAt'));
+        $gatewayTotal = data_get($gatewayPayload, 'Data.Total');
+        $paymentTotal = is_numeric($gatewayTotal) ? (int) round((float) $gatewayTotal) : (int) $trx->total_amount;
+        $priceAmount = (int) $trx->sell_price;
+        $serviceFee = max(0, $paymentTotal - $priceAmount);
+
+        return view('payment', compact(
+            'trx',
+            'gatewayPayload',
+            'isQris',
+            'qrisImage',
+            'expiresAt',
+            'priceAmount',
+            'serviceFee',
+            'paymentTotal',
+        ));
     }
 
     public function status(string $invoice, SupplierStatusSynchronizer $synchronizer)

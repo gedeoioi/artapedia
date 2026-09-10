@@ -175,6 +175,7 @@ class IPaymuTopupTest extends TestCase
                     'Channel' => 'mpm',
                     'PaymentNo' => 'QRIS-123456',
                     'PaymentName' => 'QRIS',
+                    'Total' => 10710,
                     'Expired' => '2030-09-10 21:46:08',
                     'Url' => 'https://sandbox.ipaymu.com/payment/checkout-session-123',
                 ],
@@ -204,6 +205,12 @@ class IPaymuTopupTest extends TestCase
         $this->get(route('payment.show', $transaction->invoice_code))
             ->assertOk()
             ->assertSee('Pembayaran QRIS')
+            ->assertSee('Harga')
+            ->assertSee('Biaya layanan')
+            ->assertSee('Total Bayar')
+            ->assertSee('Rp 10.710')
+            ->assertSee('Selesaikan pembayaran sebelum batas waktu.')
+            ->assertDontSee('via ipaymu')
             ->assertSee('data:image/svg+xml;base64,', false)
             ->assertSee('id="payment-countdown"', false)
             ->assertDontSee('Channel pembayaran')
