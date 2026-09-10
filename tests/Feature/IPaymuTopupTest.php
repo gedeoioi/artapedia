@@ -135,6 +135,7 @@ class IPaymuTopupTest extends TestCase
             ->assertOk()
             ->assertSee('Pilih Channel iPaymu')
             ->assertDontSee('ipaymu-channel-total', false)
+            ->assertSee('scrollToOrderSummary', false)
             ->assertSee('Virtual Account')
             ->assertSee('E-Wallet')
             ->assertSee('BCA')

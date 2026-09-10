@@ -236,6 +236,10 @@ const token = document.querySelector('meta[name=csrf-token]').content;
 const quantityInput = document.getElementById('order-quantity');
 const maxQuantity = Number(quantityInput.max || 1);
 const currentQuantity = () => Math.max(1, Math.min(maxQuantity, Number(quantityInput.value) || 1));
+const scrollToOrderSummary = () => document.querySelector('.order-summary')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+});
 async function refreshQuote() {
     const gw = document.querySelector('input[name=gateway_code]:checked')?.value || 'balance';
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
@@ -274,11 +278,17 @@ async function refreshQuote() {
     payButton.style.opacity = j.available === false ? '.55' : '';
     payButton.style.cursor = j.available === false ? 'not-allowed' : '';
 }
-document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', refreshQuote));
-document.querySelectorAll('.ipaymu-channel-input').forEach(el => el.addEventListener('change', event => {
+document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', async event => {
+    await refreshQuote();
+    if (event.currentTarget.value !== 'ipaymu') {
+        scrollToOrderSummary();
+    }
+}));
+document.querySelectorAll('.ipaymu-channel-input').forEach(el => el.addEventListener('change', async event => {
     document.getElementById('ipaymu-method').value = event.currentTarget.dataset.method;
     document.querySelectorAll('.ipaymu-channel-card').forEach(card => card.classList.toggle('is-selected', card.contains(event.currentTarget)));
-    refreshQuote();
+    await refreshQuote();
+    scrollToOrderSummary();
 }));
 document.querySelectorAll('[data-quantity-action]').forEach(button => button.addEventListener('click', () => {
     const direction = button.dataset.quantityAction === 'plus' ? 1 : -1;
