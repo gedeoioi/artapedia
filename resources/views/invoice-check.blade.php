@@ -51,11 +51,6 @@
                     <span class="invoice-status-pill {{ $trx->statusBadgeClass() }}">{{ $trx->statusLabel() }}</span>
                 </header>
 
-                <div class="invoice-status-message {{ $trx->statusBadgeClass() }}">
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
-                    <span>{{ $trx->statusMessage() }}</span>
-                </div>
-
                 <dl class="invoice-detail-grid">
                     @unless($isTopup)
                         <div class="invoice-detail-item">
@@ -111,9 +106,7 @@
     .invoice-result { padding:1.25rem; }
     .invoice-result-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding-bottom:1.15rem; border-bottom:1px solid #2d2d33; }
     .invoice-status-pill { display:inline-flex; flex:none; align-items:center; justify-content:center; padding:.5rem .8rem; border-radius:999px; font-size:.75rem; font-weight:800; white-space:nowrap; }
-    .invoice-status-message { display:flex; align-items:flex-start; gap:.65rem; margin:1rem 0; padding:.85rem 1rem; border-radius:10px; font-size:.875rem; }
-    .invoice-status-message svg { flex:none; margin-top:.05rem; }
-    .invoice-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+    .invoice-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin-top:1rem; }
     .invoice-detail-item { min-width:0; padding:1rem; border:1px solid #2b2b31; border-radius:11px; background:#131317; }
     .invoice-detail-item dt { color:#a1a1aa; font-size:.75rem; font-weight:600; }
     .invoice-detail-item dd { margin-top:.3rem; font-size:.95rem; font-weight:750; overflow-wrap:anywhere; }
