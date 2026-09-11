@@ -16,7 +16,7 @@ class InvoiceController extends Controller
     public function show(Request $request, SupplierStatusSynchronizer $synchronizer)
     {
         $code = trim((string) $request->get('code', ''));
-        $trx = $code ? Transaction::with(['product', 'rating'])->where('invoice_code', $code)->first() : null;
+        $trx = $code ? Transaction::with(['product', 'rating', 'invoice'])->where('invoice_code', $code)->first() : null;
         if ($trx) {
             $trx = $synchronizer->refreshIfDue($trx);
             $trx->loadMissing(['product', 'rating']);
