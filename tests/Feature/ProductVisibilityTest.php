@@ -157,9 +157,9 @@ class ProductVisibilityTest extends TestCase
             ->assertSee('id="category-panel-game"', false);
     }
 
-    public function test_grid_kategori_beranda_dibagi_per_lima_belas_item(): void
+    public function test_setiap_grid_kategori_beranda_konsisten_dibagi_per_sepuluh_item(): void
     {
-        foreach (range(1, 16) as $number) {
+        foreach (range(1, 21) as $number) {
             $this->makeProduct([
                 'supplier_code' => 'GAME-'.$number,
                 'game' => 'Game '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
@@ -169,9 +169,10 @@ class ProductVisibilityTest extends TestCase
         $response = $this->get('/')->assertOk();
         $pages = $response->viewData('categoryPagesByType')[Product::TYPE_GAME];
 
-        $this->assertCount(2, $pages);
-        $this->assertCount(15, $pages[0]);
-        $this->assertCount(1, $pages[1]);
+        $this->assertCount(3, $pages);
+        $this->assertCount(10, $pages[0]);
+        $this->assertCount(10, $pages[1]);
+        $this->assertCount(1, $pages[2]);
         $response->assertSee('changeCategoryPage(', false)
             ->assertSee('Lihat Selanjutnya')
             ->assertSee('category-page-transition')

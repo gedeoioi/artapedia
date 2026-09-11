@@ -35,8 +35,8 @@ class HomeController extends Controller
                 ->groupBy('game')
                 ->orderBy('game');
 
-            // Setiap panel menampilkan tepat 5 kolom x 3 baris di desktop.
-            $pages = $gamesQuery->get()->chunk(15)->map->values()->values();
+            // Setiap panel menampilkan tepat 5 kolom x 2 baris di desktop.
+            $pages = $gamesQuery->get()->chunk(10)->map->values()->values();
             if ($pages->isEmpty()) {
                 $pages = collect([collect()]);
             }
