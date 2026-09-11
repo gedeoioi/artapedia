@@ -172,8 +172,9 @@ class ProductVisibilityTest extends TestCase
         $this->assertCount(2, $pages);
         $this->assertCount(15, $pages[0]);
         $this->assertCount(1, $pages[1]);
-        $response->assertSee('@click="pageByType[', false)
-            ->assertSee('Lihat Selengkapnya')
+        $response->assertSee('changeCategoryPage(', false)
+            ->assertSee('Lihat Selanjutnya')
+            ->assertSee('category-page-transition')
             ->assertSee('catalog-more-button');
     }
 }

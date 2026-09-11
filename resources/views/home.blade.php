@@ -90,7 +90,18 @@
 </div>
 <div x-data="{
     activeType: @js($activeType),
-    pageByType: { game: 0, pulsa: 0, data: 0, voucher: 0 }
+    pageByType: { game: 0, pulsa: 0, data: 0, voucher: 0 },
+    categoryPageTransitioning: false,
+    changeCategoryPage(type, direction) {
+        if (this.categoryPageTransitioning) return;
+        this.categoryPageTransitioning = true;
+        window.setTimeout(() => {
+            this.pageByType[type] += direction;
+            window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+                this.categoryPageTransitioning = false;
+            }));
+        }, 180);
+    }
 }">
     <div class="mb-5">
         @include('partials.catalog-tabs', ['routeName' => 'home', 'interactive' => true])
@@ -105,6 +116,9 @@
         @foreach($typePages as $pageIndex => $typeGames)
         <div
             x-show="pageByType[@js($type)] === {{ $pageIndex }}"
+            :class="{ 'category-page-changing': categoryPageTransitioning }"
+            :aria-busy="categoryPageTransitioning"
+            class="category-page-transition"
             @if($type !== $activeType || $pageIndex !== 0) x-cloak @endif
         >
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-5">
@@ -135,14 +149,14 @@
             @if($typePages->count() > 1)
             <div class="flex items-center justify-center gap-3 mb-8" aria-label="Navigasi kelompok kategori">
                 @if($pageIndex > 0)
-                <button type="button" @click="pageByType[@js($type)]--" class="card px-5 py-2.5 text-sm font-bold hover:border-orange-500">
+                <button type="button" @click="changeCategoryPage(@js($type), -1)" :disabled="categoryPageTransitioning" class="card px-5 py-2.5 text-sm font-bold hover:border-orange-500 disabled:opacity-50">
                     Sebelumnya
                 </button>
                 @endif
                 <span class="muted text-xs">{{ $pageIndex + 1 }} / {{ $typePages->count() }}</span>
                 @if($pageIndex < $typePages->count() - 1)
-                <button type="button" @click="pageByType[@js($type)]++" class="catalog-more-button">
-                    Lihat Selengkapnya
+                <button type="button" @click="changeCategoryPage(@js($type), 1)" :disabled="categoryPageTransitioning" class="catalog-more-button disabled:opacity-50">
+                    Lihat Selanjutnya
                 </button>
                 @endif
             </div>
@@ -154,6 +168,23 @@
     </section>
     @endforeach
 </div>
+
+<style>
+    .category-page-transition {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        transition: opacity .32s ease, transform .32s cubic-bezier(.22, 1, .36, 1);
+        will-change: opacity, transform;
+    }
+    .category-page-transition.category-page-changing {
+        opacity: 0;
+        transform: translateY(9px) scale(.995);
+        pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .category-page-transition { transition: none; }
+    }
+</style>
 
 <!-- CARA ORDER -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
