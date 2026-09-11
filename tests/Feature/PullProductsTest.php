@@ -46,6 +46,8 @@ class PullProductsTest extends TestCase
         $this->assertEquals(1050, $p->price_guest);
         $this->assertEquals(945, $p->price_biasa);
         $this->assertEquals(840, $p->price_vip);
+        $this->assertSame(Product::TYPE_GAME, $p->product_type);
+        $this->assertTrue($p->supportsMultipleQuantity());
 
         Http::assertSent(fn ($req) => ($req->data()['filter_game'] ?? '') === 'Mobile Legends');
     }

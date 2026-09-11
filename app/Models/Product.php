@@ -140,6 +140,17 @@ class Product extends Model
         return $this->product_type === self::TYPE_GAME;
     }
 
+    public function supportsMultipleQuantity(): bool
+    {
+        return $this->product_type === self::TYPE_GAME
+            && $this->supplier?->code === 'vip-reseller';
+    }
+
+    public function maximumOrderQuantity(): int
+    {
+        return $this->supportsMultipleQuantity() ? 10 : 1;
+    }
+
     public function targetLabel(): string
     {
         return match ($this->product_type) {

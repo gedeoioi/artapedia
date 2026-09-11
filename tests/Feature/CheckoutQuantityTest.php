@@ -19,15 +19,32 @@ class CheckoutQuantityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_checkout_vip_menampilkan_pilihan_jumlah_hingga_sepuluh(): void
+    public function test_semua_kategori_game_vip_menampilkan_pilihan_jumlah_hingga_sepuluh(): void
     {
-        [, $product] = $this->vipProduct();
+        [$supplier, $product] = $this->vipProduct();
+        $secondGame = Product::create([
+            'supplier_config_id' => $supplier->id,
+            'supplier_code' => 'GENSHIN-60',
+            'name' => '60 Genesis Crystals',
+            'game' => 'Genshin Impact',
+            'product_type' => Product::TYPE_GAME,
+            'cost_basic' => 10000,
+            'cost_premium' => 9500,
+            'cost_special' => 9000,
+            'price_guest' => 12000,
+            'price_biasa' => 11500,
+            'price_vip' => 11000,
+            'is_active' => true,
+            'in_stock' => true,
+        ]);
 
-        $this->get(route('checkout.show', $product))
-            ->assertOk()
-            ->assertSee('Jumlah Pesanan')
-            ->assertSee('name="quantity"', false)
-            ->assertSee('max="10"', false);
+        foreach ([$product, $secondGame] as $gameProduct) {
+            $this->get(route('checkout.show', $gameProduct))
+                ->assertOk()
+                ->assertSee('Jumlah Pesanan')
+                ->assertSee('name="quantity"', false)
+                ->assertSee('max="10"', false);
+        }
     }
 
     public function test_jumlah_dua_membuat_dua_order_supplier_dan_menggabungkan_statusnya(): void

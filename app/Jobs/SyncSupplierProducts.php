@@ -83,6 +83,16 @@ class SyncSupplierProducts implements ShouldQueue
             if (array_key_exists('in_stock', $row)) {
                 $inStock = (bool) $row['in_stock'];
             }
+            // Semua layanan dari endpoint game VIPReseller tetap bertipe game,
+            // termasuk produk yang namanya mengandung kata "voucher".
+            $productType = $supplier->code === 'vip-reseller' && ($row['channel'] ?? null) === 'game'
+                ? Product::TYPE_GAME
+                : Product::detectType(
+                    $row['category'] ?? '',
+                    $game,
+                    $row['type'] ?? '',
+                    $name
+                );
 
             Product::updateOrCreate(
                 ['supplier_config_id' => $supplier->id, 'supplier_code' => (string) $code],
@@ -90,12 +100,7 @@ class SyncSupplierProducts implements ShouldQueue
                     'name' => $name,
                     'game' => $game,
                     'category' => $row['category'] ?? 'game',
-                    'product_type' => Product::detectType(
-                        $row['category'] ?? '',
-                        $game,
-                        $row['type'] ?? '',
-                        $name
-                    ),
+                    'product_type' => $productType,
                     // Hubungkan ke icon kategori (by nama game persis).
                     // Ganti 1 icon di menu Game Icons -> semua produk kategori ini ikut berubah.
                     'game_icon_id' => GameIcon::firstOrCreate(

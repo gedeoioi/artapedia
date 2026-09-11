@@ -81,7 +81,7 @@ class OrderService
             if ($method === 'ipaymu') {
                 $minimumAmount = IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel);
                 if ($quote['total'] < $minimumAmount) {
-                    $maximumQuantity = $supplier?->code === 'vip-reseller' ? 10 : 1;
+                    $maximumQuantity = $product->maximumOrderQuantity();
                     $minimumQuantity = collect(range(1, $maximumQuantity))->first(
                         fn (int $candidate) => $this->payments->quote(
                             $product,
@@ -104,8 +104,8 @@ class OrderService
                 throw new \RuntimeException('Akun disuspend.');
             }
 
-            if ($quantity > 1 && $supplier?->code !== 'vip-reseller') {
-                throw new \RuntimeException('Produk dari supplier ini hanya dapat dipesan satu kali per transaksi.');
+            if ($quantity > $product->maximumOrderQuantity()) {
+                throw new \RuntimeException('Pembelian lebih dari satu hanya tersedia untuk produk game VIPReseller.');
             }
 
             $trx = Transaction::create([
@@ -277,7 +277,7 @@ class OrderService
                 ->where('is_active', true)
                 ->first();
 
-            if (! $sourceSupplier) {
+            if (! $sourceSupplier || $trx->product->product_type !== Product::TYPE_GAME) {
                 return $this->markAllSuppliersFailed($trx->id);
             }
 

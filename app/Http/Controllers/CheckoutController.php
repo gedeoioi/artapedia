@@ -18,7 +18,7 @@ class CheckoutController extends Controller
 
         $product->loadMissing('supplier');
         $gateways = PaymentGatewayConfig::activeOrdered();
-        $maxQuantity = $product->supplier?->code === 'vip-reseller' ? 10 : 1;
+        $maxQuantity = $product->maximumOrderQuantity();
         $ipaymuGateway = $gateways->firstWhere('code', 'ipaymu');
         $ipaymuChannels = $ipaymuGateway?->enabledCheckoutChannels() ?? [];
 
