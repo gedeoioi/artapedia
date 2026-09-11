@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,6 +14,7 @@ class InvoiceCheckTest extends TestCase
 
     public function test_hasil_cek_invoice_menampilkan_rincian_transaksi_lengkap(): void
     {
+        $member = User::factory()->create();
         $product = Product::create([
             'supplier_code' => 'INVOICE-ML-1',
             'name' => '86 Diamonds',
@@ -29,6 +31,7 @@ class InvoiceCheckTest extends TestCase
         ]);
         $transaction = Transaction::create([
             'invoice_code' => 'INV-DETAIL-LENGKAP',
+            'user_id' => $member->id,
             'product_id' => $product->id,
             'target_user_id' => '12345678',
             'target_zone' => '1234',
@@ -67,5 +70,10 @@ class InvoiceCheckTest extends TestCase
             ->assertDontSee('WITA')
             ->assertDontSee('Supplier trx id')
             ->assertDontSee('Status supplier');
+
+        $this->actingAs($member)
+            ->get(route('member.dashboard'))
+            ->assertOk()
+            ->assertSee(route('invoice.show', ['code' => $transaction->invoice_code]), false);
     }
 }

@@ -13,6 +13,13 @@ class PaymentController extends Controller
     public function show(string $invoice)
     {
         $trx = Transaction::with(['product', 'invoice'])->where('invoice_code', $invoice)->firstOrFail();
+
+        // Pembukaan invoice final secara manual memakai halaman rincian transaksi.
+        // Parameter auto_return hanya dikirim oleh alur checkout/topup aktif.
+        if ($trx->isFinal() && ! request()->boolean('auto_return')) {
+            return redirect()->route('invoice.show', ['code' => $trx->invoice_code]);
+        }
+
         $gatewayPayload = $trx->invoice?->payload ?? $trx->payment_payload ?? [];
         $paymentVia = strtolower((string) data_get($gatewayPayload, 'Data.Via'));
         $paymentChannel = strtolower((string) data_get($gatewayPayload, 'Data.Channel'));

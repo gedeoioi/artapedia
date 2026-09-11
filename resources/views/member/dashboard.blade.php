@@ -44,7 +44,7 @@
         @foreach($transactions as $t)
             @php $b = $t->status === 'success' ? 'badge-ok' : (in_array($t->status, ['pending','paid','processing']) ? 'badge-pending' : 'badge-fail'); @endphp
             <tr>
-                <td><a class="underline" href="{{ route('payment.show', $t->invoice_code) }}">{{ $t->invoice_code }}</a></td>
+                <td><a class="underline" href="{{ route('invoice.show', ['code' => $t->invoice_code]) }}">{{ $t->invoice_code }}</a></td>
                 <td>{{ $t->product->name ?? '-' }}</td>
                 <td>Rp {{ number_format($t->total_amount, 0, ',', '.') }}</td>
                 <td><span class="card px-2 py-1 text-xs {{ $b }}">{{ $t->status }}</span></td>

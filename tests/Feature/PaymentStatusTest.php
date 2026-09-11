@@ -42,9 +42,7 @@ class PaymentStatusTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('payment.show', $trx->invoice_code))
-            ->assertOk()
-            ->assertDontSee('Pesanan berhasil diproses. Mengarahkan ke Member Area...')
-            ->assertSee('const memberAreaRedirectUrl = null;', false);
+            ->assertRedirect(route('invoice.show', ['code' => $trx->invoice_code]));
     }
 
     public function test_halaman_processing_menampilkan_proses_supplier_bukan_menunggu_pembayaran(): void
