@@ -13,7 +13,8 @@ class EditGameIcon extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->modalDescription('Kategori akan dihapus dari beranda dan seluruh produk child akan dinonaktifkan. Riwayat transaksi tetap aman.'),
         ];
     }
 }

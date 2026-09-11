@@ -75,7 +75,8 @@ class GameIconsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->modalDescription('Kategori terpilih akan dihapus dari beranda dan seluruh produk child akan dinonaktifkan. Riwayat transaksi tetap aman.'),
                 ]),
             ]);
     }

@@ -24,6 +24,24 @@ class GameIcon extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (GameIcon $category): void {
+            // Kategori beranda dibentuk dari produk aktif. Saat kategori dihapus,
+            // nonaktifkan semua produk child agar kategori benar-benar hilang,
+            // tetapi pertahankan produknya demi invoice dan riwayat transaksi.
+            Product::query()
+                ->where(function ($query) use ($category): void {
+                    $query->where('game_icon_id', $category->id)
+                        ->orWhereRaw('LOWER(game) = ?', [mb_strtolower($category->game_name)]);
+                })
+                ->update([
+                    'is_active' => false,
+                    'in_stock' => false,
+                ]);
+        });
+    }
+
     public function products()
     {
         return $this->hasMany(Product::class);

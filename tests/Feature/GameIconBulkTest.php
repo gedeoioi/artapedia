@@ -77,6 +77,35 @@ class GameIconBulkTest extends TestCase
         $this->assertStringEndsWith('game-icons/ff.png', $p->fresh()->iconUrl());
     }
 
+    public function test_hapus_kategori_menonaktifkan_produk_child_dan_menghilangkannya_dari_beranda(): void
+    {
+        $category = GameIcon::create([
+            'game_name' => 'Mobile Legends',
+            'slug' => 'mobile-legends',
+            'is_active' => true,
+        ]);
+        $linked = Product::create([
+            'supplier_code' => 'ML-DELETE-1', 'name' => 'ML 5', 'game' => 'Mobile Legends',
+            'cost_basic' => 100, 'cost_premium' => 100, 'cost_special' => 100,
+            'price_guest' => 120, 'price_biasa' => 115, 'price_vip' => 110,
+            'is_active' => true, 'in_stock' => true, 'game_icon_id' => $category->id,
+        ]);
+        $legacy = Product::create([
+            'supplier_code' => 'ML-DELETE-2', 'name' => 'ML 12', 'game' => 'mobile legends',
+            'cost_basic' => 200, 'cost_premium' => 200, 'cost_special' => 200,
+            'price_guest' => 220, 'price_biasa' => 215, 'price_vip' => 210,
+            'is_active' => true, 'in_stock' => true,
+        ]);
+
+        $this->get('/')->assertOk()->assertSee('Mobile Legends');
+
+        $category->delete();
+
+        $this->assertDatabaseHas('products', ['id' => $linked->id, 'is_active' => false, 'in_stock' => false]);
+        $this->assertDatabaseHas('products', ['id' => $legacy->id, 'is_active' => false, 'in_stock' => false]);
+        $this->get('/')->assertOk()->assertDontSee('Mobile Legends');
+    }
+
     public function test_sync_otomatis_hubungkan_icon_by_nama(): void
     {
         GameIcon::create([
