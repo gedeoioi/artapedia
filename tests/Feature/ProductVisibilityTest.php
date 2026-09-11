@@ -115,6 +115,10 @@ class ProductVisibilityTest extends TestCase
         $response = $this->get('/?type=pulsa');
 
         $response->assertOk();
+        $response->assertSee('>Top Up Game</button>', false)
+            ->assertSee('>Pulsa</button>', false)
+            ->assertDontSee('>Paket Data</button>', false)
+            ->assertDontSee('>Voucher</button>', false);
         $this->assertSame(Product::TYPE_PULSA, $response->viewData('activeType'));
         $this->assertSame(['Telkomsel'], $response->viewData('games')->pluck('game')->all());
     }

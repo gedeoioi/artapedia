@@ -2,8 +2,6 @@
     $catalogTabs = [
         \App\Models\Product::TYPE_GAME => 'Top Up Game',
         \App\Models\Product::TYPE_PULSA => 'Pulsa',
-        \App\Models\Product::TYPE_DATA => 'Paket Data',
-        \App\Models\Product::TYPE_VOUCHER => 'Voucher',
     ];
 @endphp
 
