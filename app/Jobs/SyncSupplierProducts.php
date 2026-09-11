@@ -93,6 +93,10 @@ class SyncSupplierProducts implements ShouldQueue
                     $row['type'] ?? '',
                     $name
                 );
+            if (($this->filters['desired_product_type'] ?? null) !== null
+                && $productType !== $this->filters['desired_product_type']) {
+                continue;
+            }
 
             Product::updateOrCreate(
                 ['supplier_config_id' => $supplier->id, 'supplier_code' => (string) $code],

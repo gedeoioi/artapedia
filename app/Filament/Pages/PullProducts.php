@@ -69,7 +69,12 @@ class PullProducts extends Page implements HasSchemas, HasTable
                     }),
                 Select::make('channel')
                     ->label('Jenis produk')
-                    ->options(['game' => 'Game (ID + Zone + cek nickname)', 'prepaid' => 'Pulsa / Paket Data / PPOB (nomor HP)'])
+                    ->options([
+                        'game' => 'Game (ID + Zone + cek nickname)',
+                        'pulsa' => 'Pulsa Reguler',
+                        'data' => 'Paket Internet / Data',
+                        'prepaid' => 'Prepaid lainnya / PPOB',
+                    ])
                     ->default('game')
                     ->required()
                     ->live()
@@ -120,7 +125,7 @@ class PullProducts extends Page implements HasSchemas, HasTable
         try {
             $provider = ProviderFactory::supplierFor($supplier);
             if (method_exists($provider, 'getGames')) {
-                $res = $provider->getGames(['channel' => $this->data['channel'] ?? 'game']);
+                $res = $provider->getGames(['channel' => $this->providerChannel()]);
                 if (! ($res['result'] ?? false)) {
                     $apiError = (string) ($res['message'] ?? 'Gagal ambil daftar game dari supplier');
                 } else {
@@ -167,12 +172,29 @@ class PullProducts extends Page implements HasSchemas, HasTable
         ]);
         // Channel prepaid (pulsa/data/PPOB) diteruskan ke provider
         // (Digiflazz: cmd=prepaid, VIP: /api/prepaid).
-        if (($this->data['channel'] ?? 'game') === 'prepaid') {
+        if ($this->providerChannel() === 'prepaid') {
             $filters['channel'] = 'prepaid';
             $filters['cmd'] = 'prepaid';
         }
+        if ($productType = $this->selectedProductType()) {
+            $filters['desired_product_type'] = $productType;
+        }
 
         return $filters;
+    }
+
+    protected function providerChannel(): string
+    {
+        return ($this->data['channel'] ?? 'game') === 'game' ? 'game' : 'prepaid';
+    }
+
+    protected function selectedProductType(): ?string
+    {
+        return match ($this->data['channel'] ?? 'game') {
+            'pulsa' => Product::TYPE_PULSA,
+            'data' => Product::TYPE_DATA,
+            default => null,
+        };
     }
 
     protected function getHeaderActions(): array
@@ -229,6 +251,7 @@ class PullProducts extends Page implements HasSchemas, HasTable
                     }
 
                     $query = Product::where('supplier_config_id', $supplier->id)
+                        ->when($this->selectedProductType(), fn ($q, $type) => $q->where('product_type', $type))
                         ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g));
 
                     $ids = (clone $query)->pluck('id');
@@ -244,6 +267,7 @@ class PullProducts extends Page implements HasSchemas, HasTable
                     $deactivated = 0;
                     if ($usedCount > 0) {
                         $deactivated = Product::where('supplier_config_id', $supplier->id)
+                            ->when($this->selectedProductType(), fn ($q, $type) => $q->where('product_type', $type))
                             ->when($this->data['filter_game'] ?? null, fn ($q, $g) => $q->where('game', $g))
                             ->whereIn('id', function ($q) {
                                 $q->select('product_id')->from('transactions')->whereNotNull('product_id');
@@ -270,9 +294,12 @@ class PullProducts extends Page implements HasSchemas, HasTable
     protected function removeDescription(): string
     {
         $supplier = $this->selectedSupplier();
+        $type = $this->selectedProductType();
         $scope = ($this->data['filter_game'] ?? null)
             ? 'kategori "'.$this->data['filter_game'].'" dari '.$supplier?->name
-            : 'SEMUA produk dari '.$supplier?->name;
+            : ($type
+                ? 'semua produk '.Product::TYPES[$type].' dari '.$supplier?->name
+                : 'SEMUA produk dari '.$supplier?->name);
 
         return 'Hapus '.$scope.' agar bisa tarik ulang dari nol? '
             .'Produk yang sudah punya transaksi TIDAK dihapus (hanya dinonaktifkan) agar invoice tetap valid.';
@@ -286,6 +313,9 @@ class PullProducts extends Page implements HasSchemas, HasTable
                 $supplierId = (int) ($this->data['supplier_id'] ?? 0);
                 if ($supplierId) {
                     $query->where('supplier_config_id', $supplierId);
+                }
+                if ($productType = $this->selectedProductType()) {
+                    $query->where('product_type', $productType);
                 }
                 if (! empty($this->data['filter_game'])) {
                     $query->where('game', $this->data['filter_game']);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\PullProducts;
 use App\Jobs\SyncSupplierProducts;
 use App\Models\Product;
 use App\Models\SupplierConfig;
@@ -63,6 +64,43 @@ class PullProductsTest extends TestCase
         $this->assertFalse($result['ok']);
         $this->assertStringContainsString('Invalid key', $result['message']);
         $this->assertEquals(0, Product::where('supplier_config_id', $s->id)->count());
+    }
+
+    public function test_penarikan_paket_internet_tidak_menyimpan_pulsa_reguler(): void
+    {
+        $supplier = $this->makeSupplier();
+        Http::fake(['vip-reseller.co.id/api/prepaid' => Http::response([
+            'result' => true,
+            'data' => [
+                ['code' => 'TSEL-PULSA-10', 'brand' => 'Telkomsel', 'name' => 'Pulsa Reguler 10.000', 'category' => 'Pulsa', 'type' => 'pulsa', 'price' => 10500, 'status' => 'available'],
+                ['code' => 'TSEL-DATA-10', 'brand' => 'Telkomsel', 'name' => 'Paket Internet 10 GB', 'category' => 'Paket Data', 'type' => 'data', 'price' => 25000, 'status' => 'available'],
+            ],
+        ], 200)]);
+
+        $result = (new SyncSupplierProducts($supplier->id, [
+            'channel' => 'prepaid',
+            'cmd' => 'prepaid',
+            'desired_product_type' => Product::TYPE_DATA,
+        ]))->handle();
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(1, $result['synced']);
+        $this->assertDatabaseHas('products', [
+            'supplier_code' => 'TSEL-DATA-10',
+            'product_type' => Product::TYPE_DATA,
+        ]);
+        $this->assertDatabaseMissing('products', ['supplier_code' => 'TSEL-PULSA-10']);
+    }
+
+    public function test_admin_dapat_memilih_pulsa_reguler_dan_paket_internet_secara_terpisah(): void
+    {
+        $admin = User::factory()->create(['level' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(PullProducts::getUrl())
+            ->assertOk()
+            ->assertSee('Pulsa Reguler')
+            ->assertSee('Paket Internet / Data');
     }
 
     public function test_hapus_proteksi_produk_bertransaksi(): void
