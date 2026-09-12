@@ -11,6 +11,9 @@
         $primary = \App\Models\SiteSetting::get('primary_color', '#f97316');
         $accent = \App\Models\SiteSetting::get('accent_color', '#1a1a1a');
         $theme = \App\Models\SiteSetting::theme();
+        $contactWhatsapp = trim((string) \App\Models\SiteSetting::get('contact_whatsapp', ''));
+        $contactWhatsappNumber = preg_replace('/\D+/', '', $contactWhatsapp);
+        $contactEmail = trim((string) \App\Models\SiteSetting::get('contact_email', ''));
     @endphp
     <title>@yield('title', $siteName) - {{ $siteName }}, Topup Game, Pulsa & PPOB</title>
     <meta name="description" content="@yield('meta_description', $siteDesc)">
@@ -260,7 +263,6 @@
         <div>
             <div class="font-bold text-base mb-2">{{ $siteName }}</div>
             <p class="muted text-xs">{{ \App\Models\SiteSetting::get('footer_text', 'Topup game & PPOB.') }}</p>
-            <p class="muted text-xs mt-2">{{ \App\Models\SiteSetting::get('contact_email') }} {{ \App\Models\SiteSetting::get('contact_whatsapp') }}</p>
         </div>
         <div data-footer-section="layanan">
             <div class="font-bold mb-2">Layanan</div>
@@ -284,7 +286,18 @@
         </div>
         <div>
             <div class="font-bold mb-2">Kontak</div>
-            <div class="muted text-xs">WhatsApp: {{ \App\Models\SiteSetting::get('contact_whatsapp', '-') }}<br>Email: {{ \App\Models\SiteSetting::get('contact_email', '-') }}</div>
+            <div class="muted text-xs flex flex-col gap-1">
+                @if($contactWhatsappNumber)
+                    <a href="https://wa.me/{{ $contactWhatsappNumber }}" target="_blank" rel="noopener noreferrer" class="hover:text-orange-500 hover:underline">WhatsApp: {{ $contactWhatsapp }}</a>
+                @else
+                    <span>WhatsApp: -</span>
+                @endif
+                @if($contactEmail)
+                    <a href="mailto:{{ $contactEmail }}" class="hover:text-orange-500 hover:underline">Email: {{ $contactEmail }}</a>
+                @else
+                    <span>Email: -</span>
+                @endif
+            </div>
             <a href="{{ route('support.contact') }}" class="inline-flex mt-2 text-xs font-bold accent hover:underline">Hubungi kami</a>
         </div>
     </div>
