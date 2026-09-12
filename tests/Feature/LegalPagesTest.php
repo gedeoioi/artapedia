@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SiteSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -43,10 +44,14 @@ class LegalPagesTest extends TestCase
 
     public function test_halaman_kontak_dapat_diakses(): void
     {
+        SiteSetting::set('contact_address', "Jl. ArtaPedia No. 10\nDenpasar, Bali");
+
         $this->get(route('support.contact'))
             ->assertOk()
             ->assertSee('Ada yang bisa kami bantu?')
-            ->assertSee('Agar cepat ditangani');
+            ->assertSee('Agar cepat ditangani')
+            ->assertSee('Alamat')
+            ->assertSee("Jl. ArtaPedia No. 10\nDenpasar, Bali");
     }
 
     public function test_footer_memuat_tautan_halaman_legal(): void

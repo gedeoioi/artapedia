@@ -9,6 +9,7 @@
     $whatsapp = trim((string) \App\Models\SiteSetting::get('contact_whatsapp', ''));
     $whatsappNumber = preg_replace('/\D+/', '', $whatsapp);
     $email = trim((string) \App\Models\SiteSetting::get('contact_email', ''));
+    $address = trim((string) \App\Models\SiteSetting::get('contact_address', ''));
     $whatsappUrl = $whatsappNumber ? 'https://wa.me/'.$whatsappNumber.'?text='.rawurlencode('Halo '.$siteName.', saya membutuhkan bantuan terkait transaksi.') : null;
 @endphp
 
@@ -65,6 +66,16 @@
                 <span><span class="block font-extrabold">Email</span><span class="block muted text-sm mt-0.5">Belum tersedia</span></span>
             </div>
             @endif
+
+            <div class="card p-5 flex items-start gap-4">
+                <span class="h-12 w-12 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-6 w-6" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block font-extrabold">Alamat</span>
+                    <span class="block muted text-sm mt-0.5 leading-6 whitespace-pre-line">{{ $address ?: 'Belum tersedia' }}</span>
+                </span>
+            </div>
 
             <p class="muted text-xs leading-5">Jangan pernah memberikan kata sandi, PIN, atau kode OTP kepada siapa pun, termasuk tim {{ $siteName }}.</p>
         </div>

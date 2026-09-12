@@ -92,6 +92,12 @@ class SiteSettings extends Page implements HasSchemas
                 TextInput::make('contact_email')
                     ->label('Email kontak')
                     ->email(),
+                Textarea::make('contact_address')
+                    ->label('Alamat')
+                    ->placeholder('Masukkan alamat lengkap')
+                    ->rows(3)
+                    ->maxLength(500)
+                    ->columnSpanFull(),
             ])
             ->statePath('data');
     }
