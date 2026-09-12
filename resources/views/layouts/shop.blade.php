@@ -274,6 +274,9 @@
             <div class="font-bold mb-2">Bantuan</div>
             <div class="flex flex-col gap-1 muted">
                 <a href="{{ route('invoice.index') }}" class="hover:text-orange-500">Lacak Invoice</a>
+                <a href="{{ route('support.faq') }}" class="hover:text-orange-500">FAQ</a>
+                <a href="{{ route('support.contact') }}" class="hover:text-orange-500">Kontak</a>
+                <a href="{{ route('legal.refund') }}" class="hover:text-orange-500">Refund Policy</a>
                 <a href="{{ route('login') }}" class="hover:text-orange-500">Masuk / Daftar</a>
                 <a href="{{ route('legal.terms') }}" class="hover:text-orange-500">Terms &amp; Conditions</a>
                 <a href="{{ route('legal.privacy') }}" class="hover:text-orange-500">Privacy Policy</a>
@@ -282,6 +285,7 @@
         <div>
             <div class="font-bold mb-2">Kontak</div>
             <div class="muted text-xs">WhatsApp: {{ \App\Models\SiteSetting::get('contact_whatsapp', '-') }}<br>Email: {{ \App\Models\SiteSetting::get('contact_email', '-') }}</div>
+            <a href="{{ route('support.contact') }}" class="inline-flex mt-2 text-xs font-bold accent hover:underline">Hubungi kami</a>
         </div>
     </div>
     <div class="border-t border-neutral-800">

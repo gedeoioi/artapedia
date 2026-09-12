@@ -25,6 +25,30 @@ class LegalPagesTest extends TestCase
             ->assertSee('Data yang kami kumpulkan');
     }
 
+    public function test_refund_policy_dapat_diakses(): void
+    {
+        $this->get(route('legal.refund'))
+            ->assertOk()
+            ->assertSee('Refund Policy')
+            ->assertSee('Transaksi yang memenuhi syarat');
+    }
+
+    public function test_faq_dapat_diakses(): void
+    {
+        $this->get(route('support.faq'))
+            ->assertOk()
+            ->assertSee('Pertanyaan yang sering diajukan')
+            ->assertSee('Bagaimana cara melakukan pembelian?');
+    }
+
+    public function test_halaman_kontak_dapat_diakses(): void
+    {
+        $this->get(route('support.contact'))
+            ->assertOk()
+            ->assertSee('Ada yang bisa kami bantu?')
+            ->assertSee('Agar cepat ditangani');
+    }
+
     public function test_footer_memuat_tautan_halaman_legal(): void
     {
         $response = $this->get('/')->assertOk();
@@ -32,7 +56,10 @@ class LegalPagesTest extends TestCase
 
         $response
             ->assertSee(route('legal.terms'), false)
-            ->assertSee(route('legal.privacy'), false);
+            ->assertSee(route('legal.privacy'), false)
+            ->assertSee(route('legal.refund'), false)
+            ->assertSee(route('support.faq'), false)
+            ->assertSee(route('support.contact'), false);
         $this->assertMatchesRegularExpression(
             '/data-footer-section="bantuan".*Terms &amp; Conditions.*Privacy Policy/s',
             $html,

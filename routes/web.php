@@ -18,6 +18,9 @@ Route::get('/kategori', [HomeController::class, 'categories'])->name('categories
 Route::get('/game/{game}', [HomeController::class, 'game'])->name('game.show');
 Route::get('/terms-and-conditions', [LegalController::class, 'terms'])->name('legal.terms');
 Route::get('/privacy-policy', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/refund-policy', [LegalController::class, 'refund'])->name('legal.refund');
+Route::get('/faq', [LegalController::class, 'faq'])->name('support.faq');
+Route::get('/kontak', [LegalController::class, 'contact'])->name('support.contact');
 
 Route::get('/product/{product}/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
