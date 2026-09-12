@@ -35,6 +35,16 @@ class BannerSliderTest extends TestCase
         $this->get('/')->assertOk();
     }
 
+    public function test_area_banner_memakai_rasio_yang_sama_dengan_upload(): void
+    {
+        Banner::create(['title' => 'Promo', 'image_path' => 'banners/promo.jpg', 'is_active' => true]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('aspect-[9/2]', false)
+            ->assertDontSee('h-40 md:h-64', false);
+    }
+
     public function test_image_url_fallback_storage(): void
     {
         $b = Banner::create(['title' => 'X', 'image_path' => 'banners/a.png', 'is_active' => true]);

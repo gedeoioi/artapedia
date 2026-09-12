@@ -27,14 +27,14 @@
             @foreach($banners as $b)
                 <div class="shrink-0" style="width: {{ 100 / max(1, $banners->count()) }}%">
                     @if($b->imageUrl())
-                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block" aria-label="{{ $b->title }}">
-                            <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-40 md:h-64 object-cover" draggable="false">
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block aspect-[9/2]" aria-label="{{ $b->title }}">
+                            <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-full object-cover" draggable="false">
                         </a>
                     @else
-                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block flash-grad p-6 md:p-10 text-white" aria-label="{{ $b->title }}">
-                            <div class="font-extrabold text-xl md:text-3xl">{{ $b->title }}</div>
-                            @if($b->subtitle)<div class="text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
-                            @if($b->button_text)<span class="inline-block mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="flash-grad aspect-[9/2] px-6 md:px-10 text-white flex flex-col justify-center" aria-label="{{ $b->title }}">
+                            <div class="font-extrabold text-lg md:text-3xl">{{ $b->title }}</div>
+                            @if($b->subtitle)<div class="hidden sm:block text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
+                            @if($b->button_text)<span class="hidden sm:inline-block self-start mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
                         </a>
                     @endif
                 </div>
