@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Banners\Schemas;
 
-use Filament\Forms\Components\FileUpload;
+use App\Filament\Forms\Components\BannerImageUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
@@ -23,13 +23,11 @@ class BannerForm
                     ->maxLength(255)
                     ->columnSpanFull()
                     ->placeholder('cth: Berlaku sampai akhir bulan untuk semua nominal.'),
-                FileUpload::make('image_path')
+                BannerImageUpload::make('image_path')
                     ->label('Gambar banner')
                     ->image()
                     ->imageEditor()
                     ->imageEditorAspectRatioOptions(['9:2'])
-                    ->imageAspectRatio('9:2')
-                    ->automaticallyCropImagesToAspectRatio()
                     ->automaticallyResizeImagesMode('cover')
                     ->automaticallyResizeImagesToWidth('1152')
                     ->automaticallyResizeImagesToHeight('256')

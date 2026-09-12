@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Forms\Components\BannerImageUpload;
 use App\Models\Banner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -10,6 +11,14 @@ use Tests\TestCase;
 class BannerSliderTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_upload_banner_memakai_crop_tanpa_memvalidasi_rasio_file_asli(): void
+    {
+        $upload = BannerImageUpload::make('image_path');
+
+        $this->assertSame('9:2', $upload->getAutomaticallyCropImagesAspectRatio());
+        $this->assertNull($upload->getImageAspectRatio());
+    }
 
     public function test_beranda_menampilkan_banner_aktif_berurutan(): void
     {
