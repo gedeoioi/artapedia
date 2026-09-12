@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Banner extends Model
 {
@@ -10,6 +11,17 @@ class Banner extends Model
         'title', 'subtitle', 'image_path', 'link_url',
         'button_text', 'sort_order', 'duration_seconds', 'is_active',
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (Banner $banner): void {
+            if ($banner->wasChanged('image_path')) {
+                static::deleteLocalImage($banner->getOriginal('image_path'));
+            }
+        });
+
+        static::deleted(fn (Banner $banner) => static::deleteLocalImage($banner->image_path));
+    }
 
     protected function casts(): array
     {
@@ -31,5 +43,12 @@ class Banner extends Model
     public static function activeOrdered()
     {
         return static::where('is_active', true)->orderBy('sort_order')->orderByDesc('id')->get();
+    }
+
+    private static function deleteLocalImage(?string $path): void
+    {
+        if ($path && ! str_starts_with($path, 'http')) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

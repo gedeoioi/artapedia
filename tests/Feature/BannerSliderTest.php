@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Banner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class BannerSliderTest extends TestCase
@@ -39,5 +40,39 @@ class BannerSliderTest extends TestCase
         $b = Banner::create(['title' => 'X', 'image_path' => 'banners/a.png', 'is_active' => true]);
 
         $this->assertStringEndsWith('storage/banners/a.png', $b->imageUrl());
+    }
+
+    public function test_gambar_lama_dihapus_saat_banner_diganti(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('banners/lama.jpg', 'lama');
+        Storage::disk('public')->put('banners/baru.jpg', 'baru');
+        $banner = Banner::create(['title' => 'Promo', 'image_path' => 'banners/lama.jpg']);
+
+        $banner->update(['image_path' => 'banners/baru.jpg']);
+
+        Storage::disk('public')->assertMissing('banners/lama.jpg');
+        Storage::disk('public')->assertExists('banners/baru.jpg');
+    }
+
+    public function test_gambar_dihapus_bersama_banner(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('banners/promo.jpg', 'gambar');
+        $banner = Banner::create(['title' => 'Promo', 'image_path' => 'banners/promo.jpg']);
+
+        $banner->delete();
+
+        Storage::disk('public')->assertMissing('banners/promo.jpg');
+    }
+
+    public function test_url_gambar_eksternal_tidak_dihapus(): void
+    {
+        Storage::fake('public');
+        $banner = Banner::create(['title' => 'Promo', 'image_path' => 'https://example.com/banner.jpg']);
+
+        $banner->delete();
+
+        Storage::disk('public')->assertDirectoryEmpty('/');
     }
 }
