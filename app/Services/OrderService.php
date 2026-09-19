@@ -11,6 +11,7 @@ use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Payments\IPaymuGateway;
+use App\Payments\TripayGateway;
 use App\Suppliers\DigiflazzProvider;
 use App\Suppliers\TokoVoucherProvider;
 use App\Suppliers\VipResellerProvider;
@@ -26,7 +27,16 @@ class OrderService
 
     public function checkout(array $data, ?User $user = null): Transaction
     {
-        return DB::transaction(function () use ($data, $user) {
+        $idempotencyKey = Transaction::idempotencyKey($data, $user);
+
+        // Jendela idempotensi: request identik yang datang berulang (double
+        // click, retry jaringan, tombol di-refresh) mengembalikan transaksi yang
+        // sudah ada alih-alih membuat order kedua ke supplier.
+        if ($existing = Transaction::findDuplicate($idempotencyKey)) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($data, $user, $idempotencyKey) {
             /** @var Product $product */
             $product = Product::whereKey($data['product_id'])
                 ->where('is_active', true)
@@ -69,6 +79,20 @@ class OrderService
                 }
             }
 
+            // Tripay memakai satu kode channel per transaksi (mis. QRIS, BRIVA).
+            // Kodenya divalidasi terhadap daftar yang dikenal driver, bukan
+            // diteruskan mentah ke API.
+            $tripayChannel = null;
+            if ($method === 'tripay') {
+                $tripayChannel = filled($data['tripay_channel'] ?? null)
+                    ? strtoupper((string) $data['tripay_channel'])
+                    : null;
+
+                if (! TripayGateway::supportsChannel($tripayChannel)) {
+                    throw new \RuntimeException('Channel Tripay tidak dikenal. Silakan pilih metode lain.');
+                }
+            }
+
             $quote = $this->payments->quote(
                 $product,
                 $user,
@@ -105,11 +129,12 @@ class OrderService
             }
 
             if ($quantity > $product->maximumOrderQuantity()) {
-                throw new \RuntimeException('Pembelian lebih dari satu hanya tersedia untuk produk game VIPReseller.');
+                throw new \RuntimeException('Pembelian lebih dari satu hanya tersedia untuk produk game tertentu.');
             }
 
             $trx = Transaction::create([
                 'invoice_code' => $this->payments->invoiceCode(),
+                'idempotency_key' => $idempotencyKey,
                 'user_id' => $user?->id,
                 'product_id' => $product->id,
                 'supplier_config_id' => $product->supplier_config_id,
@@ -170,7 +195,7 @@ class OrderService
                 ]),
                 'failure_url' => route('checkout.show', $product),
                 'payment_method' => $ipaymuMethod ?? null,
-                'payment_channel' => $ipaymuChannel ?? null,
+                'payment_channel' => $ipaymuChannel ?? $tripayChannel,
             ]);
 
             if (! ($result['ok'] ?? false)) {

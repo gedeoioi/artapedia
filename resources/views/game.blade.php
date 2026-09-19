@@ -12,6 +12,13 @@
     <div>
         <h1 class="text-xl font-bold">{{ $game }}</h1>
         <div class="text-xs text-gray-500">{{ $products->count() }} produk tersedia</div>
+        @if($ratingSummary['total'] > 0)
+            <div class="text-xs mt-1">
+                <span style="color:#facc15">{{ str_repeat('★', (int) round($ratingSummary['average'])) }}</span>
+                <span class="font-bold">{{ number_format($ratingSummary['average'], 1, ',', '.') }}</span>
+                <span class="text-gray-500">({{ $ratingSummary['total'] }} ulasan)</span>
+            </div>
+        @endif
     </div>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -31,4 +38,26 @@
         </a>
     @endforeach
 </div>
+
+@if($reviews->isNotEmpty())
+    <section class="mt-8">
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <h2 class="font-bold">Review pembeli {{ $game }}</h2>
+            <a href="{{ route('reviews.index') }}" class="accent text-xs font-bold">Lihat semua</a>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+            @foreach($reviews as $review)
+                <article class="card p-4">
+                    <div class="text-sm" style="color:#facc15">{{ str_repeat('★', $review->stars) }}<span class="text-gray-500">{{ str_repeat('☆', 5 - $review->stars) }}</span></div>
+                    @if($review->comment)
+                        <p class="mt-2 text-sm leading-relaxed">{{ $review->comment }}</p>
+                    @endif
+                    <div class="text-xs text-gray-500 mt-2">
+                        {{ $review->transaction?->nickname ?: 'Pembeli' }} &middot; {{ $review->created_at->format('d/m/Y') }}
+                    </div>
+                </article>
+            @endforeach
+        </div>
+    </section>
+@endif
 @endsection

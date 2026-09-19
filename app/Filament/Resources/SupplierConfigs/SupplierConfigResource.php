@@ -7,6 +7,7 @@ use App\Filament\Resources\SupplierConfigs\Pages\EditSupplierConfig;
 use App\Filament\Resources\SupplierConfigs\Pages\ListSupplierConfigs;
 use App\Filament\Resources\SupplierConfigs\Schemas\SupplierConfigForm;
 use App\Filament\Resources\SupplierConfigs\Tables\SupplierConfigsTable;
+use App\Support\AdminRoles;
 use App\Models\SupplierConfig;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -44,5 +45,14 @@ class SupplierConfigResource extends Resource
             'create' => CreateSupplierConfig::route('/create'),
             'edit' => EditSupplierConfig::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SUPPLIERS) ?? false;
     }
 }

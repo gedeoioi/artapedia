@@ -49,7 +49,7 @@ class XenditGateway extends BasePaymentGateway
         ];
     }
 
-    public function handleCallback(array $payload, array $headers = []): array
+    public function handleCallback(array $payload, array $headers = [], ?string $rawBody = null): array
     {
         $token = $this->credentials['callback_token'] ?? '';
         $provided = $this->headerValue($headers, 'x-callback-token');

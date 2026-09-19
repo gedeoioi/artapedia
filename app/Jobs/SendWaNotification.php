@@ -16,7 +16,7 @@ class SendWaNotification implements ShouldQueue
 
     public function handle(): void
     {
-        $trx = Transaction::find($this->transactionId);
+        $trx = Transaction::with('product')->find($this->transactionId);
         if (! $trx) {
             return;
         }
@@ -26,14 +26,25 @@ class SendWaNotification implements ShouldQueue
             return;
         }
 
+        $template = $setting->template ?? 'Invoice {invoice}: {status}';
+
         try {
             Http::post($setting->api_url, [
                 'token' => $setting->api_token,
                 'to' => $trx->buyer_phone,
                 'message' => str_replace(
-                    ['{invoice}', '{status}'],
-                    [$trx->invoice_code, $trx->status],
-                    $setting->template ?? 'Invoice {invoice}: {status}'
+                    ['{invoice}', '{status}', '{link}', '{nama}', '{produk}', '{tujuan}', '{nominal}', '{tanggal}'],
+                    [
+                        $trx->invoice_code,
+                        $trx->statusLabel(),
+                        route('invoice.show', ['code' => $trx->invoice_code]),
+                        $trx->user?->name ?? 'Pelanggan',
+                        $trx->product?->name ?? 'Topup Saldo',
+                        $trx->target_user_id,
+                        'Rp '.number_format((int) $trx->total_amount, 0, ',', '.'),
+                        $trx->created_at?->format('d/m/Y H:i') ?? '-',
+                    ],
+                    $template,
                 ),
             ]);
         } catch (\Throwable $e) {

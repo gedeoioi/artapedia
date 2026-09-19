@@ -7,6 +7,7 @@ use App\Filament\Resources\GameIcons\Pages\EditGameIcon;
 use App\Filament\Resources\GameIcons\Pages\ListGameIcons;
 use App\Filament\Resources\GameIcons\Schemas\GameIconForm;
 use App\Filament\Resources\GameIcons\Tables\GameIconsTable;
+use App\Support\AdminRoles;
 use App\Models\GameIcon;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -52,5 +53,14 @@ class GameIconResource extends Resource
             'create' => CreateGameIcon::route('/create'),
             'edit' => EditGameIcon::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_PRODUCTS) ?? false;
     }
 }

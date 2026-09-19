@@ -36,7 +36,7 @@
             <section>
                 <h2 class="font-bold text-lg mb-2">2. Transaksi yang memenuhi syarat</h2>
                 <ul class="list-disc pl-5 space-y-2 muted">
-                    <li>Pembayaran telah terkonfirmasi, tetapi pesanan dinyatakan gagal oleh sistem atau supplier.</li>
+                    <li>Pembayaran telah terkonfirmasi, tetapi pesanan dinyatakan gagal oleh sistem kami.</li>
                     <li>Produk belum diterima pada User ID, nomor telepon, atau tujuan yang tercantum di pesanan.</li>
                     <li>Terjadi pembayaran ganda untuk invoice yang sama dan kedua pembayaran telah kami verifikasi.</li>
                     <li>Nominal yang dibayarkan tidak dapat diproses karena gangguan layanan dan pesanan tidak berhasil dibuat.</li>
@@ -49,7 +49,7 @@
                     <li>Pesanan telah berstatus sukses dan produk sudah dikirim.</li>
                     <li>Kesalahan User ID, zone, nomor telepon, email, server, atau data tujuan lain dari pengguna.</li>
                     <li>Perubahan pikiran setelah pembayaran atau setelah pesanan diproses.</li>
-                    <li>Keterlambatan sementara dari bank, gateway pembayaran, operator, atau supplier ketika transaksi masih diproses.</li>
+                    <li>Keterlambatan sementara dari bank, penyedia pembayaran, operator, atau sistem kami ketika transaksi masih diproses.</li>
                     <li>Permintaan yang tidak dilengkapi bukti pembayaran dan kode invoice yang valid.</li>
                 </ul>
             </section>
@@ -76,7 +76,7 @@
 
             <section>
                 <h2 class="font-bold text-lg mb-2">7. Keputusan dan perubahan kebijakan</h2>
-                <p class="muted">Keputusan refund dibuat berdasarkan catatan sistem, supplier, dan penyedia pembayaran. Kami dapat memperbarui kebijakan ini untuk menyesuaikan layanan atau peraturan tanpa mengurangi hak konsumen yang dijamin hukum.</p>
+                <p class="muted">Keputusan refund dibuat berdasarkan catatan sistem dan penyedia pembayaran. Kami dapat memperbarui kebijakan ini untuk menyesuaikan layanan atau peraturan tanpa mengurangi hak konsumen yang dijamin hukum.</p>
             </section>
         </div>
 

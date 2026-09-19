@@ -53,7 +53,7 @@ class NicknameService
         $provider = $this->checker();
 
         if (! $provider) {
-            return ['ok' => false, 'message' => 'Layanan cek nickname nonaktif (supplier VIPayment belum aktif).'];
+            return ['ok' => false, 'message' => 'Layanan cek nickname sedang nonaktif. Silakan isi User ID dan Server secara manual.'];
         }
 
         $code = $this->resolveCode($product);

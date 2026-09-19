@@ -35,7 +35,7 @@
 
         <section>
             <h2 class="font-bold text-lg mb-2">4. Pembagian data</h2>
-            <p class="muted">Kami dapat membagikan data yang diperlukan kepada gateway pembayaran, supplier produk digital, penyedia infrastruktur atau komunikasi, dan penasihat profesional. Data juga dapat diberikan kepada pihak berwenang jika diwajibkan oleh hukum. Kami tidak menjual data pribadi Anda.</p>
+            <p class="muted">Kami dapat membagikan data yang diperlukan kepada penyedia pembayaran, mitra penyedia produk digital, penyedia infrastruktur atau komunikasi, dan penasihat profesional. Data juga dapat diberikan kepada pihak berwenang jika diwajibkan oleh hukum. Kami tidak menjual data pribadi Anda.</p>
         </section>
 
         <section>

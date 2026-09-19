@@ -21,9 +21,11 @@
     @if($favicon)<link rel="icon" href="{{ $favicon }}">@endif
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700,800&display=swap" rel="stylesheet" />
     <style>
         :root { --primary: {{ $primary }}; --accent: {{ $accent }}; }
-        body { background: #0f0f12; color: #f5f4f0; font-family: ui-sans-serif, system-ui, sans-serif; }
+        body { background: #0f0f12; color: #f5f4f0; font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
         html[data-theme="light"] body { background: #fafaf9; color: #1a1a1a; }
         .card { border: 1px solid #26262b; border-radius: 12px; background: #17171c; }
         html[data-theme="light"] .card { border-color: #e5e5e5; background: #fff; }

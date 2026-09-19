@@ -156,6 +156,9 @@ class CheckoutNicknameTest extends TestCase
         ]);
 
         $res->assertStatus(422);
-        $this->assertStringContainsString('VIPayment', $res->json('message'));
+        // Pesan harus menjelaskan ke pembeli tanpa menyebut nama vendor internal.
+        $this->assertStringNotContainsStringIgnoringCase('vipayment', $res->json('message'));
+        $this->assertStringNotContainsStringIgnoringCase('supplier', $res->json('message'));
+        $this->assertStringContainsString('cek nickname', $res->json('message'));
     }
 }

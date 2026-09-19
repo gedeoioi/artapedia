@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
 use App\Payments\IPaymuGateway;
+use App\Payments\TripayGateway;
 use App\Services\NicknameService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
@@ -26,7 +27,14 @@ class CheckoutController extends Controller
             $gateways = $gateways->reject(fn (PaymentGatewayConfig $gateway): bool => $gateway->code === 'ipaymu');
         }
 
-        return view('checkout', compact('product', 'gateways', 'maxQuantity', 'ipaymuChannels'));
+        // Channel Tripay ditampilkan dari daftar statis driver, bukan panggilan
+        // API saat render halaman: daftar channel jarang berubah dan memanggil
+        // API di setiap page load menambah latensi tanpa manfaat.
+        $tripayChannels = $gateways->contains('code', 'tripay')
+            ? TripayGateway::checkoutChannels()
+            : [];
+
+        return view('checkout', compact('product', 'gateways', 'maxQuantity', 'ipaymuChannels', 'tripayChannels'));
     }
 
     public function quote(Request $request, PaymentService $payments)
@@ -37,6 +45,7 @@ class CheckoutController extends Controller
             'quantity' => 'nullable|integer|min:1|max:10',
             'ipaymu_method' => 'nullable|string|max:32',
             'ipaymu_channel' => 'nullable|string|max:32',
+            'tripay_channel' => 'nullable|string|max:32',
         ]);
         $gateway = $data['gateway_code'] ?? 'balance';
 
@@ -54,9 +63,11 @@ class CheckoutController extends Controller
         }
         $quote = $payments->quote($product, $request->user(), $gateway, $quantity, $ipaymuMethod, $ipaymuChannel);
         $checkoutTotal = $quote['total'];
-        $minimumAmount = $gateway === 'ipaymu'
-            ? IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel)
-            : 0;
+        $minimumAmount = match (true) {
+            $gateway === 'ipaymu' => IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel),
+            $gateway === 'tripay' => TripayGateway::MINIMUM_AMOUNT,
+            default => 0,
+        };
         $available = $minimumAmount === 0 || $checkoutTotal >= $minimumAmount;
 
         return response()->json(array_merge($quote, [
@@ -100,6 +111,7 @@ class CheckoutController extends Controller
             'gateway_code' => 'required|string',
             'ipaymu_method' => 'required_if:gateway_code,ipaymu|nullable|string|max:32',
             'ipaymu_channel' => 'required_if:gateway_code,ipaymu|nullable|string|max:32',
+            'tripay_channel' => 'required_if:gateway_code,tripay|nullable|string|max:32',
             'buyer_phone' => [$guestRule, 'string', 'max:32', 'regex:/^(?:\+?62|0)8[0-9]{8,12}$/'],
             'buyer_email' => [$guestRule, 'email', 'max:128'],
         ]);

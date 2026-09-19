@@ -18,7 +18,11 @@ class WebhookController extends Controller
             return response()->json(['ok' => false, 'message' => 'Unknown gateway'], 404);
         }
 
-        $result = $provider->handleCallback($request->all(), $request->headers->all());
+        $result = $provider->handleCallback(
+            $request->all(),
+            $request->headers->all(),
+            $request->getContent(),
+        );
 
         if (! ($result['ok'] ?? false)) {
             return response()->json(['ok' => false, 'reason' => $result['status'] ?? 'invalid'], 400);

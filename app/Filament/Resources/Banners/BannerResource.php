@@ -7,6 +7,7 @@ use App\Filament\Resources\Banners\Pages\EditBanner;
 use App\Filament\Resources\Banners\Pages\ListBanners;
 use App\Filament\Resources\Banners\Schemas\BannerForm;
 use App\Filament\Resources\Banners\Tables\BannersTable;
+use App\Support\AdminRoles;
 use App\Models\Banner;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -50,5 +51,14 @@ class BannerResource extends Resource
             'create' => CreateBanner::route('/create'),
             'edit' => EditBanner::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SETTINGS) ?? false;
     }
 }

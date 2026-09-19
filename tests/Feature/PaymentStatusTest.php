@@ -45,7 +45,7 @@ class PaymentStatusTest extends TestCase
             ->assertRedirect(route('invoice.show', ['code' => $trx->invoice_code]));
     }
 
-    public function test_halaman_processing_menampilkan_proses_supplier_bukan_menunggu_pembayaran(): void
+    public function test_halaman_processing_menampilkan_status_proses_bukan_menunggu_pembayaran(): void
     {
         $product = Product::create([
             'supplier_code' => 'ML5', 'name' => '5 Diamonds', 'game' => 'Mobile Legends',
@@ -65,18 +65,22 @@ class PaymentStatusTest extends TestCase
         $this->get(route('payment.show', $trx->invoice_code))
             ->assertOk()
             ->assertSee('Sedang diproses')
-            ->assertDontSee('Pesanan sudah diterima supplier dan sedang dalam antrean.')
             ->assertDontSee('Status supplier:')
             ->assertDontSee('Status: processing - menunggu pembayaran terdeteksi');
 
+        // Halaman publik tidak boleh menyebut istilah internal apa pun.
+        $html = $this->get(route('payment.show', $trx->invoice_code))->getContent();
+        $this->assertStringNotContainsStringIgnoringCase('supplier', $html);
+
+        // Endpoint status publik hanya mengirim status yang relevan untuk pembeli.
         $this->getJson(route('payment.status', $trx->invoice_code))
             ->assertOk()
             ->assertJson([
                 'status' => 'processing',
                 'status_label' => 'Sedang diproses',
-                'supplier_status' => 'waiting',
                 'badge' => 'badge-pending',
-            ]);
+            ])
+            ->assertJsonMissingPath('supplier_status');
     }
 
     public function test_endpoint_status_otomatis_sinkron_ke_supplier(): void
@@ -109,10 +113,14 @@ class PaymentStatusTest extends TestCase
             'data' => [['trxid' => 'VP-AUTO-1', 'status' => 'success', 'note' => 'SN123', 'price' => 1000]],
         ])]);
 
+        // Endpoint publik mengabarkan hasilnya, tanpa membocorkan status internal.
         $this->getJson(route('payment.status', $trx->invoice_code))
             ->assertOk()
-            ->assertJson(['status' => 'success', 'supplier_status' => 'success']);
+            ->assertJson(['status' => 'success'])
+            ->assertJsonMissingPath('supplier_status');
 
+        // Status internal tetap terbarui di database untuk kebutuhan admin.
         $this->assertSame(Transaction::STATUS_SUCCESS, $trx->fresh()->status);
+        $this->assertSame('success', $trx->fresh()->supplier_status);
     }
 }

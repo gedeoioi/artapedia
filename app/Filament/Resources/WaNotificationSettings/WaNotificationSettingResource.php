@@ -7,6 +7,7 @@ use App\Filament\Resources\WaNotificationSettings\Pages\EditWaNotificationSettin
 use App\Filament\Resources\WaNotificationSettings\Pages\ListWaNotificationSettings;
 use App\Filament\Resources\WaNotificationSettings\Schemas\WaNotificationSettingForm;
 use App\Filament\Resources\WaNotificationSettings\Tables\WaNotificationSettingsTable;
+use App\Support\AdminRoles;
 use App\Models\WaNotificationSetting;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -44,5 +45,14 @@ class WaNotificationSettingResource extends Resource
             'create' => CreateWaNotificationSetting::route('/create'),
             'edit' => EditWaNotificationSetting::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SETTINGS) ?? false;
     }
 }

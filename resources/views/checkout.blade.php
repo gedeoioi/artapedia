@@ -24,7 +24,9 @@
             @csrf
             <input type="hidden" name="product_id" value="{{ $product->id }}">
             @php $isGame = $product->product_type === 'game'; @endphp
-            <label class="text-sm font-semibold">{{ $product->targetLabel() }}</label>
+
+            <div class="step-heading"><span>Masukkan {{ $product->targetLabel() }}</span></div>
+            <label class="text-sm font-semibold sr-only">{{ $product->targetLabel() }}</label>
             <input name="target_user_id" id="target-uid" required class="card w-full px-3 py-2 mt-1 mb-2"
                 placeholder="{{ $isGame ? 'cth: 12345678' : 'cth: 081234567890' }}" autocomplete="off"
                 @unless($isGame) inputmode="tel" @endunless>
@@ -45,10 +47,12 @@
             </div>
             <input type="hidden" name="nickname" id="nickname">
             @endif
+            <div class="step-heading"><span>Isi Kontak / WhatsApp</span></div>
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <div><label class="text-sm">No. HP @guest<span class="text-red-400">*</span>@endguest</label><input name="buyer_phone" value="{{ old('buyer_phone', auth()->user()?->phone) }}" type="tel" autocomplete="tel" class="card w-full px-3 py-2 mt-1" @guest required @endguest></div>
                 <div><label class="text-sm">Email @guest<span class="text-red-400">*</span>@endguest</label><input name="buyer_email" value="{{ old('buyer_email', auth()->user()?->email) }}" type="email" autocomplete="email" class="card w-full px-3 py-2 mt-1" @guest required @endguest></div>
             </div>
+            <div class="step-heading"><span>Pilih Nominal</span></div>
             <div class="quantity-section mb-4 mt-3">
                 <div>
                     <label for="order-quantity" class="text-sm font-semibold">Jumlah Pesanan</label>
@@ -60,9 +64,7 @@
                     <button type="button" class="quantity-button" data-quantity-action="plus" aria-label="Tambah jumlah" @disabled($maxQuantity === 1)>+</button>
                 </div>
             </div>
-            <div class="flex items-center gap-2 mb-2">
-                <label class="font-semibold">Pilih Pembayaran</label>
-            </div>
+            <div class="step-heading"><span>Pilih Pembayaran</span></div>
             <div class="grid grid-cols-2 gap-2 mt-1 mb-3" id="gateways">
                 @auth
                 <label class="pay-card card p-3 flex items-center gap-2 cursor-pointer" data-pay="balance" data-pay-name="Saldo Member">
@@ -120,6 +122,29 @@
                         </div>
                     </details>
                 @endforeach
+            </div>
+            @endif
+            @if($tripayChannels !== [])
+            <div id="tripay-channel-panel" class="ipaymu-channel-panel hidden mb-3">
+                <div class="ipaymu-panel-heading">
+                    <span>
+                        <strong>Pilih channel Tripay</strong>
+                        <small>Minimal pembayaran Rp10.000</small>
+                    </span>
+                    <span class="ipaymu-secure">Pembayaran aman</span>
+                </div>
+                <div class="ipaymu-channel-grid">
+                    @foreach($tripayChannels as $channel)
+                        @php $tripaySelected = old('gateway_code') === 'tripay' && old('tripay_channel') === $channel['code']; @endphp
+                        <label class="ipaymu-channel-card {{ $tripaySelected ? 'is-selected' : '' }}">
+                            <input type="radio" name="tripay_channel" value="{{ $channel['code'] }}"
+                                   data-channel-name="{{ $channel['label'] }}"
+                                   class="tripay-channel-input hidden" @checked($tripaySelected)>
+                            <span class="ipaymu-channel-logo">{{ $channel['label'] }}</span>
+                            <small>{{ $channel['group_label'] }}</small>
+                        </label>
+                    @endforeach
+                </div>
             </div>
             @endif
             <div id="gateway-warning" class="hidden card p-3 mb-3 text-sm" style="border-color:#ef4444;color:#fca5a5;background:rgba(239,68,68,.08)" role="alert"></div>
@@ -199,8 +224,19 @@
             <span>Total Pembayaran</span>
             <strong id="sum-total">Rp {{ number_format($initialPrice * $initialQuantity, 0, ',', '.') }}</strong>
         </div>
-        <button type="submit" form="checkout-form" class="btn-primary w-full py-3 font-bold mt-4" id="btn-bayar" disabled>Bayar Sekarang</button>
+        <div class="step-heading mt-4"><span>Konfirmasi &amp; Bayar</span></div>
+        <button type="submit" form="checkout-form" class="btn-primary w-full py-3 font-bold mt-2" id="btn-bayar" disabled>Bayar Sekarang</button>
+        <p class="muted text-xs mt-2">Total di atas dihitung ulang di server sebelum transaksi dibuat.</p>
     </aside>
+
+    {{-- Sticky bar khusus mobile: ringkasan harga tetap terlihat saat scroll. --}}
+    <div class="sticky-checkout-bar md:hidden" id="sticky-bar" aria-hidden="true">
+        <div class="min-w-0">
+            <div class="text-xs muted" id="sticky-method">Pilih metode pembayaran</div>
+            <div class="font-extrabold" id="sticky-total">Rp {{ number_format($initialPrice * $initialQuantity, 0, ',', '.') }}</div>
+        </div>
+        <button type="submit" form="checkout-form" class="btn-primary px-5 py-2.5 text-sm font-bold whitespace-nowrap" id="btn-bayar-mobile" disabled>Bayar</button>
+    </div>
     <style>
         .order-summary { border: 1px dashed #4b4b52; border-radius: 13px; padding: 1.25rem; background: linear-gradient(145deg, #202024, #1a1a1e); box-shadow: 0 18px 50px rgba(0,0,0,.2); }
         .order-summary-icon { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 9px; object-fit: cover; background: #29292f; }
@@ -214,6 +250,10 @@
         html[data-theme="light"] .order-summary-rows span { color: #57534e; }
         html[data-theme="light"] .order-summary-total { border-color: #d6d3d1; }
         html[data-theme="light"] .order-summary-total strong { color: #c2570c; }
+        .step-heading { margin: 1.1rem 0 .35rem; font-weight: 800; font-size: .95rem; }
+        .step-heading:first-child { margin-top: 0; }
+        .sticky-checkout-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-top: 1px solid #3f3f46; padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); background: #17171c; box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
+        html[data-theme="light"] .sticky-checkout-bar { border-color: #d6d3d1; background: #fff; box-shadow: 0 -10px 30px rgba(28,25,23,.08); }
     </style>
 </div>
 @endsection
@@ -259,19 +299,27 @@ async function refreshQuote() {
     document.querySelectorAll('.pay-card').forEach(c => c.classList.toggle('pay-active', c.dataset.pay === gw));
     const activePayment = gw ? document.querySelector(`.pay-card[data-pay="${CSS.escape(gw)}"]`) : null;
     const selectedChannel = document.querySelector('.ipaymu-channel-input:checked');
+    const selectedTripayChannel = document.querySelector('.tripay-channel-input:checked');
     const warning = document.getElementById('gateway-warning');
-    const payButton = document.getElementById('btn-bayar');
+    const needsChannel = (gw === 'ipaymu' && !selectedChannel) || (gw === 'tripay' && !selectedTripayChannel);
+
     const methodName = gw === 'ipaymu' && selectedChannel
         ? `${activePayment?.dataset.payName || 'iPaymu'} • ${selectedChannel.dataset.channelName}`
-        : (activePayment?.dataset.payName || 'Pilih metode pembayaran');
+        : (gw === 'tripay' && selectedTripayChannel
+            ? `Tripay • ${selectedTripayChannel.dataset.channelName}`
+            : (activePayment?.dataset.payName || 'Pilih metode pembayaran'));
+
     document.getElementById('sum-method').textContent = methodName;
+    const stickyMethod = document.getElementById('sticky-method');
+    if (stickyMethod) stickyMethod.textContent = methodName;
+
     document.getElementById('ipaymu-channel-panel')?.classList.toggle('hidden', gw !== 'ipaymu');
-    if (!gw || (gw === 'ipaymu' && !selectedChannel)) {
-        warning.textContent = gw === 'ipaymu' ? 'Pilih metode pembayaran terlebih dahulu.' : '';
-        warning.classList.toggle('hidden', gw !== 'ipaymu');
-        payButton.disabled = true;
-        payButton.style.opacity = '.55';
-        payButton.style.cursor = 'not-allowed';
+    document.getElementById('tripay-channel-panel')?.classList.toggle('hidden', gw !== 'tripay');
+
+    if (!gw || needsChannel) {
+        warning.textContent = needsChannel ? 'Pilih channel pembayaran terlebih dahulu.' : '';
+        warning.classList.toggle('hidden', !needsChannel);
+        setPayDisabled(true);
         return;
     }
     const quantity = currentQuantity();
@@ -281,28 +329,53 @@ async function refreshQuote() {
         quantity,
         ipaymu_method: document.getElementById('ipaymu-method')?.value,
         ipaymu_channel: selectedChannel?.value,
+        tripay_channel: selectedTripayChannel?.value,
     })});
     const j = await r.json();
     if (!r.ok) {
         warning.textContent = j.message || 'Perhitungan pembayaran gagal dimuat.';
         warning.classList.remove('hidden');
-        payButton.disabled = true;
+        setPayDisabled(true);
         return;
     }
     const f = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     document.getElementById('sum-sell').textContent = f(j.subtotal ?? (j.sell_price * quantity));
     document.getElementById('sum-quantity').textContent = quantity;
     document.getElementById('sum-service').textContent = f((j.admin_fee || 0) + (j.gateway_fee || 0));
-    document.getElementById('sum-total').textContent = f(j.checkout_total ?? j.total);
+    const totalText = f(j.checkout_total ?? j.total);
+    document.getElementById('sum-total').textContent = totalText;
+    const stickyTotal = document.getElementById('sticky-total');
+    if (stickyTotal) stickyTotal.textContent = totalText;
     warning.textContent = j.message || '';
     warning.classList.toggle('hidden', j.available !== false);
-    payButton.disabled = j.available === false;
-    payButton.style.opacity = j.available === false ? '.55' : '';
-    payButton.style.cursor = j.available === false ? 'not-allowed' : '';
+    setPayDisabled(j.available === false);
 }
+
+/**
+ * Tombol desktop dan tombol sticky mobile harus selalu sinkron — kalau salah
+ * satu tertinggal aktif, pelanggan bisa menekan tombol yang seharusnya mati.
+ */
+function setPayDisabled(disabled) {
+    ['btn-bayar', 'btn-bayar-mobile'].forEach(id => {
+        const button = document.getElementById(id);
+        if (!button) return;
+        button.disabled = disabled;
+        button.style.opacity = disabled ? '.55' : '';
+        button.style.cursor = disabled ? 'not-allowed' : '';
+    });
+}
+
+document.querySelectorAll('.tripay-channel-input').forEach(el => el.addEventListener('change', async event => {
+    document.querySelectorAll('#tripay-channel-panel .ipaymu-channel-card')
+        .forEach(card => card.classList.toggle('is-selected', card.contains(event.currentTarget)));
+    await refreshQuote();
+    scrollToOrderSummary();
+}));
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', async event => {
     await refreshQuote();
-    if (event.currentTarget.value !== 'ipaymu') {
+    // iPaymu & Tripay butuh langkah memilih channel dulu, jadi jangan langsung
+    // menggulir ke ringkasan dan melewati panel channelnya.
+    if (!['ipaymu', 'tripay'].includes(event.currentTarget.value)) {
         scrollToOrderSummary();
     }
 }));

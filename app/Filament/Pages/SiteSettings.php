@@ -5,14 +5,18 @@ namespace App\Filament\Pages;
 use App\Models\AuditLog;
 use App\Models\SiteSetting;
 use BackedEnum;
+use App\Support\AdminRoles;
 use Filament\Actions\Action;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
@@ -98,6 +102,38 @@ class SiteSettings extends Page implements HasSchemas
                     ->rows(3)
                     ->maxLength(500)
                     ->columnSpanFull(),
+                Section::make('Topup Saldo Manual')
+                    ->description('Topup manual memakai transfer bank + unggah bukti, lalu disetujui admin. Kosongkan rekening untuk menonaktifkannya.')
+                    ->schema([
+                        Toggle::make('manual_topup_enabled')
+                            ->label('Aktifkan topup manual')
+                            ->helperText('Jika mati, halaman /member/topup-manual hanya menampilkan arahan ke topup otomatis.'),
+                        TextInput::make('manual_topup_min')
+                            ->label('Minimum topup manual')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->default(10000)
+                            ->minValue(1),
+                        Repeater::make('manual_topup_banks')
+                            ->label('Rekening tujuan transfer')
+                            ->addActionLabel('Tambah rekening')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Nama bank')
+                                    ->required()
+                                    ->maxLength(64),
+                                TextInput::make('account_number')
+                                    ->label('Nomor rekening')
+                                    ->required()
+                                    ->maxLength(64),
+                                TextInput::make('account_name')
+                                    ->label('Atas nama')
+                                    ->maxLength(100),
+                            ])
+                            ->columns(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
             ])
             ->statePath('data');
     }
@@ -111,11 +147,10 @@ class SiteSettings extends Page implements HasSchemas
                     $state = $this->form->getState();
                     $old = SiteSetting::allKeyed();
 
-                    foreach (SiteSetting::DEFAULTS as $key => $default) {
-                        if (array_key_exists($key, $state)) {
-                            SiteSetting::set($key, $state[$key]);
-                        }
-                    }
+                    // setMany menangani konversi key JSON (mis. daftar rekening
+                    // bank) supaya tersimpan sebagai string JSON yang konsisten
+                    // dengan yang dibaca ManualTopupService.
+                    SiteSetting::setMany($state);
 
                     AuditLog::record('site_settings.update', null, $old, $state);
 
@@ -125,5 +160,14 @@ class SiteSettings extends Page implements HasSchemas
                         ->send();
                 }),
         ];
+    }
+
+    /**
+     * Halaman pengaturan/konfigurasi dibatasi izin supaya Operator tidak
+     * bisa mengubah setelan yang memengaruhi uang atau katalog.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SETTINGS) ?? false;
     }
 }

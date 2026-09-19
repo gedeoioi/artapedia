@@ -14,11 +14,14 @@ class CronSetting extends Model
 
     public const KEY_SYNC_PRODUCTS = 'sync-supplier-products';
 
+    public const KEY_RECONCILE = 'reconcile-balances';
+
     public const DEFAULTS = [
         self::KEY_POLL_PROCESSING => ['label' => 'Polling status ke supplier (trx processing)', 'interval_minutes' => 1],
         self::KEY_POLL_GATEWAY => ['label' => 'Polling status bayar ke gateway (invoice pending)', 'interval_minutes' => 1],
         self::KEY_EXPIRE => ['label' => 'Auto-expire invoice kedaluwarsa', 'interval_minutes' => 1],
         self::KEY_SYNC_PRODUCTS => ['label' => 'Sinkronisasi harga produk supplier', 'interval_minutes' => 60],
+        self::KEY_RECONCILE => ['label' => 'Rekonsiliasi ledger vs saldo user', 'interval_minutes' => 1440],
     ];
 
     public const INTERVAL_OPTIONS = [

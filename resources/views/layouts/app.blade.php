@@ -14,12 +14,12 @@
         @if($favicon)<link rel="icon" href="{{ $favicon }}">@endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700,800&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
         <style>
             :root { --member-primary: {{ $primary }}; }
-            body { margin: 0; background: #0d0d10; color: #f5f5f4; }
+            body { margin: 0; background: #0d0d10; color: #f5f5f4; font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
             .member-shell {
                 min-height: 100vh;
                 background:

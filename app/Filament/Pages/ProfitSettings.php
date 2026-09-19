@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\SiteSetting;
 use App\Services\ProfitCalculator;
 use BackedEnum;
+use App\Support\AdminRoles;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -117,5 +118,14 @@ class ProfitSettings extends Page implements HasSchemas
                 : 'Pengaturan profit tersimpan')
             ->success()
             ->send();
+    }
+
+    /**
+     * Halaman pengaturan/konfigurasi dibatasi izin supaya Operator tidak
+     * bisa mengubah setelan yang memengaruhi uang atau katalog.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_PRODUCTS) ?? false;
     }
 }

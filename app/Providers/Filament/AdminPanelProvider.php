@@ -35,6 +35,10 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            // Panel Filament memakai Inter secara default lewat CSS-nya sendiri,
+            // jadi font tidak bisa diseragamkan hanya dari layout Blade —
+            // harus di-set di provider panel ini.
+            ->font('Poppins')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

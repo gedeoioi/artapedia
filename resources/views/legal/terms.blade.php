@@ -33,7 +33,7 @@
             <ul class="list-disc pl-5 space-y-2 muted">
                 <li>Periksa produk, nominal, User ID, zone, nomor tujuan, email, dan informasi lain sebelum membayar.</li>
                 <li>Pesanan diproses setelah pembayaran berhasil dikonfirmasi oleh sistem atau mitra pembayaran.</li>
-                <li>Status transaksi dapat tertunda ketika terjadi gangguan pada bank, gateway pembayaran, supplier, operator, atau penerbit produk.</li>
+                <li>Status transaksi dapat tertunda ketika terjadi gangguan pada bank, penyedia pembayaran, operator, atau penerbit produk.</li>
                 <li>Biaya layanan atau biaya gateway akan ditampilkan sebelum pesanan dikonfirmasi.</li>
             </ul>
         </section>

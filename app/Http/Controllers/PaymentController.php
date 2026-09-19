@@ -73,14 +73,17 @@ class PaymentController extends Controller
         $trx = Transaction::where('invoice_code', $invoice)->firstOrFail();
         $trx = $synchronizer->refreshIfDue($trx);
 
+        // Endpoint ini publik (dipanggil halaman pembayaran tanpa login), jadi
+        // HANYA status yang relevan untuk pembeli yang dikirim. supplier_status
+        // sengaja tidak disertakan: itu detail internal yang hanya boleh
+        // terlihat di dashboard admin.
         return response()->json([
             'status' => $trx->status,
             'status_label' => $trx->statusLabel(),
             'message' => $trx->statusMessage(),
             'badge' => $trx->statusBadgeClass(),
-            'supplier_status' => $trx->supplier_status,
             'paid_at' => $trx->paid_at,
             'processed_at' => $trx->processed_at,
-        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+        ])->withHeaders(['Cache-Control' => 'no-store, no-cache, must-revalidate']);
     }
 }

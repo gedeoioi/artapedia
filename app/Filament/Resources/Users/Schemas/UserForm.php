@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Support\AdminRoles;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -30,7 +31,17 @@ class UserForm
                     ->prefix('Rp')
                     ->default(0)
                     ->disabled()
-                    ->helperText('Ubah saldo hanya via mutasi (ledger), bukan edit langsung.'),
+                    ->dehydrated(false)
+                    ->helperText('Ubah saldo hanya lewat aksi "Sesuaikan saldo" di daftar user (tercatat di ledger + audit trail).'),
+                Select::make('roles')
+                    ->label('Peran panel admin')
+                    ->relationship('roles', 'name')
+                    ->getOptionLabelFromRecordUsing(
+                        fn ($record): string => AdminRoles::LABELS[$record->name] ?? $record->name
+                    )
+                    ->multiple()
+                    ->preload()
+                    ->helperText('Super Admin = akses penuh. Admin = tanpa kelola user. Operator = transaksi & review saja.'),
                 Select::make('level')
                     ->required()
                     ->options(['admin' => 'Admin', 'vip' => 'Reseller VIP', 'biasa' => 'Reseller Biasa', 'member' => 'Member'])

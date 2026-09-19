@@ -211,7 +211,7 @@ class IPaymuGateway extends BasePaymentGateway
         ];
     }
 
-    public function handleCallback(array $payload, array $headers = []): array
+    public function handleCallback(array $payload, array $headers = [], ?string $rawBody = null): array
     {
         // Callback iPaymu memakai Merchant VA sebagai HMAC secret. Payload harus
         // dinormalisasi dan diurutkan sebelum dihitung (berbeda dari signature API).

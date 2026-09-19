@@ -7,6 +7,7 @@ use App\Filament\Resources\Transactions\Pages\EditTransaction;
 use App\Filament\Resources\Transactions\Pages\ListTransactions;
 use App\Filament\Resources\Transactions\Schemas\TransactionForm;
 use App\Filament\Resources\Transactions\Tables\TransactionsTable;
+use App\Support\AdminRoles;
 use App\Models\Transaction;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -44,5 +45,14 @@ class TransactionResource extends Resource
             'create' => CreateTransaction::route('/create'),
             'edit' => EditTransaction::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_TRANSACTIONS) ?? false;
     }
 }

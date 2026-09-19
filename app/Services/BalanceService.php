@@ -52,8 +52,8 @@ class BalanceService
         return $this->adjust($user, -abs($amount), BalanceMutation::TYPE_ORDER, $description, $transactionId);
     }
 
-    public function credit(User $user, int $amount, string $type, string $description = '', ?int $transactionId = null): BalanceMutation
+    public function credit(User $user, int $amount, string $type, string $description = '', ?int $transactionId = null, ?int $actorId = null): BalanceMutation
     {
-        return $this->adjust($user, abs($amount), $type, $description, $transactionId);
+        return $this->adjust($user, abs($amount), $type, $description, $transactionId, $actorId);
     }
 }

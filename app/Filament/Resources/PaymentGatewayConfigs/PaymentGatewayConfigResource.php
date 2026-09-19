@@ -7,6 +7,7 @@ use App\Filament\Resources\PaymentGatewayConfigs\Pages\EditPaymentGatewayConfig;
 use App\Filament\Resources\PaymentGatewayConfigs\Pages\ListPaymentGatewayConfigs;
 use App\Filament\Resources\PaymentGatewayConfigs\Schemas\PaymentGatewayConfigForm;
 use App\Filament\Resources\PaymentGatewayConfigs\Tables\PaymentGatewayConfigsTable;
+use App\Support\AdminRoles;
 use App\Models\PaymentGatewayConfig;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -44,5 +45,14 @@ class PaymentGatewayConfigResource extends Resource
             'create' => CreatePaymentGatewayConfig::route('/create'),
             'edit' => EditPaymentGatewayConfig::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_GATEWAYS) ?? false;
     }
 }

@@ -186,8 +186,39 @@
     }
 </style>
 
+<!-- REVIEW PEMBELI (hanya rating yang sudah dimoderasi) -->
+@if($reviews->isNotEmpty())
+<div class="mt-8">
+    <div class="flex items-center justify-between gap-3 mb-3">
+        <div>
+            <h2 class="font-bold">Review pembeli</h2>
+            <p class="muted text-xs">
+                <span style="color:#facc15">{{ str_repeat('★', (int) round($reviewSummary['average'])) }}</span>
+                <strong>{{ number_format($reviewSummary['average'], 1, ',', '.') }}/5</strong>
+                dari {{ $reviewSummary['total'] }} ulasan terverifikasi.
+            </p>
+        </div>
+        <a href="{{ route('reviews.index') }}" class="accent text-xs font-bold shrink-0">Lihat semua</a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        @foreach($reviews as $review)
+            <article class="card p-4">
+                <div class="text-sm" style="color:#facc15">{{ str_repeat('★', $review->stars) }}<span class="muted">{{ str_repeat('☆', 5 - $review->stars) }}</span></div>
+                @if($review->comment)
+                    <p class="mt-2 text-sm leading-relaxed">{{ \Illuminate\Support\Str::limit($review->comment, 160) }}</p>
+                @endif
+                <div class="text-xs muted mt-2">
+                    {{ $review->transaction?->product?->name ?? 'Topup saldo' }}
+                    &middot; {{ $review->created_at->format('d/m/Y') }}
+                </div>
+            </article>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <!-- CARA ORDER -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8 mt-8">
     <div class="card p-4 flex gap-3 items-start">
         <div class="text-2xl font-extrabold accent">1</div>
         <div><div class="font-semibold text-sm">Pilih produk</div><div class="text-xs muted">Cari game, pilih nominal, isi User ID tujuan.</div></div>
@@ -198,7 +229,7 @@
     </div>
     <div class="card p-4 flex gap-3 items-start">
         <div class="text-2xl font-extrabold accent">3</div>
-        <div><div class="font-semibold text-sm">Otomatis masuk</div><div class="text-xs muted">Diproses ke supplier, pantau via Cek Transaksi.</div></div>
+        <div><div class="font-semibold text-sm">Otomatis masuk</div><div class="text-xs muted">Diproses otomatis, pantau via Cek Transaksi.</div></div>
     </div>
 </div>
 

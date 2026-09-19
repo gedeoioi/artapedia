@@ -24,7 +24,17 @@ class SiteSetting extends Model
         'profit_mode' => 'percent',
         'profit_percent' => '5',
         'profit_flat' => '0',
+        'manual_topup_enabled' => '0',
+        'manual_topup_min' => '10000',
+        'manual_topup_banks' => '[]',
     ];
+
+    /**
+     * Key yang nilainya disimpan sebagai JSON, bukan string biasa.
+     * Didaftarkan di satu tempat supaya form admin dan pembacaan di service
+     * tidak bisa berbeda pendapat soal format penyimpanannya.
+     */
+    public const JSON_KEYS = ['manual_topup_banks'];
 
     public const THEMES = [
         'light' => 'Terang (putih, flat)',
@@ -56,10 +66,33 @@ class SiteSetting extends Model
 
     public static function allKeyed(): array
     {
-        return array_merge(
+        $values = array_merge(
             static::DEFAULTS,
             static::query()->pluck('value', 'key')->toArray()
         );
+
+        foreach (static::JSON_KEYS as $key) {
+            $decoded = json_decode((string) ($values[$key] ?? ''), true);
+            $values[$key] = is_array($decoded) ? $decoded : [];
+        }
+
+        return $values;
+    }
+
+    /**
+     * Nilai dari form admin bisa berupa array (mis. daftar rekening bank).
+     * Semua key di JSON_KEYS disimpan sebagai string JSON agar kolom `value`
+     * tetap satu tipe dan pembacaan di service tidak perlu menebak format.
+     */
+    public static function setMany(array $values): void
+    {
+        foreach ($values as $key => $value) {
+            if (in_array($key, static::JSON_KEYS, true)) {
+                $value = json_encode(array_values((array) $value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+
+            static::set($key, $value);
+        }
     }
 
     public static function logoUrl(): ?string

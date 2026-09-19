@@ -6,6 +6,7 @@ use App\Models\Banner;
 use App\Models\GameIcon;
 use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
+use App\Models\Rating;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 
@@ -97,7 +98,22 @@ class HomeController extends Controller
 
         $banners = Banner::activeOrdered();
 
-        return view('home', compact('games', 'gamesByType', 'categoryPagesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners'));
+        // Hanya rating hasil moderasi yang tampil di beranda.
+        $reviews = Rating::approved()
+            ->with('transaction:id,invoice_code,product_id,nickname,target_user_id')
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get();
+
+        $reviewSummary = Rating::approved()
+            ->selectRaw('COUNT(*) as total, AVG(stars) as average')
+            ->first();
+        $reviewSummary = [
+            'average' => round((float) ($reviewSummary->average ?? 0), 1),
+            'total' => (int) ($reviewSummary->total ?? 0),
+        ];
+
+        return view('home', compact('games', 'gamesByType', 'categoryPagesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'reviews', 'reviewSummary'));
     }
 
     public function categories(Request $request)
@@ -133,7 +149,54 @@ class HomeController extends Controller
         $icon = GameIcon::where('game_name', $game)->where('is_active', true)->first()
             ?? GameIcon::whereRaw('LOWER(game_name) = ?', [mb_strtolower($game)])->where('is_active', true)->first();
 
-        return view('game', compact('products', 'game', 'icon'));
+        // Hanya rating yang sudah dimoderasi admin yang boleh tampil publik.
+        $reviews = Rating::approved()
+            ->with('transaction:id,invoice_code,product_id,nickname,target_user_id')
+            ->whereHas('transaction.product', fn ($query) => $query->where('game', $game))
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $ratingSummary = $this->ratingSummary($game);
+
+        return view('game', compact('products', 'game', 'icon', 'reviews', 'ratingSummary'));
+    }
+
+    public function reviews()
+    {
+        $reviews = Rating::approved()
+            ->with('transaction:id,invoice_code,product_id,nickname,target_user_id')
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        $summary = Rating::approved()
+            ->selectRaw('COUNT(*) as total, AVG(stars) as average')
+            ->first();
+
+        return view('reviews', [
+            'reviews' => $reviews,
+            'average' => round((float) ($summary->average ?? 0), 1),
+            'total' => (int) ($summary->total ?? 0),
+        ]);
+    }
+
+    /**
+     * @return array{average: float, total: int}
+     */
+    private function ratingSummary(?string $game = null): array
+    {
+        $query = Rating::approved();
+
+        if ($game !== null) {
+            $query->whereHas('transaction.product', fn ($q) => $q->where('game', $game));
+        }
+
+        $row = $query->selectRaw('COUNT(*) as total, AVG(stars) as average')->first();
+
+        return [
+            'average' => round((float) ($row->average ?? 0), 1),
+            'total' => (int) ($row->total ?? 0),
+        ];
     }
 
     private function activeType(Request $request): string

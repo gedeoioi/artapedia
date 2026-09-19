@@ -21,7 +21,7 @@ class AdminDashboardStatsTest extends TestCase
     {
         $admin = User::factory()->create(['level' => 'admin', 'balance' => 900000]);
         $roleAdmin = User::factory()->create(['level' => 'member', 'balance' => 800000]);
-        Role::create(['name' => 'admin'])->users()->attach($roleAdmin);
+        Role::firstOrCreate(['name' => 'admin'])->users()->attach($roleAdmin);
         User::factory()->create(['level' => 'member', 'balance' => 12000]);
         User::factory()->create(['level' => 'vip', 'balance' => 8000]);
 

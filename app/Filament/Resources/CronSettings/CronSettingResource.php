@@ -7,6 +7,7 @@ use App\Filament\Resources\CronSettings\Pages\EditCronSetting;
 use App\Filament\Resources\CronSettings\Pages\ListCronSettings;
 use App\Filament\Resources\CronSettings\Schemas\CronSettingForm;
 use App\Filament\Resources\CronSettings\Tables\CronSettingsTable;
+use App\Support\AdminRoles;
 use App\Models\CronSetting;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -50,5 +51,14 @@ class CronSettingResource extends Resource
             'create' => CreateCronSetting::route('/create'),
             'edit' => EditCronSetting::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SETTINGS) ?? false;
     }
 }

@@ -8,6 +8,7 @@ use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Services\OrderService;
 use App\Support\CronGate;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 // Polling status ke SUPPLIER untuk trx yang sedang diproses.
@@ -78,3 +79,18 @@ Schedule::call(function () {
     }
     SupplierConfig::where('is_active', true)->each(fn ($s) => SyncSupplierProducts::dispatch($s->id));
 })->everyMinute()->name('sync-supplier-products');
+
+// Rekonsiliasi ledger vs saldo cache tiap malam, plus alert WA ke admin bila
+// ada selisih. Dijalankan tanpa --fix supaya tidak ada koreksi saldo otomatis
+// tanpa sepengetahuan admin; perbaikan tetap tindakan manual yang disengaja.
+// Gate CronSetting dipakai agar toggle di admin benar-benar mengontrol tugas ini.
+Schedule::call(function () {
+    if (! CronGate::allows(CronSetting::KEY_RECONCILE)) {
+        return;
+    }
+
+    Artisan::call('balance:reconcile', ['--alert' => true]);
+})->dailyAt('02:00')
+    ->timezone(config('app.timezone'))
+    ->name('reconcile-balances')
+    ->withoutOverlapping();

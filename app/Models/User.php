@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AdminRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -78,6 +79,59 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return $this->hasRole('admin') || $this->level === 'admin';
+        // Akses panel ditentukan oleh peran, bukan sekadar kolom `level`.
+        // level='admin' lama tetap diterima agar akun yang sudah ada tidak
+        // langsung terkunci di luar panel.
+        if ($this->level === 'admin' && $this->roles()->count() === 0) {
+            return true;
+        }
+
+        return $this->hasAnyRole([
+            AdminRoles::SUPER_ADMIN,
+            AdminRoles::ADMIN,
+            AdminRoles::OPERATOR,
+        ]);
+    }
+
+    /**
+     * Peran panel yang menentukan batas akses. Mengembalikan null untuk user
+     * yang bukan staf (mis. reseller), sehingga tidak ada izin yang bocor.
+     */
+    public function panelRoleName(): ?string
+    {
+        foreach ([AdminRoles::SUPER_ADMIN, AdminRoles::ADMIN, AdminRoles::OPERATOR] as $role) {
+            if ($this->hasRole($role)) {
+                return $role;
+            }
+        }
+
+        return $this->level === 'admin' ? AdminRoles::ADMIN : null;
+    }
+
+    /**
+     * Super Admin selalu boleh. Peran lain mengikuti izin yang diberikan,
+     * dengan fallback ke izin default perannya bila belum pernah di-seed.
+     */
+    public function hasAdminPermission(string $permission): bool
+    {
+        if ($this->hasRole(AdminRoles::SUPER_ADMIN)) {
+            return true;
+        }
+
+        if ($this->hasPermissionTo($permission)) {
+            return true;
+        }
+
+        $role = $this->panelRoleName();
+        if ($role === null) {
+            return false;
+        }
+
+        return in_array($permission, AdminRoles::ROLE_PERMISSIONS[$role] ?? [], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(AdminRoles::SUPER_ADMIN);
     }
 }

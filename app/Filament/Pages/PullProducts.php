@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Services\ProviderFactory;
 use App\Support\Rupiah;
 use BackedEnum;
+use App\Support\AdminRoles;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -339,5 +340,14 @@ class PullProducts extends Page implements HasSchemas, HasTable
                 ? 'Pilih supplier di atas untuk melihat produk.'
                 : 'Klik Tarik Sekarang untuk menarik produk dari supplier.')
             ->paginated(false);
+    }
+
+    /**
+     * Halaman pengaturan/konfigurasi dibatasi izin supaya Operator tidak
+     * bisa mengubah setelan yang memengaruhi uang atau katalog.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_PRODUCTS) ?? false;
     }
 }

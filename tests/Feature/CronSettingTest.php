@@ -42,10 +42,35 @@ class CronSettingTest extends TestCase
         $this->assertFalse(CronGate::allows(CronSetting::KEY_POLL_GATEWAY));
     }
 
-    public function test_seed_defaults_4_tugas(): void
+    public function test_seed_defaults_mencakup_semua_tugas_terdeklarasi(): void
     {
         CronSetting::seedDefaults();
 
-        $this->assertEquals(4, CronSetting::count());
+        // Jangan mengunci jumlah baris: tugas baru akan ditambahkan seiring
+        // waktu dan angka tetap membuat test ini merah tanpa bug nyata.
+        // Yang penting adalah setiap key yang dideklarasikan punya barisnya.
+        $this->assertEqualsCanonicalizing(
+            array_keys(CronSetting::DEFAULTS),
+            CronSetting::pluck('key')->all(),
+        );
+    }
+
+    public function test_seed_defaults_idempoten(): void
+    {
+        CronSetting::seedDefaults();
+        CronSetting::seedDefaults();
+
+        $this->assertSame(count(CronSetting::DEFAULTS), CronSetting::count());
+    }
+
+    public function test_tugas_rekonsiliasi_aktif_dan_harian(): void
+    {
+        CronSetting::seedDefaults();
+
+        $row = CronSetting::where('key', CronSetting::KEY_RECONCILE)->first();
+
+        $this->assertNotNull($row, 'Tugas rekonsiliasi harus punya baris, jika tidak CronGate menolaknya selamanya.');
+        $this->assertTrue($row->is_active);
+        $this->assertSame(1440, $row->interval_minutes);
     }
 }

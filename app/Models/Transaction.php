@@ -39,6 +39,7 @@ class Transaction extends Model
         'payment_method',
         'payment_reference',
         'payment_payload',
+        'idempotency_key',
         'status',
         'supplier_trx_id',
         'supplier_status',
@@ -65,6 +66,27 @@ class Transaction extends Model
             'profit' => 'integer',
             'quantity' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $trx): void {
+            // Kunci idempotensi hanya boleh menahan satu order selama order itu
+            // masih hidup. Kalau order sudah gagal/kedaluwarsa, kuncinya harus
+            // dilepas — kalau tidak, unique index akan menolak pembeli yang mau
+            // mencoba ulang pada jendela waktu yang sama, dan yang muncul adalah
+            // error constraint, bukan order baru.
+            if (! $trx->exists) {
+                return;
+            }
+
+            $finalButNotSuccessful = in_array($trx->status, [self::STATUS_FAILED, self::STATUS_EXPIRED], true);
+            $originalStatus = (string) $trx->getOriginal('status');
+
+            if ($finalButNotSuccessful && $originalStatus !== $trx->status) {
+                $trx->idempotency_key = null;
+            }
+        });
     }
 
     public function user()
@@ -114,16 +136,16 @@ class Transaction extends Model
     {
         if ($this->status === self::STATUS_PROCESSING) {
             return match (strtolower((string) $this->supplier_status)) {
-                'waiting' => 'Pesanan sudah diterima supplier dan sedang dalam antrean.',
-                'processing', 'proccessing' => 'Pesanan sedang diproses oleh supplier.',
-                default => 'Pembayaran diterima dan pesanan sedang diproses oleh supplier.',
+                'waiting' => 'Pesanan sudah kami terima dan sedang dalam antrean.',
+                'processing', 'proccessing' => 'Pesanan sedang kami proses.',
+                default => 'Pembayaran diterima dan pesanan sedang kami proses.',
             };
         }
 
         return match ($this->status) {
             self::STATUS_PENDING => 'Menunggu pembayaran terdeteksi.',
-            self::STATUS_PAID => 'Pembayaran diterima, menunggu pengiriman pesanan ke supplier.',
-            self::STATUS_SUCCESS => 'Pesanan berhasil diselesaikan oleh supplier.',
+            self::STATUS_PAID => 'Pembayaran diterima, pesanan segera kami proses.',
+            self::STATUS_SUCCESS => 'Pesanan berhasil diselesaikan.',
             self::STATUS_FAILED => 'Pesanan gagal diproses. Silakan hubungi layanan pelanggan.',
             self::STATUS_EXPIRED => 'Batas waktu pembayaran telah berakhir.',
             default => 'Status transaksi sedang diperbarui.',
@@ -145,5 +167,42 @@ class Transaction extends Model
         // diteruskan ke provider. Karena itu biaya tersebut tidak boleh
         // mengurangi profit produk untuk kedua kalinya.
         $this->profit = $this->total_amount - $this->cost_price - $this->gateway_fee;
+    }
+
+    /**
+     * Kunci idempotensi order: satu kombinasi (produk, tujuan, zone, quantity,
+     * metode bayar) hanya boleh menghasilkan satu transaksi selama jendela
+     * waktu tertentu. Tanpa ini, double-click / retry jaringan membuat dua
+     * transaksi yang keduanya benar-benar mengirim kredit ke supplier dan tidak
+     * bisa ditarik kembali.
+     */
+    public static function idempotencyKey(array $data, ?User $user = null): string
+    {
+        $payload = [
+            'product_id' => (int) ($data['product_id'] ?? 0),
+            'target' => trim((string) ($data['target_user_id'] ?? '')),
+            'zone' => trim((string) ($data['target_zone'] ?? '')),
+            'quantity' => max(1, (int) ($data['quantity'] ?? 1)),
+            'gateway' => (string) ($data['gateway_code'] ?? 'balance'),
+            'ipaymu_method' => (string) ($data['ipaymu_method'] ?? ''),
+            'ipaymu_channel' => (string) ($data['ipaymu_channel'] ?? ''),
+            'buyer' => $user?->id ?? trim((string) ($data['buyer_phone'] ?? '')),
+            'window' => now()->format('YmdHi'),
+        ];
+
+        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Transaksi identik yang masih hidup pada jendela idempotensi yang sama.
+     * Transaksi final (gagal/expired) tidak dianggap duplikat supaya pembeli
+     * tetap bisa mencoba ulang setelah kegagalan.
+     */
+    public static function findDuplicate(string $key): ?self
+    {
+        return static::where('idempotency_key', $key)
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_PAID, self::STATUS_PROCESSING, self::STATUS_SUCCESS])
+            ->latest('id')
+            ->first();
     }
 }

@@ -7,6 +7,7 @@ use App\Filament\Resources\AuditLogs\Pages\EditAuditLog;
 use App\Filament\Resources\AuditLogs\Pages\ListAuditLogs;
 use App\Filament\Resources\AuditLogs\Schemas\AuditLogForm;
 use App\Filament\Resources\AuditLogs\Tables\AuditLogsTable;
+use App\Support\AdminRoles;
 use App\Models\AuditLog;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -44,5 +45,14 @@ class AuditLogResource extends Resource
             'create' => CreateAuditLog::route('/create'),
             'edit' => EditAuditLog::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Akses layar ini dibatasi izin, bukan hanya "punya peran admin".
+     * Operator tidak boleh membuka layar yang bisa mengubah uang/konfigurasi.
+     */
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasAdminPermission(AdminRoles::PERM_SETTINGS) ?? false;
     }
 }
