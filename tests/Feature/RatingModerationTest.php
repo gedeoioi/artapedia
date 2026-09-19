@@ -7,9 +7,11 @@ use App\Models\Rating;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Support\ProfanityFilter;
 use App\Suppliers\VipResellerProvider;
+use App\Support\ProfanityFilter;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class RatingModerationTest extends TestCase
@@ -140,7 +142,7 @@ class RatingModerationTest extends TestCase
             'status' => Rating::STATUS_PENDING,
         ]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         Rating::create([
             'transaction_id' => $trx->id, 'user_id' => $user->id, 'stars' => 3,
@@ -257,7 +259,7 @@ class RatingModerationTest extends TestCase
 
         // Layar moderasi admin harus bisa dirender (menangkap error komponen).
         $admin = User::factory()->create(['level' => 'admin']);
-        $admin->assignRole(\Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']));
+        $admin->assignRole(Role::firstOrCreate(['name' => 'admin']));
 
         $this->actingAs($admin)->get('/admin/ratings')->assertOk();
 

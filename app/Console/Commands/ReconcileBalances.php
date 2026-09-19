@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AdminAlertService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -65,7 +66,7 @@ class ReconcileBalances extends Command
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, object>
+     * @return Collection<int, object>
      */
     protected function mismatchedUsers()
     {

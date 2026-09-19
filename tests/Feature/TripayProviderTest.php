@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Payments\TripayGateway;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -440,7 +441,7 @@ class TripayProviderTest extends TestCase
     {
         $config = $this->configureTripay();
 
-        $raw = \Illuminate\Support\Facades\DB::table('payment_gateway_configs')
+        $raw = DB::table('payment_gateway_configs')
             ->where('id', $config->id)
             ->value('credentials');
 

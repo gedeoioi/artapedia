@@ -10,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\BalanceMutation;
 use App\Models\User;
 use App\Support\AdminRoles;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -78,6 +79,7 @@ class AdminRolePermissionTest extends TestCase
             $this->actingAs($operator)->get($path)->assertForbidden();
         }
     }
+
     public function test_operator_tetap_bisa_mengelola_transaksi_dan_review(): void
     {
         $operator = $this->staff(AdminRoles::OPERATOR);
@@ -125,7 +127,7 @@ class AdminRolePermissionTest extends TestCase
         $user = User::factory()->create(['level' => 'admin', 'status' => 'suspended']);
         $user->assignRole(AdminRoles::SUPER_ADMIN);
 
-        $this->assertFalse($user->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')));
+        $this->assertFalse($user->canAccessPanel(Filament::getPanel('admin')));
     }
 
     public function test_operator_tidak_punya_izin_sesuaikan_saldo(): void

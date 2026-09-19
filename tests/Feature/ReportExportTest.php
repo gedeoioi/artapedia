@@ -7,9 +7,10 @@ use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\ReportExportService;
 use App\Services\ReportService;
-use App\Support\AdminRoles;
 use App\Suppliers\VipResellerProvider;
+use App\Support\AdminRoles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -227,7 +228,7 @@ class ReportExportTest extends TestCase
 
         // XLSX diuji lewat service supaya isi stream-nya benar-benar dibuat.
         $table = app(ReportService::class)->exportRows('product', now()->startOfMonth(), now());
-        $streamed = app(\App\Services\ReportExportService::class)->xlsx($table, 'test.xlsx');
+        $streamed = app(ReportExportService::class)->xlsx($table, 'test.xlsx');
 
         ob_start();
         $streamed->sendContent();
@@ -259,7 +260,7 @@ class ReportExportTest extends TestCase
 
     public function test_rentang_tanggal_terbalik_dinormalkan(): void
     {
-        $exports = app(\App\Services\ReportExportService::class);
+        $exports = app(ReportExportService::class);
 
         [$from, $to] = $exports->resolveRange('2026-09-20', '2026-09-01');
 

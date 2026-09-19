@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Transaction;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Sumber tunggal untuk laporan keuangan.

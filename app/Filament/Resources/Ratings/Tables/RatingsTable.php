@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Ratings\Tables;
 
 use App\Models\Rating;
-use App\Models\Transaction;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;

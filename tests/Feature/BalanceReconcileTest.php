@@ -12,7 +12,6 @@ use App\Models\WaNotificationSetting;
 use App\Services\BalanceService;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;

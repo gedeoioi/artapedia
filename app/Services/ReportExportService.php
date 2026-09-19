@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\SiteSetting;
 use Carbon\CarbonInterface;
+use Illuminate\Http\Response;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Options;
 use OpenSpout\Writer\XLSX\Writer;
@@ -19,7 +21,7 @@ class ReportExportService
     public function __construct(protected ReportService $reports) {}
 
     /**
-     * @param array{0: array<int, string>, 1: array<int, array<int, string|int>>} $table
+     * @param  array{0: array<int, string>, 1: array<int, array<int, string|int>>}  $table
      */
     public function xlsx(array $table, string $filename): StreamedResponse
     {
@@ -45,9 +47,9 @@ class ReportExportService
     }
 
     /**
-     * @param array{0: array<int, string>, 1: array<int, array<int, string|int>>} $table
+     * @param  array{0: array<int, string>, 1: array<int, array<int, string|int>>}  $table
      */
-    public function pdf(array $table, string $filename, string $title, string $subtitle): \Illuminate\Http\Response
+    public function pdf(array $table, string $filename, string $title, string $subtitle): Response
     {
         [$header, $rows] = $table;
 
@@ -56,7 +58,7 @@ class ReportExportService
             'subtitle' => $subtitle,
             'header' => $header,
             'rows' => $rows,
-            'siteName' => \App\Models\SiteSetting::get('site_name', 'ArtaPedia'),
+            'siteName' => SiteSetting::get('site_name', 'ArtaPedia'),
             'generatedAt' => now(),
         ], 200, [
             'Content-Type' => 'text/html; charset=UTF-8',

@@ -7,8 +7,8 @@ use App\Filament\Resources\WaNotificationSettings\Pages\EditWaNotificationSettin
 use App\Filament\Resources\WaNotificationSettings\Pages\ListWaNotificationSettings;
 use App\Filament\Resources\WaNotificationSettings\Schemas\WaNotificationSettingForm;
 use App\Filament\Resources\WaNotificationSettings\Tables\WaNotificationSettingsTable;
-use App\Support\AdminRoles;
 use App\Models\WaNotificationSetting;
+use App\Support\AdminRoles;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;

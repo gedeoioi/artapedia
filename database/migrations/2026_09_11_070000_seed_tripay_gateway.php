@@ -1,5 +1,6 @@
 <?php
 
+use App\Payments\TripayGateway;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -30,7 +31,7 @@ return new class extends Migration
         DB::table('payment_gateway_configs')->insert([
             'code' => 'tripay',
             'name' => 'Tripay',
-            'gateway_class' => \App\Payments\TripayGateway::class,
+            'gateway_class' => TripayGateway::class,
             'is_active' => false,
             'is_sandbox' => true,
             'sort_order' => 0,

@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\OrderService;
 use App\Suppliers\VipResellerProvider;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -188,7 +189,7 @@ class OrderIdempotencyTest extends TestCase
         $this->assertNotNull($trx->idempotency_key);
 
         // Penjaga terakhir di level DB: baris kedua dengan key sama harus ditolak.
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         Transaction::create([
             'invoice_code' => 'INV-DUPE-KEY', 'user_id' => $user->id, 'product_id' => $product->id,

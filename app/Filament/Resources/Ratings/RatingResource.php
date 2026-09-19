@@ -4,8 +4,8 @@ namespace App\Filament\Resources\Ratings;
 
 use App\Filament\Resources\Ratings\Pages\ListRatings;
 use App\Filament\Resources\Ratings\Tables\RatingsTable;
-use App\Support\AdminRoles;
 use App\Models\Rating;
+use App\Support\AdminRoles;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;

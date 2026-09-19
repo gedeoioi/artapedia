@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\PaymentGatewayConfig;
 use App\Models\Product;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Payments\TripayGateway;
+use App\Models\WaNotificationSetting;
 use App\Suppliers\VipResellerProvider;
+use Database\Seeders\ArtaPediaSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -128,7 +130,7 @@ class PublicSupplierWordingTest extends TestCase
             '/terms-and-conditions',
             '/privacy-policy',
             '/refund-policy',
-            "/game/Mobile%20Legends",
+            '/game/Mobile%20Legends',
             '/review',
             "/pay/{$trx->invoice_code}",
         ];
@@ -157,9 +159,9 @@ class PublicSupplierWordingTest extends TestCase
      */
     public function test_template_wa_default_tidak_menyebut_supplier(): void
     {
-        $this->seed(\Database\Seeders\ArtaPediaSeeder::class);
+        $this->seed(ArtaPediaSeeder::class);
 
-        foreach (\App\Models\WaNotificationSetting::all() as $setting) {
+        foreach (WaNotificationSetting::all() as $setting) {
             if ($setting->name === 'admin_alert') {
                 // Kanal ini khusus admin, jadi istilah internal boleh dipakai.
                 continue;
@@ -217,7 +219,7 @@ class PublicSupplierWordingTest extends TestCase
     public function test_admin_tetap_melihat_istilah_supplier(): void
     {
         $admin = User::factory()->create(['level' => 'admin']);
-        $admin->assignRole(\Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super-admin']));
+        $admin->assignRole(Role::firstOrCreate(['name' => 'super-admin']));
 
         foreach (['/admin/supplier-configs', '/admin/products'] as $path) {
             $this->actingAs($admin)->get($path)->assertOk();
@@ -225,7 +227,7 @@ class PublicSupplierWordingTest extends TestCase
 
         // Kolom status internal tetap tersedia di tabel transaksi admin.
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasColumn('transactions', 'supplier_status'),
+            Schema::hasColumn('transactions', 'supplier_status'),
             'Kolom internal harus tetap ada untuk kebutuhan admin.',
         );
 
