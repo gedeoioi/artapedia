@@ -101,9 +101,9 @@ class PulsaProductTest extends TestCase
 
         $res->assertOk();
         $res->assertSee('Nomor HP', false);
-        // Form zone + tombol nickname hanya untuk game (id tetap ada di JS tapi tidak dirender).
+        // Form zone + panel cek nickname hanya untuk game.
         $res->assertDontSee('id="zone"', false);
-        $res->assertDontSee('id="btn-nick"', false);
+        $res->assertDontSee('id="nick-panel"', false);
     }
 
     /**
@@ -131,8 +131,7 @@ class PulsaProductTest extends TestCase
         $res = $this->get('/product/'.$p->id.'/checkout');
 
         $res->assertOk();
-        $res->assertDontSee('id="nick-box"', false);
-        $res->assertDontSee('id="btn-nick"', false);
+        $res->assertDontSee('id="nick-panel"', false);
         // User ID tetap diminta.
         $res->assertSee('id="target-uid"', false);
     }
@@ -148,8 +147,9 @@ class PulsaProductTest extends TestCase
         $res = $this->get('/product/'.$p->id.'/checkout');
 
         $res->assertOk();
-        $res->assertSee('id="nick-box"', false);
-        $res->assertSee('id="btn-nick"', false);
+        $res->assertSee('id="nick-panel"', false);
+        // Tombol manual sudah tidak ada — cek berjalan otomatis.
+        $res->assertDontSee('id="btn-nick"', false);
     }
 
     public function test_kode_nickname_manual_di_admin_juga_didukung(): void
@@ -159,7 +159,7 @@ class PulsaProductTest extends TestCase
         $res = $this->get('/product/'.$p->id.'/checkout');
 
         $res->assertOk();
-        $res->assertSee('id="nick-box"', false);
+        $res->assertSee('id="nick-panel"', false);
     }
 
     /**

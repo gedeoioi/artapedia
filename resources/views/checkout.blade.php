@@ -44,16 +44,24 @@
             <div id="zone-note" class="muted text-xs mb-2">Zone wajib diisi agar nickname bisa dicek otomatis.</div>
             @endif
             @if($nicknameSupported)
-            <div class="card p-3 mb-3 flex items-center gap-3" id="nick-box" style="border-style:dashed">
-                <button type="button" id="btn-nick" class="btn-primary px-4 py-2 text-sm whitespace-nowrap shrink-0">
-                    <span id="btn-nick-label">Cek Nickname</span>
-                </button>
-                <div class="min-w-0 flex-1">
-                    <div id="nick-hint" class="text-xs muted">Nickname terisi otomatis setelah User ID{{ $nicknameRequiresZone ? ' dan Zone' : '' }} diisi.</div>
-                    <div id="nick-result" class="text-sm font-semibold hidden"></div>
-                </div>
-                <div id="nick-spinner" class="hidden shrink-0" aria-hidden="true">
-                    <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            <div class="nick-panel" id="nick-panel" data-state="idle" role="status" aria-live="polite">
+                <span class="nick-icon" aria-hidden="true">
+                    <svg class="nick-ico nick-ico-idle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    <svg class="nick-ico nick-ico-loading animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                    <svg class="nick-ico nick-ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    <svg class="nick-ico nick-ico-err" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </span>
+                <div class="nick-body">
+                    <div class="nick-hint" id="nick-hint">Nickname terisi otomatis setelah User ID{{ $nicknameRequiresZone ? ' dan Zone' : '' }} diisi.</div>
+                    <div class="nick-result" id="nick-result" hidden>
+                        <span class="nick-name" id="nick-name"></span>
+                        <span class="nick-country" id="nick-country" hidden></span>
+                    </div>
+                    <div class="nick-error" id="nick-error" hidden>
+                        <span id="nick-error-text"></span>
+                        <br>
+                        <button type="button" class="nick-retry" id="nick-retry">Coba cek ulang</button>
+                    </div>
                 </div>
             </div>
             @endif
@@ -266,6 +274,36 @@
         .step-heading:first-child { margin-top: 0; }
         .sticky-checkout-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-top: 1px solid #3f3f46; padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); background: #17171c; box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
         html[data-theme="light"] .sticky-checkout-bar { border-color: #d6d3d1; background: #fff; box-shadow: 0 -10px 30px rgba(28,25,23,.08); }
+
+        /* Panel cek nickname: satu panel yang berubah sendiri sesuai keadaan
+           (menunggu / mencari / ketemu / gagal), menggantikan tombol manual. */
+        .nick-panel { display: flex; align-items: flex-start; gap: .65rem; margin-bottom: .75rem; padding: .7rem .85rem; border: 1px dashed #3f3f46; border-radius: 12px; background: #14141a; transition: border-color .2s ease, background .2s ease; }
+        html[data-theme="light"] .nick-panel { border-color: #d6d3d1; background: #fafaf9; }
+        .nick-panel[data-state="ok"] { border-style: solid; border-color: #22c55e; background: rgba(34,197,94,.08); }
+        .nick-panel[data-state="err"] { border-style: solid; border-color: #ef4444; background: rgba(239,68,68,.08); }
+        .nick-icon { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin-top: .1rem; color: #a1a1aa; }
+        .nick-panel[data-state="ok"] .nick-icon { color: #22c55e; }
+        .nick-panel[data-state="err"] .nick-icon { color: #ef4444; }
+        .nick-panel[data-state="loading"] .nick-icon { color: #fdba74; }
+        .nick-ico { display: none; width: 100%; height: 100%; }
+        .nick-panel[data-state="idle"] .nick-ico-idle,
+        .nick-panel[data-state="loading"] .nick-ico-loading,
+        .nick-panel[data-state="ok"] .nick-ico-ok,
+        .nick-panel[data-state="err"] .nick-ico-err { display: block; }
+        .nick-body { min-width: 0; flex: 1 1 auto; }
+        .nick-hint { color: #a1a1aa; font-size: .78rem; line-height: 1.4; }
+        html[data-theme="light"] .nick-hint { color: #6b7280; }
+        .nick-result { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+        .nick-name { color: #fff; font-size: .95rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+        html[data-theme="light"] .nick-name { color: #1c1917; }
+        .nick-country { border-radius: 999px; padding: .12rem .5rem; background: rgba(34,197,94,.15); color: #4ade80; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+        html[data-theme="light"] .nick-country { background: rgba(22,163,74,.12); color: #15803d; }
+        .nick-error { color: #f87171; font-size: .78rem; font-weight: 600; line-height: 1.4; }
+        html[data-theme="light"] .nick-error { color: #dc2626; }
+        .nick-retry { margin-top: .3rem; color: #fdba74; font-size: .72rem; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+        .nick-retry:hover { color: #f97316; }
+        /* Atribut hidden harus menang atas display: flex di atas. */
+        .nick-body [hidden] { display: none !important; }
     </style>
 </div>
 @endsection
@@ -408,88 +446,92 @@ document.querySelector('[data-quantity-action="minus"]').disabled = currentQuant
 document.querySelector('[data-quantity-action="plus"]').disabled = currentQuantity() >= maxQuantity;
 refreshQuote();
 if (isGame) {
-const nickBox = document.getElementById('nick-box');
+const nickPanel = document.getElementById('nick-panel');
 
-if (nickBox) {
+if (nickPanel) {
 const nickHint = document.getElementById('nick-hint');
 const nickResult = document.getElementById('nick-result');
-const nickSpinner = document.getElementById('nick-spinner');
+const nickName = document.getElementById('nick-name');
+const nickCountry = document.getElementById('nick-country');
+const nickError = document.getElementById('nick-error');
+const nickErrorText = document.getElementById('nick-error-text');
 const nickField = document.getElementById('nickname');
 const uidInput = document.getElementById('target-uid');
 const zoneInput = document.getElementById('zone');
-const nickLabel = document.getElementById('btn-nick-label');
-const esc = s => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const nickRequiresZone = @js($nicknameRequiresZone);
-const setNickState = (state, html) => {
-    nickBox.style.borderColor = state === 'ok' ? '#22c55e' : (state === 'err' ? '#ef4444' : '');
-    nickBox.style.background = state === 'ok' ? 'rgba(34,197,94,.08)' : (state === 'err' ? 'rgba(239,68,68,.08)' : '');
-    nickResult.classList.toggle('hidden', !html);
-    nickHint.classList.toggle('hidden', !!html);
-    if (html) nickResult.innerHTML = html;
+const nickHintIdle = nickHint.textContent;
+
+// Satu fungsi untuk semua keadaan panel. Memakai textContent (bukan innerHTML)
+// supaya nama yang dikirim API tidak pernah bisa disisipkan sebagai HTML.
+const setNickState = (state, { name = '', country = '', error = '' } = {}) => {
+    nickPanel.dataset.state = state;
+    nickHint.hidden = !(state === 'idle' || state === 'loading');
+    nickHint.textContent = state === 'loading' ? 'Mencari nickname...' : nickHintIdle;
+    nickResult.hidden = state !== 'ok';
+    nickError.hidden = state !== 'err';
+
+    if (state === 'ok') {
+        nickName.textContent = name;
+        nickCountry.textContent = country;
+        nickCountry.hidden = !country;
+        nickField.value = name;
+    } else {
+        nickField.value = '';
+        if (state === 'err') nickErrorText.textContent = error;
+    }
 };
 
-// Satu jalur untuk cek manual (tombol) dan cek otomatis (setelah ID diisi),
-// supaya keduanya berperilaku persis sama.
-const runNickCheck = async (manual = false) => {
+const runNickCheck = async () => {
     const uid = uidInput.value.trim();
     const zone = zoneInput.value.trim();
 
-    if (!uid) {
-        if (manual) setNickState('err', 'Isi User ID dulu.');
-        return;
-    }
-    // Game yang butuh zone tidak bisa dicek sebelum zone diisi — tampilkan
-    // arahan, bukan panggilan API yang pasti gagal.
-    if (nickRequiresZone && !zone) {
-        if (manual) setNickState('err', 'Isi Server / Zone dulu.');
-        else { setNickState('', null); nickHint.classList.remove('hidden'); }
+    // Jangan panggil API kalau input belum lengkap — untuk game yang butuh Zone,
+    // cek sebelum Zone diisi pasti gagal.
+    if (!uid || (nickRequiresZone && !zone)) {
+        setNickState('idle');
         return;
     }
 
-    const btn = document.getElementById('btn-nick');
-    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; }
-    nickLabel.textContent = 'Mengecek...';
-    nickSpinner.classList.remove('hidden');
+    setNickState('loading');
 
     try {
         const r = await fetch(nickUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': token}, body: JSON.stringify({product_id: productId, user_id: uid, zone_id: zone})});
         const j = await r.json();
         if (j.ok && j.nickname) {
-            setNickState('ok', '✓ ' + esc(j.nickname) + (j.country?.name ? ' <span class="muted font-normal">(' + esc(j.country.name) + ')</span>' : ''));
-            nickField.value = j.nickname;
+            setNickState('ok', {name: j.nickname, country: j.country?.name || ''});
         } else {
-            setNickState('err', '✕ ' + esc(j.message || 'Nickname tidak ditemukan.'));
-            nickField.value = '';
+            setNickState('err', {error: j.message || 'Nickname tidak ditemukan.'});
         }
     } catch (err) {
-        setNickState('err', '✕ Gagal menghubungi server.');
+        setNickState('err', {error: 'Gagal menghubungi server.'});
     }
-    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-    nickLabel.textContent = 'Cek Ulang';
-    nickSpinner.classList.add('hidden');
 };
 
-document.getElementById('btn-nick').addEventListener('click', () => runNickCheck(true));
+let nickTimer = null;
 
 // Cek otomatis: jalankan setelah pembeli berhenti mengetik, bukan tiap ketukan
 // tombol, supaya API cek nickname (berbayar & dibatasi 20/menit) tidak dibanjiri.
-let nickTimer = null;
 const scheduleNickCheck = () => {
     clearTimeout(nickTimer);
-    nickField.value = '';
-    nickLabel.textContent = 'Cek Nickname';
-    setNickState('', null);
-    nickHint.classList.remove('hidden');
-
-    // Jangan panggil API saat input belum lengkap.
+    setNickState('idle');
     if (!uidInput.value.trim()) return;
     if (nickRequiresZone && !zoneInput.value.trim()) return;
-
-    nickTimer = setTimeout(() => runNickCheck(false), 700);
+    nickTimer = setTimeout(runNickCheck, 700);
 };
 uidInput.addEventListener('input', scheduleNickCheck);
 zoneInput.addEventListener('input', scheduleNickCheck);
-} // end if (nickBox)
+// Autofill browser (ID/Zone tersimpan) kadang tidak memicu 'input', hanya 'change'.
+// Jalankan sekali saat halaman dimuat juga, supaya nilai yang sudah terisi tetap dicek.
+uidInput.addEventListener('change', scheduleNickCheck);
+zoneInput.addEventListener('change', scheduleNickCheck);
+scheduleNickCheck();
+
+// Kalau cek otomatis gagal (mis. koneksi putus), pembeli masih bisa mencoba lagi.
+document.getElementById('nick-retry').addEventListener('click', () => {
+    clearTimeout(nickTimer);
+    runNickCheck();
+});
+} // end if (nickPanel)
 } // end if (isGame)
 </script>
 @endsection
