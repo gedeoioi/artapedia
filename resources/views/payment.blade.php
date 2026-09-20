@@ -3,12 +3,63 @@
 @section('title', 'Pembayaran '.$trx->invoice_code)
 
 @section('content')
+@php
+    $isTopup = ($trx->meta['kind'] ?? null) === 'topup';
+@endphp
 <div class="card p-5 max-w-xl mx-auto">
     <h1 class="font-bold text-lg">Invoice {{ $trx->invoice_code }}</h1>
     <div class="text-sm text-gray-600 mb-3">{{ $trx->product?->name ?? 'Topup Saldo' }} - Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</div>
     <div class="card p-3 text-sm mb-3 {{ $trx->statusBadgeClass() }}" id="pay-status">
         <div class="font-semibold" id="pay-status-label">{{ $trx->statusLabel() }}</div>
     </div>
+
+    {{-- Detail pesanan: selalu tampil agar pembeli bisa memastikan datanya benar
+         sebelum maupun sesudah membayar. --}}
+    <section class="order-detail" aria-label="Detail pesanan">
+        <h2 class="order-detail-heading">Detail Pesanan</h2>
+        <dl class="order-detail-grid">
+            @unless($isTopup)
+                <div class="order-detail-item">
+                    <dt>{{ $trx->targetLabel() }}</dt>
+                    <dd>{{ $trx->target_user_id ?: '-' }}</dd>
+                    @if($trx->target_zone)
+                        <small>Server / Zone: {{ $trx->target_zone }}</small>
+                    @endif
+                </div>
+                <div class="order-detail-item">
+                    <dt>Nickname</dt>
+                    <dd>{{ $trx->nickname ?: '-' }}</dd>
+                </div>
+            @else
+                <div class="order-detail-item">
+                    <dt>Jenis Transaksi</dt>
+                    <dd>Topup Saldo</dd>
+                </div>
+            @endunless
+
+            <div class="order-detail-item">
+                <dt>Jumlah Pesanan</dt>
+                <dd>{{ number_format($trx->quantity ?: 1, 0, ',', '.') }} item</dd>
+            </div>
+            <div class="order-detail-item">
+                <dt>Total Pembayaran</dt>
+                <dd class="order-detail-total">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</dd>
+            </div>
+            <div class="order-detail-item">
+                <dt>Metode Pembayaran</dt>
+                <dd id="order-payment-method">{{ $trx->paymentMethodLabel() }}</dd>
+            </div>
+            <div class="order-detail-item">
+                <dt>Status Transaksi</dt>
+                <dd id="order-status-value">{{ $trx->statusLabel() }}</dd>
+            </div>
+            <div class="order-detail-item order-detail-time">
+                <dt>Waktu Transaksi</dt>
+                <dd>{{ $trx->localCreatedAt() ?? '-' }} WIB</dd>
+            </div>
+        </dl>
+    </section>
+
     @if($shouldAutoReturn)
         <div id="member-success-redirect" class="hidden card p-3 text-sm mb-3 text-center" style="border-color:#22c55e;color:#86efac;background:rgba(34,197,94,.08)">
             {{ ($trx->meta['kind'] ?? null) === 'topup' ? 'Saldo berhasil ditambahkan.' : 'Pesanan berhasil diproses.' }} Mengarahkan ke Member Area...
@@ -76,6 +127,27 @@
         @endif
     @endif
 </div>
+
+<style>
+    .order-detail { margin-top: 1.15rem; padding-top: 1.15rem; border-top: 1px solid #2d2d33; }
+    .order-detail-heading { margin-bottom: .75rem; font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #a1a1aa; }
+    .order-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .order-detail-item { min-width: 0; padding: .85rem 1rem; border: 1px solid #2b2b31; border-radius: 11px; background: #131317; }
+    .order-detail-item dt { color: #a1a1aa; font-size: .72rem; font-weight: 600; }
+    .order-detail-item dd { margin-top: .3rem; font-size: .95rem; font-weight: 750; overflow-wrap: anywhere; }
+    .order-detail-item small { display: block; margin-top: .25rem; color: #a1a1aa; font-size: .72rem; }
+    .order-detail-item .order-detail-total { color: #fb923c; font-size: 1.05rem; }
+    .order-detail-time { grid-column: 1 / -1; }
+    html[data-theme="light"] .order-detail { border-color: #e7e5e4; }
+    html[data-theme="light"] .order-detail-heading { color: #57534e; }
+    html[data-theme="light"] .order-detail-item { border-color: #e7e5e4; background: #fafaf9; }
+    html[data-theme="light"] .order-detail-item dt { color: #57534e; }
+    html[data-theme="light"] .order-detail-item .order-detail-total { color: #c2570c; }
+    @media (max-width: 640px) {
+        .order-detail-grid { grid-template-columns: 1fr; }
+        .order-detail-time { grid-column: auto; }
+    }
+</style>
 @endsection
 
 @section('scripts')
@@ -120,6 +192,12 @@ async function refreshStatus() {
         const box = document.getElementById('pay-status');
         box.className = 'card p-3 text-sm mb-3 ' + j.badge;
         document.getElementById('pay-status-label').textContent = j.status_label;
+
+        // Panel detail ikut hidup: status di dalam grid harus sinkron dengan
+        // badge di atas, supaya tidak ada dua status berbeda di satu halaman.
+        const statusValue = document.getElementById('order-status-value');
+        if (statusValue) statusValue.textContent = j.status_label;
+
         scheduleMemberSuccessRedirect(j.status);
 
         if (['success', 'failed', 'expired'].includes(j.status) && timer) clearInterval(timer);

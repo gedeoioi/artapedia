@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Transaction extends Model
 {
@@ -117,6 +118,65 @@ class Transaction extends Model
     public function isFinal(): bool
     {
         return in_array($this->status, self::FINAL_STATUSES, true);
+    }
+
+    /**
+     * Nama metode pembayaran untuk pembeli.
+     *
+     * Dipakai halaman pembayaran dan cek invoice supaya keduanya tidak
+     * menghitung label yang sama dengan cara berbeda (dan supaya nama vendor
+     * gateway tidak bocor ke sisi publik).
+     */
+    public function paymentMethodLabel(): string
+    {
+        if ($this->payment_method === 'balance') {
+            return 'Saldo Member';
+        }
+
+        if ($this->payment_method === 'manual') {
+            return 'Transfer Manual';
+        }
+
+        $payload = $this->invoice?->payload ?? $this->payment_payload ?? [];
+        $channel = strtolower((string) data_get($payload, 'Data.Channel'));
+        $paymentName = trim((string) data_get($payload, 'Data.PaymentName'));
+
+        if ($paymentName !== '') {
+            return $paymentName;
+        }
+
+        $gateway = $this->payment_gateway_code ?: $this->payment_method;
+
+        return match (true) {
+            $channel === 'mpm', $channel === 'qris' => 'QRIS ('.$gateway.')',
+            $channel !== '' => strtoupper($channel).' ('.$gateway.')',
+            default => Str::headline((string) $gateway),
+        };
+    }
+
+    /**
+     * Label kolom tujuan sesuai tipe produk: game memakai "ID Game",
+     * pulsa/data memakai "Nomor HP".
+     */
+    public function targetLabel(): string
+    {
+        if (($this->meta['kind'] ?? null) === 'topup') {
+            return 'Jenis Transaksi';
+        }
+
+        if ($this->product?->product_type === Product::TYPE_GAME) {
+            return 'ID Game';
+        }
+
+        return $this->product?->targetLabel() ?? 'ID / Nomor Tujuan';
+    }
+
+    /**
+     * Waktu transaksi dalam WIB, siap tampil.
+     */
+    public function localCreatedAt(): ?string
+    {
+        return $this->created_at?->timezone('Asia/Jakarta')->format('d/m/Y, H:i');
     }
 
     public function statusLabel(): string
