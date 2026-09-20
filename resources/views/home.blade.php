@@ -2,6 +2,75 @@
 
 @section('title', 'Topup Game & Pulsa Murah')
 
+@section('head')
+<style>
+    /* Banner responsif.
+       Rasio gambar tetap 9:2 supaya sama dengan hasil crop di admin, TAPI di
+       layar sempit rasio itu menghasilkan strip setinggi ~79px — gambar promo
+       jadi tak terbaca. Jadi tinggi minimumnya dijaga per breakpoint: rasio
+       dipakai saat layar lebar, lantai tinggi dipakai saat layar sempit. */
+    .banner-frame { position: relative; overflow: hidden; border-radius: 16px; }
+    .banner-track { display: flex; }
+    .banner-slide { flex: none; }
+    .banner-media {
+        position: relative;
+        display: block;
+        width: 100%;
+        aspect-ratio: 9 / 2;
+        min-height: 150px;
+    }
+    .banner-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    /* Versi tanpa gambar: teks di atas gradien. */
+    .banner-media-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: .95rem 1.1rem;
+        color: #fff;
+    }
+    .banner-copy { max-width: 100%; }
+    .banner-title {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-weight: 800;
+        font-size: 1.05rem;
+        line-height: 1.25;
+    }
+    .banner-subtitle { margin-top: .25rem; font-size: .78rem; line-height: 1.35; color: #ffedd5; }
+    .banner-cta {
+        align-self: flex-start;
+        margin-top: .55rem;
+        padding: .4rem .85rem;
+        border-radius: 12px;
+        background: #fff;
+        color: #ea580c;
+        font-size: .78rem;
+        font-weight: 700;
+    }
+    /* Tablet: rasio masih cukup tinggi, lantai dinaikkan sedikit. */
+    @media (min-width: 640px) {
+        .banner-media { min-height: 172px; }
+        .banner-media-copy { padding: 1.4rem 2rem; }
+        .banner-copy { max-width: 80%; }
+        .banner-title { font-size: 1.55rem; }
+        .banner-subtitle { font-size: .85rem; }
+        .banner-cta { font-size: .82rem; }
+    }
+    /* Desktop: rasio 9:2 sudah memberi tinggi ~250px, jadi lantai dilepas. */
+    @media (min-width: 1024px) {
+        .banner-media { min-height: 0; }
+        .banner-media-copy { padding: 1.6rem 2.5rem; }
+        .banner-copy { max-width: 75%; }
+        .banner-title { font-size: 1.85rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .banner-track { transition: none !important; }
+    }
+</style>
+@endsection
+
 @section('content')
 @php
     $siteName = \App\Models\SiteSetting::get('site_name', 'ArtaPedia');
@@ -22,19 +91,21 @@
         restart() { clearTimeout(this.timer); this.timer = setTimeout(() => this.next(), this.durations[this.i] ?? 5000); }
     }"
     x-init="restart()">
-    <div class="relative overflow-hidden card" style="border-radius:16px">
-        <div class="flex transition-transform duration-700 ease-in-out" :style="'transform: translateX(-' + (i * 100) + '%); width: ' + (total * 100) + '%'">
+    <div class="banner-frame card">
+        <div class="banner-track transition-transform duration-700 ease-in-out" :style="'transform: translateX(-' + (i * 100) + '%); width: ' + (total * 100) + '%'">
             @foreach($banners as $b)
-                <div class="shrink-0" style="width: {{ 100 / max(1, $banners->count()) }}%">
+                <div class="banner-slide" style="width: {{ 100 / max(1, $banners->count()) }}%">
                     @if($b->imageUrl())
-                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="block aspect-[9/2]" aria-label="{{ $b->title }}">
-                            <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="w-full h-full object-cover" draggable="false">
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="banner-media" aria-label="{{ $b->title }}">
+                            <img src="{{ $b->imageUrl() }}" alt="{{ $b->title }}" class="banner-img" draggable="false">
                         </a>
                     @else
-                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="flash-grad aspect-[9/2] px-6 md:px-10 text-white flex flex-col justify-center" aria-label="{{ $b->title }}">
-                            <div class="font-extrabold text-lg md:text-3xl">{{ $b->title }}</div>
-                            @if($b->subtitle)<div class="hidden sm:block text-sm text-orange-100 mt-1">{{ $b->subtitle }}</div>@endif
-                            @if($b->button_text)<span class="hidden sm:inline-block self-start mt-3 bg-white text-orange-600 text-sm font-bold px-4 py-2" style="border-radius:12px">{{ $b->button_text }}</span>@endif
+                        <a @if($b->link_url) href="{{ $b->link_url }}" @endif class="banner-media banner-media-copy flash-grad" aria-label="{{ $b->title }}">
+                            <div class="banner-copy">
+                                <div class="banner-title">{{ $b->title }}</div>
+                                @if($b->subtitle)<div class="banner-subtitle">{{ $b->subtitle }}</div>@endif
+                                @if($b->button_text)<span class="banner-cta">{{ $b->button_text }}</span>@endif
+                            </div>
                         </a>
                     @endif
                 </div>
