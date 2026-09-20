@@ -48,6 +48,31 @@ class NicknameService
         return VipResellerProvider::guessNicknameCode($product->game);
     }
 
+    /**
+     * Apakah produk ini mendukung cek nickname.
+     *
+     * Dianggap mendukung kalau kodenya bisa ditentukan: dari kolom
+     * nickname_check_code di admin, atau ditebak dari nama game. Dipakai
+     * checkout untuk memutuskan apakah cek otomatis dijalankan.
+     */
+    public function supports(Product $product): bool
+    {
+        return $this->resolveCode($product) !== null;
+    }
+
+    /**
+     * Apakah game ini memerlukan Server / Zone saat cek nickname.
+     *
+     * Untuk game seperti Mobile Legends, cek otomatis akan selalu gagal kalau
+     * zone belum diisi — jadi checkout perlu tahu agar bisa menandainya wajib.
+     */
+    public function requiresZone(Product $product): bool
+    {
+        $code = $this->resolveCode($product);
+
+        return $code !== null && VipResellerProvider::nicknameNeedsZone($code);
+    }
+
     public function check(Product $product, string $userId, ?string $zoneId = null): array
     {
         $provider = $this->checker();
@@ -59,7 +84,8 @@ class NicknameService
         $code = $this->resolveCode($product);
 
         if (! $code) {
-            return ['ok' => false, 'message' => 'Produk belum dipetakan ke kode nickname. Isi kolom nickname_check_code di admin.'];
+            // Pesan ini sampai ke pembeli, jadi jangan menyebut kolom admin.
+            return ['ok' => false, 'message' => 'Cek nickname belum tersedia untuk produk ini. Isi User ID dan Server secara manual.'];
         }
 
         if (VipResellerProvider::nicknameNeedsZone($code) && empty($zoneId)) {

@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 
 class CheckoutController extends Controller
 {
-    public function show(Product $product)
+    public function show(Product $product, NicknameService $nicknames)
     {
         abort_unless($product->is_active && $product->in_stock, 404);
 
@@ -27,6 +27,12 @@ class CheckoutController extends Controller
             $gateways = $gateways->reject(fn (PaymentGatewayConfig $gateway): bool => $gateway->code === 'ipaymu');
         }
 
+        // Cek nickname otomatis hanya untuk produk yang game-nya bisa dipetakan
+        // ke kode nickname. Produk lain (pulsa, voucher tanpa kode) tidak
+        // menampilkan kotak cek sama sekali.
+        $nicknameSupported = $product->needsNicknameCheck() && $nicknames->supports($product);
+        $nicknameRequiresZone = $nicknameSupported && $nicknames->requiresZone($product);
+
         // Channel Tripay ditampilkan dari daftar statis driver, bukan panggilan
         // API saat render halaman: daftar channel jarang berubah dan memanggil
         // API di setiap page load menambah latensi tanpa manfaat.
@@ -34,7 +40,10 @@ class CheckoutController extends Controller
             ? TripayGateway::checkoutChannels()
             : [];
 
-        return view('checkout', compact('product', 'gateways', 'maxQuantity', 'ipaymuChannels', 'tripayChannels'));
+        return view('checkout', compact(
+            'product', 'gateways', 'maxQuantity', 'ipaymuChannels', 'tripayChannels',
+            'nicknameSupported', 'nicknameRequiresZone',
+        ));
     }
 
     public function quote(Request $request, PaymentService $payments)
