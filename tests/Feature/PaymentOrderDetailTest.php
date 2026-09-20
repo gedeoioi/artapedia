@@ -218,6 +218,53 @@ class PaymentOrderDetailTest extends TestCase
         $this->assertStringNotContainsStringIgnoringCase('supplier', $html);
     }
 
+    /**
+     * Keterangan metode pembayaran sudah ada di grid Detail Pesanan, jadi baris
+     * "Dibayar dengan saldo member." hanya mengulang informasi yang sama.
+     */
+    public function test_tidak_ada_keterangan_saldo_yang_mengulang(): void
+    {
+        $trx = $this->transaction(['payment_method' => 'balance', 'payment_gateway_code' => 'balance']);
+
+        $html = $this->get(route('payment.show', $trx->invoice_code))->assertOk()->getContent();
+
+        $this->assertStringNotContainsStringIgnoringCase('dibayar dengan saldo', $html);
+
+        // Metode pembayaran tetap terlihat di grid — yang dihapus hanya pengulangannya.
+        $this->assertStringContainsString('Metode Pembayaran', $html);
+        $this->assertStringContainsString('Saldo Member', $html);
+    }
+
+    /**
+     * Instruksi pembayaran hanya relevan untuk transaksi non-saldo. Transaksi
+     * saldo sudah lunas saat dibuat, jadi tidak boleh menyuruh membayar lagi.
+     */
+    public function test_transaksi_saldo_tidak_menampilkan_instruksi_bayar(): void
+    {
+        $trx = $this->transaction(['payment_method' => 'balance', 'payment_gateway_code' => 'balance']);
+
+        $html = $this->get(route('payment.show', $trx->invoice_code))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Selesaikan pembayaran', $html);
+        $this->assertStringNotContainsString('Rincian tagihan pembayaran', $html);
+    }
+
+    public function test_transaksi_gateway_tetap_menampilkan_instruksi_bayar(): void
+    {
+        $trx = $this->transaction([
+            'payment_method' => 'xendit',
+            'payment_gateway_code' => 'xendit',
+            'status' => Transaction::STATUS_PENDING,
+            'paid_at' => null,
+        ]);
+
+        $html = $this->get(route('payment.show', $trx->invoice_code))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Selesaikan pembayaran', $html);
+        $this->assertStringContainsString('Rincian tagihan pembayaran', $html);
+        $this->assertStringContainsString('Total Bayar', $html);
+    }
+
     public function test_status_di_panel_sinkron_dengan_badge(): void
     {
         $trx = $this->transaction(['status' => Transaction::STATUS_PROCESSING]);

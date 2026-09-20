@@ -65,9 +65,7 @@
             {{ ($trx->meta['kind'] ?? null) === 'topup' ? 'Saldo berhasil ditambahkan.' : 'Pesanan berhasil diproses.' }} Mengarahkan ke Member Area...
         </div>
     @endif
-    @if($trx->payment_method === 'balance')
-        <p class="text-sm">Dibayar dengan saldo member.</p>
-    @else
+    @unless($trx->payment_method === 'balance')
         <p class="text-sm mb-2">Selesaikan pembayaran sebelum batas waktu.</p>
         <div class="payment-bill card p-4 mb-3" aria-label="Rincian tagihan pembayaran">
             <div class="payment-bill-row">
