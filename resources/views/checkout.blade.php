@@ -318,14 +318,19 @@ const token = document.querySelector('meta[name=csrf-token]').content;
 const quantityInput = document.getElementById('order-quantity');
 const maxQuantity = Number(quantityInput.max || 1);
 const currentQuantity = () => Math.max(1, Math.min(maxQuantity, Number(quantityInput.value) || 1));
-const scrollToOrderSummary = () => {
-    const summary = document.querySelector('.order-summary');
-    if (!summary) return;
+/**
+ * Gulir halus ke sebuah elemen. Dipakai untuk memindahkan pandangan pembeli
+ * setelah sebuah pilihan mengubah isi halaman.
+ */
+const smoothScrollTo = (el, offset = 110) => {
+    if (!el) return;
 
     const start = window.scrollY;
-    const target = Math.max(0, summary.getBoundingClientRect().top + start - 110);
+    const target = Math.max(0, el.getBoundingClientRect().top + start - offset);
     const distance = target - start;
     const duration = 550;
+
+    if (Math.abs(distance) < 2) return;
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         window.scrollTo(0, target);
@@ -343,6 +348,14 @@ const scrollToOrderSummary = () => {
     };
     requestAnimationFrame(animateScroll);
 };
+const scrollToOrderSummary = () => smoothScrollTo(document.querySelector('.order-summary'));
+
+/**
+ * Setelah gateway yang punya pilihan channel (Tripay / iPaymu) dipilih, panel
+ * channelnya terbuka di bawah kartu. Tanpa menggulir, pembeli tidak melihat
+ * panel itu dan mengira pembayaran sudah selesai dipilih.
+ */
+const scrollToChannelPanel = gw => smoothScrollTo(document.getElementById(`${gw}-channel-panel`));
 async function refreshQuote() {
     const selectedGateway = document.querySelector('input[name=gateway_code]:checked');
     const gw = selectedGateway?.value;
@@ -416,22 +429,32 @@ function setPayDisabled(disabled) {
 }
 
 document.querySelectorAll('.tripay-channel-input').forEach(el => el.addEventListener('change', async event => {
+    // currentTarget jadi null setelah await, jadi disimpan dulu.
+    const input = event.currentTarget;
     document.querySelectorAll('#tripay-channel-panel .ipaymu-channel-card')
-        .forEach(card => card.classList.toggle('is-selected', card.contains(event.currentTarget)));
+        .forEach(card => card.classList.toggle('is-selected', card.contains(input)));
     await refreshQuote();
     scrollToOrderSummary();
 }));
 document.querySelectorAll('input[name=gateway_code]').forEach(el => el.addEventListener('change', async event => {
+    // PENTING: event.currentTarget hanya valid selama dispatch. Setelah await
+    // nilainya menjadi null, dan membacanya melempar TypeError yang membuat
+    // sisa handler (termasuk scroll) tidak pernah dijalankan.
+    const gw = event.currentTarget.value;
     await refreshQuote();
-    // iPaymu & Tripay butuh langkah memilih channel dulu, jadi jangan langsung
-    // menggulir ke ringkasan dan melewati panel channelnya.
-    if (!['ipaymu', 'tripay'].includes(event.currentTarget.value)) {
+    // iPaymu & Tripay butuh langkah memilih channel dulu. Panelnya terbuka di
+    // bawah, jadi gulir ke panel itu — bukan ke ringkasan, yang justru
+    // melewati pilihan yang harus diisi.
+    if (['ipaymu', 'tripay'].includes(gw)) {
+        scrollToChannelPanel(gw);
+    } else {
         scrollToOrderSummary();
     }
 }));
 document.querySelectorAll('.ipaymu-channel-input').forEach(el => el.addEventListener('change', async event => {
-    document.getElementById('ipaymu-method').value = event.currentTarget.dataset.method;
-    document.querySelectorAll('.ipaymu-channel-card').forEach(card => card.classList.toggle('is-selected', card.contains(event.currentTarget)));
+    const input = event.currentTarget;
+    document.getElementById('ipaymu-method').value = input.dataset.method;
+    document.querySelectorAll('.ipaymu-channel-card').forEach(card => card.classList.toggle('is-selected', card.contains(input)));
     await refreshQuote();
     scrollToOrderSummary();
 }));
