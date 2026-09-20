@@ -27,6 +27,13 @@ class SiteSetting extends Model
         'manual_topup_enabled' => '0',
         'manual_topup_min' => '10000',
         'manual_topup_banks' => '[]',
+        // Batas cek nickname per IP per menit. Dipakai untuk meredam percobaan
+        // menebak User ID, tapi tidak boleh menghambat pemakaian wajar — satu
+        // orang yang memperbaiki salah ketik bisa memicu beberapa cek berturut-turut.
+        'nickname_check_limit' => '60',
+        // Cache hasil cek nickname (detik). Endpoint cek berbayar, dan mengetik
+        // ulang ID yang sama adalah hal biasa. 0 = matikan cache.
+        'nickname_cache_ttl' => '300',
     ];
 
     /**

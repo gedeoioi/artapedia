@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\SiteSetting;
 use App\Models\SupplierConfig;
 use App\Suppliers\VipResellerProvider;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -112,6 +114,22 @@ class NicknameService
             return ['ok' => false, 'message' => 'Zone / Server wajib diisi untuk game ini.'];
         }
 
+        // Mengetik ulang ID yang sama adalah hal biasa (salah ketik, ganti
+        // nominal, kembali ke halaman). Hasil yang sudah pernah didapat dipakai
+        // ulang supaya kuota endpoint berbayar tidak terbuang. Hanya hasil
+        // BERHASIL yang di-cache — kegagalan bisa bersifat sementara, dan
+        // menyimpannya berarti pembeli melihat error lama setelah diperbaiki.
+        $ttl = (int) SiteSetting::get('nickname_cache_ttl', 300);
+        $cacheKey = 'nickname:'.sha1($code.'|'.$userId.'|'.($zoneId ?? ''));
+
+        if ($ttl > 0) {
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                return $cached + ['cached' => true];
+            }
+        }
+
         $res = $provider->checkNickname($code, $userId, $zoneId);
 
         // Respons mentah selalu dicatat. Tanpa ini, pesan singkat seperti "Fails."
@@ -141,7 +159,7 @@ class NicknameService
         $nickname = $res['nickname'] ?? (is_string($res['data'] ?? null) ? $res['data'] : null);
         $country = $res['country'] ?? null;
 
-        return [
+        $hasil = [
             'ok' => true,
             'nickname' => $nickname,
             'country' => $country,
@@ -150,5 +168,11 @@ class NicknameService
                 ? 'Nickname: '.$nickname.(is_array($country) && isset($country['name']) ? ' ('.$country['name'].')' : '')
                 : 'Ditemukan',
         ];
+
+        if ($ttl > 0) {
+            Cache::put($cacheKey, $hasil, $ttl);
+        }
+
+        return $hasil;
     }
 }

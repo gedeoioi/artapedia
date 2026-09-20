@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\SiteSetting;
 use App\Models\Transaction;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -41,10 +42,11 @@ class RateLimitServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($request->ip());
         });
 
-        // Cek nickname game memanggil API supplier berbayar/terbatas, jadi
-        // dibatasi lebih ketat daripada checkout.
+        // Cek nickname game memanggil API supplier berbayar/terbatas, jadi tetap
+        // dibatasi — tapi angkanya bisa diatur admin, karena batas yang terlalu
+        // ketat menghukum pembeli yang cuma salah ketik beberapa kali.
         RateLimiter::for('nickname-check', function (Request $request): Limit {
-            return Limit::perMinute(20)->by($request->ip())->response(
+            return Limit::perMinute(static::nicknameCheckLimit())->by($request->ip())->response(
                 fn () => response()->json(['message' => 'Terlalu banyak cek nickname. Tunggu sebentar.'], 429),
             );
         });
@@ -72,5 +74,19 @@ class RateLimitServiceProvider extends ServiceProvider
     public static function checkoutLimitKey(Transaction $trx): string
     {
         return 'checkout:'.$trx->id;
+    }
+
+    /**
+     * Batas cek nickname per menit, diatur dari admin (default 60).
+     *
+     * Nilai yang tidak masuk akal (kosong, nol, atau bukan angka) jatuh ke
+     * default supaya salah ketik di pengaturan tidak membuat endpoint terbuka
+     * tanpa batas.
+     */
+    public static function nicknameCheckLimit(): int
+    {
+        $limit = (int) SiteSetting::get('nickname_check_limit', 60);
+
+        return $limit > 0 ? $limit : 60;
     }
 }

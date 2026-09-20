@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\SiteSetting;
 use App\Models\SupplierConfig;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Providers\RateLimitServiceProvider;
 use App\Suppliers\VipResellerProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
@@ -106,11 +108,14 @@ class RateLimitTest extends TestCase
         ])->assertStatus(429);
     }
 
-    public function test_cek_nickname_dibatasi_lebih_ketat(): void
+    public function test_cek_nickname_dibatasi_sesuai_pengaturan(): void
     {
+        // Batas tidak lagi dipatok di kode: angkanya datang dari pengaturan admin.
+        SiteSetting::set('nickname_check_limit', 5);
+
         $product = $this->seedProduct();
 
-        for ($i = 0; $i < 20; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             $this->postJson('/checkout/check-nickname', [
                 'product_id' => $product->id,
                 'target_user_id' => '123',
@@ -121,6 +126,39 @@ class RateLimitTest extends TestCase
             'product_id' => $product->id,
             'target_user_id' => '123',
         ])->assertStatus(429);
+    }
+
+    /**
+     * Limit default 60/menit: cukup longgar untuk pemakaian wajar (salah ketik
+     * beberapa kali, ganti nominal, kembali ke halaman).
+     */
+    public function test_batas_default_cek_nickname_longgar(): void
+    {
+        $this->assertSame(60, RateLimitServiceProvider::nicknameCheckLimit());
+
+        $product = $this->seedProduct();
+
+        for ($i = 0; $i < 30; $i++) {
+            $this->postJson('/checkout/check-nickname', [
+                'product_id' => $product->id,
+                'target_user_id' => '123',
+            ])->assertStatus(422); // gagal validasi/cek, tapi BUKAN 429
+        }
+    }
+
+    /**
+     * Nilai pengaturan yang tidak masuk akal tidak boleh membuka endpoint
+     * tanpa batas.
+     */
+    public function test_batas_cek_nickname_tidak_masuk_akal_jatuh_ke_default(): void
+    {
+        foreach (['0', '', 'abc', '-5'] as $buruk) {
+            SiteSetting::set('nickname_check_limit', $buruk);
+            $this->assertSame(60, RateLimitServiceProvider::nicknameCheckLimit(), "nilai: {$buruk}");
+        }
+
+        SiteSetting::set('nickname_check_limit', 150);
+        $this->assertSame(150, RateLimitServiceProvider::nicknameCheckLimit());
     }
 
     public function test_webhook_dibatasi_per_ip(): void

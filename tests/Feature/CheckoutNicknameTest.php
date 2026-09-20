@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\SiteSetting;
 use App\Models\SupplierConfig;
 use App\Suppliers\DigiflazzProvider;
 use App\Suppliers\VipResellerProvider;
@@ -219,5 +220,64 @@ class CheckoutNicknameTest extends TestCase
         $res->assertStatus(422);
         $this->assertStringContainsStringIgnoringCase('tidak bisa dihubungi', $res->json('message'));
         $this->assertStringNotContainsString('Periksa User ID', $res->json('message'));
+    }
+
+    /**
+     * Cek ulang ID yang sama tidak boleh memanggil API dua kali — endpointnya
+     * berbayar, dan mengetik ulang adalah hal biasa.
+     */
+    public function test_hasil_cek_dipakai_ulang_dari_cache(): void
+    {
+        $this->makeProduct(['nickname_check_code' => 'free-fire', 'game' => 'Free Fire']);
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response([
+            'result' => true, 'data' => 'FFNick', 'message' => 'Success.',
+        ], 200)]);
+
+        $payload = ['product_id' => Product::first()->id, 'user_id' => '555', 'zone_id' => ''];
+
+        $this->postJson('/checkout/check-nickname', $payload)->assertOk()->assertJson(['nickname' => 'FFNick']);
+        $this->postJson('/checkout/check-nickname', $payload)->assertOk()->assertJson(['nickname' => 'FFNick']);
+
+        // Dua permintaan dari pembeli, satu panggilan ke API.
+        Http::assertSentCount(1);
+    }
+
+    /**
+     * Kegagalan tidak di-cache: kalau kredensial diperbaiki, percobaan
+     * berikutnya harus benar-benar mencoba lagi, bukan menyajikan error lama.
+     */
+    public function test_kegagalan_tidak_di_cache(): void
+    {
+        $this->makeProduct(['nickname_check_code' => 'free-fire', 'game' => 'Free Fire']);
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response([
+            'result' => false, 'message' => 'ID tidak ditemukan',
+        ], 200)]);
+
+        $payload = ['product_id' => Product::first()->id, 'user_id' => '777', 'zone_id' => ''];
+
+        $this->postJson('/checkout/check-nickname', $payload)->assertStatus(422);
+        $this->postJson('/checkout/check-nickname', $payload)->assertStatus(422);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_cache_cek_nickname_bisa_dimatikan(): void
+    {
+        SiteSetting::set('nickname_cache_ttl', 0);
+
+        $this->makeProduct(['nickname_check_code' => 'free-fire', 'game' => 'Free Fire']);
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response([
+            'result' => true, 'data' => 'FFNick', 'message' => 'Success.',
+        ], 200)]);
+
+        $payload = ['product_id' => Product::first()->id, 'user_id' => '888', 'zone_id' => ''];
+
+        $this->postJson('/checkout/check-nickname', $payload)->assertOk();
+        $this->postJson('/checkout/check-nickname', $payload)->assertOk();
+
+        Http::assertSentCount(2);
     }
 }

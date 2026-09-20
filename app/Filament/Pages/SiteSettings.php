@@ -134,6 +134,27 @@ class SiteSettings extends Page implements HasSchemas
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+                Section::make('Cek Nickname')
+                    ->description('Cek nickname memanggil API supplier berbayar. Batas dan cache di sini mengatur seberapa sering panggilan itu boleh terjadi.')
+                    ->schema([
+                        TextInput::make('nickname_check_limit')
+                            ->label('Batas cek per menit (per IP)')
+                            ->helperText('Naikkan kalau pembeli sering kena pesan "Terlalu banyak cek nickname". Turunkan kalau ada percobaan menebak User ID.')
+                            ->numeric()
+                            ->default(60)
+                            ->minValue(1)
+                            ->maxValue(600)
+                            ->required(),
+                        TextInput::make('nickname_cache_ttl')
+                            ->label('Simpan hasil cek (detik)')
+                            ->helperText('Cek ulang ID yang sama dalam rentang ini tidak memanggil API lagi. Isi 0 untuk mematikan cache.')
+                            ->numeric()
+                            ->default(300)
+                            ->minValue(0)
+                            ->maxValue(86400)
+                            ->required(),
+                    ])
+                    ->columns(2),
             ])
             ->statePath('data');
     }

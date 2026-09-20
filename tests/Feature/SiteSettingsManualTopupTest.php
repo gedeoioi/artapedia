@@ -6,6 +6,7 @@ use App\Filament\Pages\SiteSettings;
 use App\Models\ManualTopup;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Providers\RateLimitServiceProvider;
 use App\Services\ManualTopupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -34,6 +35,26 @@ class SiteSettingsManualTopupTest extends TestCase
     public function test_layar_pengaturan_website_render(): void
     {
         $this->actingAs($this->admin())->get('/admin/site-settings')->assertOk();
+    }
+
+    /**
+     * Panel harus benar-benar menggerakkan batas cek nickname — bukan sekadar
+     * menyimpan dan menampilkan nilainya kembali ke dirinya sendiri.
+     */
+    public function test_batas_cek_nickname_diatur_dari_admin(): void
+    {
+        $this->actingAs($this->admin());
+
+        Livewire::test(SiteSettings::class)
+            ->fillForm([
+                'nickname_check_limit' => 150,
+                'nickname_cache_ttl' => 60,
+            ])
+            ->callAction('save')
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(150, RateLimitServiceProvider::nicknameCheckLimit());
+        $this->assertSame('60', SiteSetting::get('nickname_cache_ttl'));
     }
 
     public function test_simpan_dari_admin_menggerakkan_halaman_member(): void
