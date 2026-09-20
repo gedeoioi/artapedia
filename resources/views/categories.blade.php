@@ -23,10 +23,10 @@
                     <div class="w-full h-full flex items-center justify-center text-5xl font-black text-orange-100 flash-grad">{{ mb_substr($g->game, 0, 1) }}</div>
                 @endif
             </div>
-            <div class="p-3">
-                <div class="text-sm font-bold leading-snug line-clamp-2-custom min-h-[2.5rem]">{{ $g->game }}</div>
-                <div class="text-xs muted mt-1.5">{{ $g->total }} produk</div>
-                <div class="text-xs font-bold accent mt-0.5">Mulai Rp{{ number_format((int) $g->min_price, 0, ',', '.') }}</div>
+            <div class="category-card-body">
+                <div class="category-card-title">{{ $g->game }}</div>
+                <div class="muted category-card-meta">{{ $g->total }} produk</div>
+                <div class="accent category-card-price">Mulai Rp{{ number_format((int) $g->min_price, 0, ',', '.') }}</div>
             </div>
         </a>
     @empty

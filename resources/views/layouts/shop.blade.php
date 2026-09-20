@@ -128,12 +128,13 @@
             background: #19191e;
             color: inherit;
             isolation: isolate;
-            transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+            transition: transform .25s cubic-bezier(.22, 1, .36, 1), border-color .25s ease, box-shadow .25s ease;
+            will-change: transform;
         }
         .favorite-card {
             display: flex;
             align-items: center;
-            min-height: 104px;
+            min-height: 92px;
             border-radius: 15px;
             background-color: #222228;
             background-image:
@@ -144,7 +145,7 @@
         }
         .category-card { border-radius: 14px; }
         .favorite-card:hover, .category-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-3px);
             border-color: rgba(249, 115, 22, .8);
             box-shadow: 0 18px 42px rgba(0, 0, 0, .3), 0 0 0 1px rgba(249, 115, 22, .12);
         }
@@ -163,19 +164,60 @@
             filter: saturate(1.08);
         }
         .favorite-card .category-cover {
-            width: 86px;
-            height: 86px;
+            width: 76px;
+            height: 76px;
             flex: none;
             margin: 8px;
             border-radius: 11px;
         }
         .favorite-card .category-cover::after { display: none; }
-        .line-clamp-2-custom {
+
+        /* Kartu kategori: gambar di atas, teks di bawah. Kartu memakai flex
+           kolom supaya blok harga selalu menempel di dasar kartu — harga jadi
+           sejajar antar kartu tanpa perlu memesan tinggi kosong di judul. */
+        .category-card { display: flex; flex-direction: column; box-shadow: 0 6px 18px rgba(0, 0, 0, .14); }
+        .category-card .category-cover { flex: none; }
+        .category-card .category-card-body {
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            padding: .65rem .7rem .7rem;
+        }
+        .category-card .category-card-title {
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            font-size: .85rem;
+            font-weight: 700;
+            line-height: 1.25;
         }
+        .category-card .category-card-meta { margin-top: .2rem; font-size: .7rem; }
+        /* margin-top:auto mendorong harga ke dasar kartu; padding-top menjaga
+           jarak minimum saat judulnya dua baris. */
+        .category-card .category-card-price {
+            margin-top: auto;
+            padding-top: .35rem;
+            font-size: .72rem;
+            font-weight: 700;
+        }
+        /* Garis aksen tipis yang melebar dari tengah saat hover. */
+        .category-card::before {
+            content: '';
+            position: absolute;
+            inset: auto 0 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), #fb923c);
+            transform: scaleX(0);
+            transform-origin: center;
+            transition: transform .3s cubic-bezier(.22, 1, .36, 1);
+            z-index: 2;
+        }
+        .category-card:hover::before { transform: scaleX(1); }
+        .category-card:hover .category-cover img { transform: scale(1.06); }
+        .category-card:active { transform: translateY(-1px) scale(.995); }
+        .category-card:focus-visible,
+        .favorite-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
         html[data-theme="light"] .favorite-card,
         html[data-theme="light"] .category-card { border-color: #e7e5e4; background-color: #fff; box-shadow: 0 10px 28px rgba(28, 25, 23, .07); }
         html[data-theme="light"] .catalog-tabs a,
