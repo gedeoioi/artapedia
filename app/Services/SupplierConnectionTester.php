@@ -183,7 +183,7 @@ class SupplierConnectionTester
 
     protected function saveLog(SupplierConfig $config, bool $ok, string $summary, array $lines): void
     {
-        $log = implode("\n", $lines);
+        $log = $this->sanitize(implode("\n", $lines));
         if (mb_strlen($log) > 8000) {
             $log = mb_substr($log, 0, 8000)."\n... (dipotong)";
         }
@@ -191,9 +191,40 @@ class SupplierConnectionTester
         $config->forceFill([
             'last_test_at' => now(),
             'last_test_ok' => $ok,
-            'last_test_summary' => mb_substr($summary, 0, 255),
+            'last_test_summary' => mb_substr($this->sanitize($summary), 0, 255),
             'last_test_log' => $log,
         ])->save();
+    }
+
+    /**
+     * Buang byte yang tidak valid sebagai UTF-8 dari teks yang akan disimpan.
+     *
+     * Log memuat respons mentah dari API supplier. Kalau API mengirim byte
+     * biner (atau UTF-8 rusak), MySQL MENOLAK seluruh UPDATE dengan
+     * "Incorrect string value" pada kolom utf8mb4 — bukan cuma memotong teks.
+     * Akibatnya tombol Tes Koneksi gagal, halaman supplier tidak bisa dibuka
+     * (kolomnya ikut dibaca), dan operator hanya melihat "Terjadi error ketika
+     * memuat halaman" tanpa petunjuk apa pun.
+     *
+     * Byte yang dibuang diganti karakter pengganti supaya posisinya tetap
+     * terlihat saat menelusuri log.
+     */
+    protected function sanitize(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        // Byte yang bukan UTF-8 valid dibuang lebih dulu. PENTING: pemeriksaan
+        // ini tidak boleh jadi early-return, karena teks yang berisi byte NUL
+        // dan kontrol LAIN tetap dianggap UTF-8 valid — dan byte itu tetap
+        // ditolak MySQL maupun merusak JSON.
+        if (! mb_check_encoding($text, 'UTF-8')) {
+            $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        }
+
+        // Lalu byte kontrol dibuang (NUL tidak boleh masuk kolom teks / JSON).
+        return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? $text;
     }
 
     protected function maskSecrets(mixed $data): mixed
