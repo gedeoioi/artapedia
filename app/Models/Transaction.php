@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\SendWaNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -118,6 +119,47 @@ class Transaction extends Model
     public function isFinal(): bool
     {
         return in_array($this->status, self::FINAL_STATUSES, true);
+    }
+
+    /**
+     * Apakah transaksi ini BARU SAJA masuk status final pada instance ini.
+     *
+     * Dipakai untuk memicu notifikasi tepat sekali. Tanpa penjagaan ini, setiap
+     * save ulang pada transaksi yang sudah sukses akan mengirim notifikasi lagi.
+     */
+    public function wasRecentlyFinalized(): bool
+    {
+        return $this->wasChanged('status') && $this->isFinal();
+    }
+
+    /**
+     * Kirim notifikasi WhatsApp ke pembeli kalau status baru saja final.
+     *
+     * Dipanggil setelah save() di setiap tempat yang bisa memfinalkan transaksi
+     * (webhook supplier, poller status, simpan massal, refund manual) supaya
+     * pemetaan status -> notifikasi hanya ada di satu tempat dan tidak ada
+     * jalur yang terlewat atau mengirim dua kali.
+     *
+     * afterCommit: worker tidak boleh membaca baris yang belum di-commit oleh
+     * transaksi pembungkusnya — kalau tidak, yang terkirim adalah status lama.
+     */
+    public function notifyBuyer(): void
+    {
+        if (! $this->wasRecentlyFinalized()) {
+            return;
+        }
+
+        $statuses = (array) config('artapedia.wa.notify_statuses', []);
+
+        if (! in_array($this->status, $statuses, true)) {
+            return;
+        }
+
+        if (! $this->buyer_phone) {
+            return;
+        }
+
+        SendWaNotification::dispatch($this->id)->afterCommit();
     }
 
     /**

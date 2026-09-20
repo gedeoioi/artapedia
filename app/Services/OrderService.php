@@ -454,6 +454,8 @@ class OrderService
             $this->refundFailedBatchItems($trx, $failedCount);
         }
 
+        $trx->notifyBuyer();
+
         return $trx->fresh();
     }
 
@@ -486,6 +488,8 @@ class OrderService
                     $trx->id
                 );
             }
+
+            $trx->notifyBuyer();
 
             return $trx->fresh();
         });
@@ -570,6 +574,8 @@ class OrderService
                 }
             }
             $locked->save();
+
+            $locked->notifyBuyer();
 
             return $locked->fresh();
         });
@@ -678,6 +684,8 @@ class OrderService
                 $this->refundFailedBatchItems($locked, $failedCount);
             }
 
+            $locked->notifyBuyer();
+
             return $locked->fresh();
         });
     }
@@ -736,6 +744,8 @@ class OrderService
                     $trx->id
                 );
             }
+
+            $trx->notifyBuyer();
 
             return $trx->fresh();
         });

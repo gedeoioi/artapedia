@@ -140,30 +140,35 @@ class BalanceReconcileTest extends TestCase
     {
         // Baris `admin_alert` sudah dibuat oleh migration, jadi pakai
         // updateOrCreate alih-alih create (unique index di kolom name).
+        // Token wajib: gateway tanpa token tidak bisa mengirim apa pun, jadi
+        // URL saja tidak lagi cukup (lihat WaService::connection).
         WaNotificationSetting::updateOrCreate(['name' => 'admin_alert'], [
             'is_active' => true,
             'recipient' => '081234567890',
             'template' => '{message}',
             'schedule' => 'on_event',
-            'api_url' => 'https://wa.example.test/send',
+            'api_url' => 'https://wa.example.test',
+            'api_token' => 'token-uji',
         ]);
 
         $admin = User::factory()->create(['level' => 'admin', 'whatsapp' => '081298765432', 'balance' => 0]);
         app(BalanceService::class)->credit($admin, 10000, BalanceMutation::TYPE_TOPUP, 'topup');
         DB::table('users')->where('id', $admin->id)->update(['balance' => 99999]);
 
-        Http::fake(['wa.example.test/*' => Http::response(['ok' => true])]);
+        Http::fake(['wa.example.test/*' => Http::response(['success' => true], 201)]);
 
         $this->artisan('balance:reconcile --alert')->assertFailed();
 
         Http::assertSent(function ($request) {
+            $body = json_decode($request->body(), true);
+
             return str_contains($request->url(), 'wa.example.test')
-                && str_contains($request['message'], 'REKONSILIASI SALDO');
+                && str_contains((string) ($body['body'] ?? ''), 'REKONSILIASI SALDO');
         });
 
         // Nomor lokal harus dinormalkan ke format 62xx, dan tidak boleh dobel.
         $sentTo = collect(Http::recorded())
-            ->map(fn ($pair) => $pair[0]['to'])
+            ->map(fn ($pair) => json_decode($pair[0]->body(), true)['to'] ?? null)
             ->unique()
             ->values()
             ->all();
@@ -179,7 +184,8 @@ class BalanceReconcileTest extends TestCase
             'recipient' => '081234567890',
             'template' => '{message}',
             'schedule' => 'on_event',
-            'api_url' => 'https://wa.example.test/send',
+            'api_url' => 'https://wa.example.test',
+            'api_token' => 'token-uji',
         ]);
 
         $user = User::factory()->create(['balance' => 0]);

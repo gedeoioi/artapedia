@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\WaNotificationSetting;
-use Illuminate\Support\Facades\Http;
 
 /**
  * Pengirim pesan operasional ke admin (alert rekonsiliasi, ringkasan sistem).
@@ -16,6 +15,8 @@ use Illuminate\Support\Facades\Http;
 class AdminAlertService
 {
     public const CHANNEL = 'admin_alert';
+
+    public function __construct(protected WaService $wa) {}
 
     /**
      * @return array<int, string> nomor WhatsApp admin dalam format internasional
@@ -57,13 +58,17 @@ class AdminAlertService
         $sent = false;
         foreach ($recipients as $recipient) {
             try {
-                $response = Http::timeout(20)->post($setting->api_url, [
-                    'token' => $setting->api_token,
-                    'to' => $recipient,
-                    'message' => $message,
-                ]);
-                $sent = $sent || $response->successful();
+                // Lewat WaService supaya bentuk payload, header token, dan
+                // pencatatan hasil sama dengan notifikasi pembeli. Sebelumnya
+                // pengiriman di sini punya bentuk sendiri yang tidak cocok
+                // dengan kontrak gateway.
+                $result = $this->wa->send($recipient, $message, $channel);
+
+                if ($result['ok']) {
+                    $sent = true;
+                }
             } catch (\Throwable $e) {
+                // Transport gagal: catat, jangan hentikan pengiriman ke penerima lain.
                 report($e);
             }
         }
@@ -78,27 +83,12 @@ class AdminAlertService
     /**
      * Samakan format nomor agar satu admin tidak menerima pesan dua kali dan
      * nomor lokal (08xx) tetap sampai ke gateway yang butuh format 62xx.
+     *
+     * Normalisasi sebenarnya ada di WaService (dipakai bersama); method ini
+     * dipertahankan supaya pemanggil lama tidak perlu diubah.
      */
     public function normalize(string $number): string
     {
-        $digits = preg_replace('/\D/', '', $number) ?? '';
-
-        if ($digits === '') {
-            return '';
-        }
-
-        if (str_starts_with($digits, '0')) {
-            return '62'.substr($digits, 1);
-        }
-
-        if (str_starts_with($digits, '62')) {
-            return $digits;
-        }
-
-        if (str_starts_with($digits, '8')) {
-            return '62'.$digits;
-        }
-
-        return $digits;
+        return $this->wa->normalizePhone($number);
     }
 }
