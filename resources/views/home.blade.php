@@ -92,7 +92,7 @@
     }"
     x-init="restart()">
     <div class="banner-frame card">
-        <div class="banner-track transition-transform duration-700 ease-in-out" :style="'transform: translateX(-' + (i * 100) + '%); width: ' + (total * 100) + '%'">
+        <div class="banner-track transition-transform duration-700 ease-in-out" :style="'transform: translateX(-' + (i / total * 100) + '%); width: ' + (total * 100) + '%'">
             @foreach($banners as $b)
                 <div class="banner-slide" style="width: {{ 100 / max(1, $banners->count()) }}%">
                     @if($b->imageUrl())

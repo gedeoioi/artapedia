@@ -144,6 +144,29 @@ class BannerSliderTest extends TestCase
         $this->assertStringNotContainsString('hidden sm:inline-block', $html);
     }
 
+    /**
+     * Pergeseran slide dihitung sebagai persen dari LEBAR TRACK, bukan lebar
+     * frame. Track selebar total x frame, jadi menggeser i*100% berarti
+     * menggeser i x total x lebar frame — dua kali terlalu jauh pada dua slide,
+     * dan hasilnya banner terlihat kosong setelah slide berganti.
+     *
+     * Rumus yang benar: i / total * 100.
+     */
+    public function test_pergeseran_slide_memakai_persen_dari_lebar_track(): void
+    {
+        Banner::create(['title' => 'Satu', 'sort_order' => 0, 'is_active' => true]);
+        Banner::create(['title' => 'Dua', 'sort_order' => 1, 'is_active' => true]);
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('(i / total * 100)', $html);
+        $this->assertStringNotContainsString('(i * 100)', $html);
+
+        // Lebar track dan lebar tiap slide harus konsisten dengan total slide.
+        $this->assertStringContainsString("width: ' + (total * 100) + '%'", $html);
+        $this->assertStringContainsString('width: 50%', $html);
+    }
+
     public function test_image_url_fallback_storage(): void
     {
         $b = Banner::create(['title' => 'X', 'image_path' => 'banners/a.png', 'is_active' => true]);
