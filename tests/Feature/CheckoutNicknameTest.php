@@ -159,6 +159,65 @@ class CheckoutNicknameTest extends TestCase
         // Pesan harus menjelaskan ke pembeli tanpa menyebut nama vendor internal.
         $this->assertStringNotContainsStringIgnoringCase('vipayment', $res->json('message'));
         $this->assertStringNotContainsStringIgnoringCase('supplier', $res->json('message'));
-        $this->assertStringContainsString('cek nickname', $res->json('message'));
+        // Pesan lama "Layanan cek nickname sedang nonaktif." sebenarnya tidak akurat:
+        // yang terjadi adalah config aktif tapi kredensialnya kosong.
+        $this->assertStringContainsStringIgnoringCase('cek nickname', $res->json('message'));
+        $this->assertStringContainsStringIgnoringCase('manual', $res->json('message'));
+    }
+
+    /**
+     * Config yang AKTIF tapi kredensialnya kosong tetap tidak boleh dipakai.
+     *
+     * Inilah yang terjadi di server: is_active = 1, api_id & api_key kosong,
+     * sehingga API dipanggil dan pembeli melihat pesan mentah dari vendor
+     * ("Fails."). Tanpa pemeriksaan kredensial, pesan itu tidak bisa dicegah.
+     */
+    public function test_kredensial_kosong_dianggap_belum_siap(): void
+    {
+        $s = SupplierConfig::create([
+            'code' => 'vip-reseller', 'name' => 'VIP',
+            'provider_class' => VipResellerProvider::class,
+            'is_active' => true, 'is_sandbox' => true, 'priority' => 0,
+            'credentials' => ['api_id' => '', 'api_key' => ''],
+        ]);
+        $p = Product::create([
+            'supplier_config_id' => $s->id, 'supplier_code' => 'ML1',
+            'name' => 'ML 1', 'game' => 'MOBILE LEGENDS',
+            'cost_basic' => 100, 'cost_premium' => 100, 'cost_special' => 100,
+            'price_guest' => 120, 'price_biasa' => 115, 'price_vip' => 110,
+            'is_active' => true, 'in_stock' => true,
+        ]);
+
+        // Tidak ada panggilan HTTP yang boleh terjadi.
+        Http::fake();
+
+        $res = $this->postJson('/checkout/check-nickname', [
+            'product_id' => $p->id, 'user_id' => '301545936', 'zone_id' => '9575',
+        ]);
+
+        $res->assertStatus(422);
+        Http::assertNothingSent();
+        $this->assertStringContainsStringIgnoringCase('cek nickname', $res->json('message'));
+        // Pesan mentah vendor tidak boleh bocor ke pembeli.
+        $this->assertStringNotContainsString('Fails', $res->json('message'));
+    }
+
+    /**
+     * Kegagalan transport (API tidak bisa dihubungi) bukan salah ID pemain,
+     * jadi jangan menyuruh pembeli memeriksa User ID / Zone.
+     */
+    public function test_kegagalan_transport_tidak_menyalahkan_id_pemain(): void
+    {
+        $this->makeProduct(['nickname_check_code' => 'free-fire', 'game' => 'Free Fire']);
+
+        Http::fake(['vip-reseller.co.id/*' => Http::response('', 500)]);
+
+        $res = $this->postJson('/checkout/check-nickname', [
+            'product_id' => Product::first()->id, 'user_id' => '123', 'zone_id' => '',
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsStringIgnoringCase('tidak bisa dihubungi', $res->json('message'));
+        $this->assertStringNotContainsString('Periksa User ID', $res->json('message'));
     }
 }
