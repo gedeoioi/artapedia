@@ -161,15 +161,22 @@
 </div>
 <div x-data="{
     activeType: @js($activeType),
-    pageByType: { game: 0, pulsa: 0, data: 0, voucher: 0 },
-    categoryPageTransitioning: false,
-    changeCategoryPage(type, direction) {
-        if (this.categoryPageTransitioning) return;
-        this.categoryPageTransitioning = true;
+    tampil: { game: {{ $visibleCategories }}, pulsa: {{ $visibleCategories }}, data: {{ $visibleCategories }}, voucher: {{ $visibleCategories }} },
+    total: @js($totalKategoriPerTipe),
+    sedangMemuat: false,
+    tampilKategori(type, index) {
+        return index < (this.tampil[type] ?? {{ $visibleCategories }});
+    },
+    adaLagi(type) {
+        return (this.tampil[type] ?? 0) < (this.total[type] ?? 0);
+    },
+    tampilkanLainnya(type) {
+        if (this.sedangMemuat) return;
+        this.sedangMemuat = true;
         window.setTimeout(() => {
-            this.pageByType[type] += direction;
+            this.tampil[type] = (this.tampil[type] ?? 0) + {{ $visibleCategories }};
             window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-                this.categoryPageTransitioning = false;
+                this.sedangMemuat = false;
             }));
         }, 180);
     }
@@ -178,24 +185,28 @@
         @include('partials.catalog-tabs', ['routeName' => 'home', 'interactive' => true])
     </div>
     @foreach($categoryPagesByType as $type => $typePages)
+    @php $kategoriTipe = $typePages->flatten(1)->values(); @endphp
     <section
         id="category-panel-{{ $type }}"
         x-show="activeType === @js($type)"
         @if($type !== $activeType) x-cloak @endif
         aria-label="Kategori {{ \App\Models\Product::TYPES[$type] ?? $type }}"
     >
-        @foreach($typePages as $pageIndex => $typeGames)
         <div
-            x-show="pageByType[@js($type)] === {{ $pageIndex }}"
-            :class="{ 'category-page-changing': categoryPageTransitioning }"
-            :aria-busy="categoryPageTransitioning"
             class="category-page-transition"
-            @if($type !== $activeType || $pageIndex !== 0) x-cloak @endif
+            :aria-busy="sedangMemuat"
         >
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-5">
-                @forelse($typeGames as $g)
+                @forelse($kategoriTipe as $i => $g)
                     @php $catIcon = ($icons[$g->game] ?? null)?->iconUrl(); @endphp
-                    <a href="{{ route('game.show', $g->game) }}" data-cat-item class="category-card group" aria-label="Buka kategori {{ $g->game }}">
+                    <a
+                        href="{{ route('game.show', $g->game) }}"
+                        data-cat-item
+                        class="category-card group"
+                        aria-label="Buka kategori {{ $g->game }}"
+                        x-show="tampilKategori(@js($type), {{ $i }})"
+                        @if($i >= $visibleCategories) x-cloak @endif
+                    >
                         <div class="category-cover aspect-square">
                             @if($catIcon)
                                 <img src="{{ $catIcon }}" class="w-full h-full object-cover" alt="{{ $g->game }}" loading="lazy">
@@ -217,25 +228,32 @@
                 @endforelse
             </div>
 
-            @if($typePages->count() > 1)
-            <div class="flex items-center justify-center gap-3 mb-8" aria-label="Navigasi kelompok kategori">
-                @if($pageIndex > 0)
-                <button type="button" @click="changeCategoryPage(@js($type), -1)" :disabled="categoryPageTransitioning" class="card px-5 py-2.5 text-sm font-bold hover:border-orange-500 disabled:opacity-50">
-                    Sebelumnya
+            {{--
+                Tombol "Tampilkan Lainnya" MENAMBAH satu baris kategori di bawah,
+                bukan menggeser halaman seperti sebelumnya. Kategori yang sudah
+                tampil tetap di tempatnya, jadi pembeli tidak kehilangan posisi.
+            --}}
+            @php
+                $sisaKategori = max(0, $kategoriTipe->count() - $visibleCategories);
+                $kolomGrid = $visibleCategories;
+            @endphp
+            @if($sisaKategori > 0)
+            <div class="flex justify-center mb-8" x-show="adaLagi(@js($type))">
+                <button
+                    type="button"
+                    @click="tampilkanLainnya(@js($type))"
+                    :disabled="sedangMemuat"
+                    class="catalog-more-button disabled:opacity-60"
+                    aria-label="Tampilkan {{ min($kolomGrid, $sisaKategori) }} kategori lainnya"
+                >
+                    <span x-show="!sedangMemuat">Tampilkan Lainnya...</span>
+                    <span x-show="sedangMemuat" x-cloak>Memuat...</span>
                 </button>
-                @endif
-                <span class="muted text-xs">{{ $pageIndex + 1 }} / {{ $typePages->count() }}</span>
-                @if($pageIndex < $typePages->count() - 1)
-                <button type="button" @click="changeCategoryPage(@js($type), 1)" :disabled="categoryPageTransitioning" class="catalog-more-button disabled:opacity-50">
-                    Lihat Selanjutnya
-                </button>
-                @endif
             </div>
             @else
             <div class="mb-8"></div>
             @endif
         </div>
-        @endforeach
     </section>
     @endforeach
 </div>

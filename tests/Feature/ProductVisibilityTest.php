@@ -161,7 +161,7 @@ class ProductVisibilityTest extends TestCase
             ->assertSee('id="category-panel-game"', false);
     }
 
-    public function test_setiap_grid_kategori_beranda_konsisten_dibagi_per_sepuluh_item(): void
+    public function test_grid_kategori_beranda_menampilkan_satu_baris_dan_tombol_tampilkan_lainnya(): void
     {
         foreach (range(1, 21) as $number) {
             $this->makeProduct([
@@ -171,15 +171,44 @@ class ProductVisibilityTest extends TestCase
         }
 
         $response = $this->get('/')->assertOk();
-        $pages = $response->viewData('categoryPagesByType')[Product::TYPE_GAME];
 
-        $this->assertCount(3, $pages);
-        $this->assertCount(10, $pages[0]);
-        $this->assertCount(10, $pages[1]);
-        $this->assertCount(1, $pages[2]);
-        $response->assertSee('changeCategoryPage(', false)
-            ->assertSee('Lihat Selanjutnya')
+        // Daftar tetap dipecah 5 per halaman (satu baris grid desktop).
+        $pages = $response->viewData('categoryPagesByType')[Product::TYPE_GAME];
+        $this->assertCount(5, $pages);
+        $this->assertCount(5, $pages[0]);
+
+        // Semua kategori dirender, tapi hanya satu baris yang terlihat.
+        $this->assertCount(21, $pages->flatten(1));
+
+        $response->assertSee('Tampilkan Lainnya')
+            ->assertSee('tampilkanLainnya(', false)
+            ->assertSee('tampilKategori(', false)
             ->assertSee('category-page-transition')
             ->assertSee('catalog-more-button');
+
+        // Tombol lama yang menggeser halaman sudah tidak dipakai.
+        $response->assertDontSee('Lihat Selanjutnya')
+            ->assertDontSee('changeCategoryPage(', false)
+            ->assertDontSee('pageByType', false);
+    }
+
+    /**
+     * Tombol harus tahu berapa kategori yang masih tersembunyi, kalau tidak
+     * tombolnya tetap tampil setelah semua kategori ditampilkan.
+     */
+    public function test_jumlah_kategori_per_tipe_dikirim_ke_view(): void
+    {
+        foreach (range(1, 12) as $number) {
+            $this->makeProduct([
+                'supplier_code' => 'GAME-'.$number,
+                'game' => 'Game '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $response = $this->get('/')->assertOk();
+
+        $total = $response->viewData('totalKategoriPerTipe');
+        $this->assertSame(12, $total[Product::TYPE_GAME]);
+        $this->assertSame(5, $response->viewData('visibleCategories'));
     }
 }

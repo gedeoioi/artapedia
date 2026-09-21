@@ -19,6 +19,14 @@ class HomeController extends Controller
         Product::TYPE_VOUCHER,
     ];
 
+    /**
+     * Jumlah kategori per baris di grid (grid-cols-5 di desktop).
+     *
+     * Tombol "Tampilkan Lainnya" menambah tepat satu baris sebanyak angka ini,
+     * jadi 5x2 = 10 kategori tampil setelah satu klik.
+     */
+    private const VISIBLE_CATEGORIES = 5;
+
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
@@ -26,6 +34,7 @@ class HomeController extends Controller
 
         $categoryPagesByType = collect();
         $gamesByType = collect();
+        $totalKategoriPerTipe = [];
 
         foreach (self::CATALOG_TYPES as $type) {
             $gamesQuery = Product::query()
@@ -36,14 +45,19 @@ class HomeController extends Controller
                 ->groupBy('game')
                 ->orderBy('game');
 
-            // Setiap panel menampilkan tepat 5 kolom x 2 baris di desktop.
-            $pages = $gamesQuery->get()->chunk(10)->map->values()->values();
+            $semuaKategori = $gamesQuery->get();
+
+            // Daftar tetap disimpan sebagai halaman (untuk kompatibilitas dan
+            // untuk penghitung "tampilkan lainnya"), tapi view merender satu
+            // grid dan menyembunyikan kategori di luar batas tampil.
+            $pages = $semuaKategori->chunk(self::VISIBLE_CATEGORIES)->map->values()->values();
             if ($pages->isEmpty()) {
                 $pages = collect([collect()]);
             }
 
             $categoryPagesByType[$type] = $pages;
             $gamesByType[$type] = $pages->first();
+            $totalKategoriPerTipe[$type] = $semuaKategori->count();
         }
 
         // Dipertahankan untuk kompatibilitas view/test yang membaca tipe aktif.
@@ -113,7 +127,8 @@ class HomeController extends Controller
             'total' => (int) ($reviewSummary->total ?? 0),
         ];
 
-        return view('home', compact('games', 'gamesByType', 'categoryPagesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'reviews', 'reviewSummary'));
+        return view('home', compact('games', 'gamesByType', 'categoryPagesByType', 'icons', 'popular', 'q', 'activeType', 'gateways', 'totalProducts', 'totalGames', 'favorites', 'banners', 'reviews', 'reviewSummary', 'totalKategoriPerTipe'))
+            ->with('visibleCategories', self::VISIBLE_CATEGORIES);
     }
 
     public function categories(Request $request)
