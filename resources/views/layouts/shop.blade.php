@@ -91,24 +91,65 @@
         }
         .catalog-tabs::-webkit-scrollbar { display: none; }
         [x-cloak] { display: none !important; }
+        /* Tab kategori: gradien dihitung dari --primary lewat color-mix(), jadi
+           warna yang diganti admin di pengaturan ikut terlihat di sini tanpa
+           menulis ulang nilai oranye. Baris solid sebelum gradien adalah
+           cadangan untuk browser yang belum mengenal color-mix(). */
         .catalog-tabs a, .catalog-tabs button {
             flex: none;
-            min-height: 40px;
+            min-height: 42px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0 18px;
-            border: 1px solid transparent;
+            padding: 0 20px;
+            border: 1px solid #34343c;
             border-radius: 999px;
-            background: #25252b;
+            background: #232329;
+            background: linear-gradient(180deg, #2b2b33 0%, #1b1b20 100%);
             color: #fff;
             font-size: 14px;
             font-weight: 800;
-            transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 2px 7px rgba(0, 0, 0, .3);
+            transition: background .28s ease, border-color .28s ease, color .28s ease,
+                        transform .28s cubic-bezier(.22, 1, .36, 1), box-shadow .28s ease,
+                        filter .28s ease;
         }
-        .catalog-tabs a:hover, .catalog-tabs button:hover { border-color: rgba(249, 115, 22, .6); transform: translateY(-1px); }
+        .catalog-tabs a:hover, .catalog-tabs button:hover {
+            border-color: var(--primary);
+            background: linear-gradient(180deg, #3d3d47 0%, #26262d 100%);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .14),
+                0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent),
+                0 9px 22px rgba(0, 0, 0, .38);
+        }
+        .catalog-tabs a:active, .catalog-tabs button:active { transform: translateY(0) scale(.975); }
         .catalog-tabs a:focus-visible, .catalog-tabs button:focus-visible { outline: 3px solid rgba(249, 115, 22, .35); outline-offset: 2px; }
-        .catalog-tabs a.is-active, .catalog-tabs button.is-active { background: var(--primary); border-color: var(--primary); }
+        .catalog-tabs a.is-active, .catalog-tabs button.is-active {
+            border-color: color-mix(in srgb, var(--primary) 62%, #000);
+            background: var(--primary);
+            background: linear-gradient(
+                180deg,
+                color-mix(in srgb, var(--primary) 45%, #fff) 0%,
+                color-mix(in srgb, var(--primary) 92%, #fff) 42%,
+                var(--primary) 62%,
+                color-mix(in srgb, var(--primary) 62%, #000) 100%
+            );
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .45),
+                inset 0 -2px 6px color-mix(in srgb, var(--primary) 55%, #000),
+                0 7px 20px color-mix(in srgb, var(--primary) 40%, transparent);
+        }
+        .catalog-tabs a.is-active:hover, .catalog-tabs button.is-active:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08) saturate(1.06);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .5),
+                inset 0 -2px 6px color-mix(in srgb, var(--primary) 50%, #000),
+                0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent),
+                0 12px 28px color-mix(in srgb, var(--primary) 48%, transparent);
+        }
         .catalog-more-button {
             min-width: 164px;
             min-height: 44px;
@@ -234,9 +275,34 @@
         html[data-theme="light"] .favorite-card,
         html[data-theme="light"] .category-card { border-color: #e7e5e4; background-color: #fff; box-shadow: 0 10px 28px rgba(28, 25, 23, .07); }
         html[data-theme="light"] .catalog-tabs a,
-        html[data-theme="light"] .catalog-tabs button { background: #e7e5e4; color: #292524; }
+        html[data-theme="light"] .catalog-tabs button {
+            border-color: #d6d3d1;
+            background: #e7e5e4;
+            background: linear-gradient(180deg, #fff 0%, #e7e5e4 100%);
+            color: #292524;
+            box-shadow: inset 0 1px 0 #fff, 0 2px 6px rgba(28, 25, 23, .07);
+        }
+        html[data-theme="light"] .catalog-tabs a:hover,
+        html[data-theme="light"] .catalog-tabs button:hover {
+            border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+            background: linear-gradient(180deg, #fff 0%, #dcd9d7 100%);
+            box-shadow: inset 0 1px 0 #fff, 0 9px 20px rgba(28, 25, 23, .12);
+        }
         html[data-theme="light"] .catalog-tabs a.is-active,
-        html[data-theme="light"] .catalog-tabs button.is-active { background: var(--primary); color: #fff; }
+        html[data-theme="light"] .catalog-tabs button.is-active {
+            border-color: var(--primary);
+            background: var(--primary);
+            background: linear-gradient(
+                180deg,
+                color-mix(in srgb, var(--primary) 86%, #fff) 0%,
+                var(--primary) 54%,
+                color-mix(in srgb, var(--primary) 74%, #000) 100%
+            );
+            color: #fff;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .3),
+                0 6px 18px color-mix(in srgb, var(--primary) 32%, transparent);
+        }
         html[data-theme="light"] .catalog-more-button {
             background: linear-gradient(180deg, #fff 0%, #f5f5f4 100%);
             color: #292524;
