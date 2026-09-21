@@ -13,6 +13,7 @@ class GameIcon extends Model
         'is_active',
         'is_favorite',
         'favorite_order',
+        'display_order',
     ];
 
     protected function casts(): array
@@ -21,11 +22,21 @@ class GameIcon extends Model
             'is_active' => 'boolean',
             'is_favorite' => 'boolean',
             'favorite_order' => 'integer',
+            'display_order' => 'integer',
         ];
     }
 
     protected static function booted(): void
     {
+        // Kategori baru dari sync produk otomatis mendapat urutan berikutnya,
+        // supaya admin tidak perlu mengisi satu per satu hanya agar kategori
+        // baru tampil setelah kategori yang sudah diatur.
+        static::creating(function (GameIcon $category): void {
+            if (! $category->display_order) {
+                $category->display_order = (int) static::max('display_order') + 1;
+            }
+        });
+
         static::deleting(function (GameIcon $category): void {
             // Kategori beranda dibentuk dari produk aktif. Saat kategori dihapus,
             // nonaktifkan semua produk child agar kategori benar-benar hilang,

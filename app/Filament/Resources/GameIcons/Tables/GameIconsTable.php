@@ -34,8 +34,12 @@ class GameIconsTable
                 ToggleColumn::make('is_favorite')
                     ->label('Favorit')
                     ->sortable(),
+                TextColumn::make('display_order')
+                    ->label('Urutan beranda')
+                    ->numeric()
+                    ->sortable(),
                 TextColumn::make('favorite_order')
-                    ->label('Urutan')
+                    ->label('Urutan favorit')
                     ->numeric()
                     ->sortable(),
                 ToggleColumn::make('is_active')
@@ -49,7 +53,7 @@ class GameIconsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('game_name')
+            ->defaultSort('display_order')
             ->filters([
                 //
             ])

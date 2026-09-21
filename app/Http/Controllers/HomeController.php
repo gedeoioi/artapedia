@@ -27,6 +27,9 @@ class HomeController extends Controller
      */
     private const VISIBLE_CATEGORIES = 5;
 
+    /** @var array<string, int>|null Peta urutan kategori, dibaca sekali per request. */
+    private ?array $categoryOrderMap = null;
+
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
@@ -42,8 +45,14 @@ class HomeController extends Controller
                 ->available()
                 ->where('product_type', $type)
                 ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
-                ->groupBy('game')
-                ->orderBy('game');
+                ->groupBy('game');
+
+            // Urutan kategori diatur admin lewat "Urutan tampil" di menu
+            // Kategori. Angka lebih kecil tampil lebih dahulu; kategori yang
+            // belum diatur (0) diletakkan setelahnya, diurutkan menurut abjad.
+            // Peta urutannya dibaca sekali per request supaya tidak ada query
+            // per kategori.
+            $gamesQuery = $this->applyCategoryOrder($gamesQuery);
 
             $semuaKategori = $gamesQuery->get();
 
@@ -141,8 +150,13 @@ class HomeController extends Controller
             ->available()
             ->where('product_type', $activeType)
             ->when($q, fn ($w) => $w->where('game', 'like', "%{$q}%"))
-            ->groupBy('game')
-            ->orderBy('game')
+            ->groupBy('game');
+
+        // Jangan tambahkan orderBy('game') sebelum ini: klausa ORDER BY pertama
+        // yang menang, sehingga CASE urutan dari admin tidak akan berpengaruh.
+        // applyCategoryOrder() sudah memakai nama kategori sebagai pengurut
+        // kedua, jadi kategori tanpa urutan tetap abjad.
+        $games = $this->applyCategoryOrder($games)
             ->paginate(50)
             ->withQueryString();
 
@@ -219,6 +233,56 @@ class HomeController extends Controller
         $type = (string) $request->get('type', Product::TYPE_GAME);
 
         return in_array($type, self::CATALOG_TYPES, true) ? $type : Product::TYPE_GAME;
+    }
+
+    /**
+     * Peta urutan tampil kategori: nama kategori (huruf kecil) => angka urutan.
+     *
+     * Dibaca sekali per request. Kategori yang urutannya 0 tidak masuk peta —
+     * artinya "belum diatur" dan akan diletakkan setelah kategori yang diatur.
+     *
+     * @return array<string, int>
+     */
+    private function categoryOrderMap(): array
+    {
+        if ($this->categoryOrderMap === null) {
+            $this->categoryOrderMap = GameIcon::query()
+                ->where('display_order', '>', 0)
+                ->pluck('display_order', 'game_name')
+                ->mapWithKeys(fn ($order, $name) => [mb_strtolower((string) $name) => (int) $order])
+                ->all();
+        }
+
+        return $this->categoryOrderMap;
+    }
+
+    /**
+     * Terapkan urutan kategori yang diatur admin ke sebuah query kategori.
+     *
+     * Nama kategori dikirim sebagai binding, bukan dirangkai ke dalam SQL, supaya
+     * nama yang mengandung tanda kutip tidak merusak query. Kategori yang belum
+     * diatur (tidak ada di peta) jatuh ke ELSE dan tetap urut abjad.
+     */
+    private function applyCategoryOrder($query)
+    {
+        $map = $this->categoryOrderMap();
+
+        if ($map === []) {
+            return $query->orderBy('game');
+        }
+
+        $cases = [];
+        $bindings = [];
+
+        foreach ($map as $name => $order) {
+            $cases[] = 'WHEN LOWER(game) = ? THEN ?';
+            $bindings[] = $name;
+            $bindings[] = $order;
+        }
+
+        $expression = 'CASE '.implode(' ', $cases).' ELSE 999999 END ASC, game ASC';
+
+        return $query->orderByRaw($expression, $bindings);
     }
 
     private function configuredFavorites()

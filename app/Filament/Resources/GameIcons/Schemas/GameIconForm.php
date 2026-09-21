@@ -32,6 +32,12 @@ class GameIconForm
                     ->label('Kategori aktif')
                     ->default(true)
                     ->required(),
+                TextInput::make('display_order')
+                    ->label('Urutan tampil di beranda')
+                    ->helperText('Angka lebih kecil tampil lebih dahulu. Isi 0 atau biarkan kosong supaya kategori ini diurutkan menurut abjad setelah kategori yang punya urutan. Kategori baru otomatis masuk ke urutan berikutnya.')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0),
                 Toggle::make('is_favorite')
                     ->label('Tampilkan di Kategori Favorit')
                     ->helperText('Aktifkan agar kategori muncul pada bagian favorit di halaman utama.')
@@ -39,7 +45,7 @@ class GameIconForm
                     ->default(false),
                 TextInput::make('favorite_order')
                     ->label('Urutan favorit')
-                    ->helperText('Angka lebih kecil tampil lebih dahulu.')
+                    ->helperText('Angka lebih kecil tampil lebih dahulu. Khusus bagian "Kategori Favorit", terpisah dari urutan beranda di atas.')
                     ->numeric()
                     ->minValue(0)
                     ->default(0)
