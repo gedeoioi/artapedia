@@ -243,11 +243,18 @@
 </head>
 <body class="min-h-screen">
 <header class="topbar sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-2 sm:gap-3">
         @php $logo = \App\Models\SiteSetting::logoUrl(); @endphp
-        <a href="{{ route('home') }}" class="font-bold text-xl flex items-center gap-2 shrink-0">
-            @if($logo)<img src="{{ $logo }}" alt="{{ $siteName }}" class="h-8 w-auto rounded">@endif
-            <span>{{ $siteName }}</span>
+        <a href="{{ route('home') }}" class="font-bold text-lg sm:text-xl flex items-center gap-2 min-w-0">
+            @if($logo)
+                {{-- Logo gambar sudah memuat nama brand, jadi di ponsel teksnya
+                     disembunyikan: keduanya tampil bersamaan membuat header
+                     meluber dan seluruh halaman bisa digeser ke samping. --}}
+                <img src="{{ $logo }}" alt="{{ $siteName }}" class="h-8 w-auto rounded shrink-0 brand-logo">
+                <span class="hidden sm:inline truncate">{{ $siteName }}</span>
+            @else
+                <span class="truncate">{{ $siteName }}</span>
+            @endif
         </a>
         <form action="{{ route('home') }}" class="hidden md:flex flex-1 max-w-sm gap-2">
             @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
@@ -284,9 +291,9 @@
                 <span class="hidden sm:inline">Riwayat</span>
             </a>
             @auth
-                <a href="{{ route('member.dashboard') }}" class="btn-primary px-4 py-2 text-sm">Member Area</a>
+                <a href="{{ route('member.dashboard') }}" class="btn-primary px-3 sm:px-4 py-2 text-sm whitespace-nowrap">Member Area</a>
             @else
-                <a href="{{ route('login') }}" class="btn-primary px-5 py-2 text-sm">Masuk</a>
+                <a href="{{ route('login') }}" class="btn-primary px-3 sm:px-5 py-2 text-sm whitespace-nowrap">Masuk</a>
             @endauth
         </div>
     </div>

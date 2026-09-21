@@ -354,9 +354,9 @@
 <div class="card p-5">
     <div class="font-bold mb-1">Sudah pesan? Lacak di sini</div>
     <p class="muted text-xs mb-3">Masukkan kode invoice untuk melihat status pembayaran dan pengiriman.</p>
-    <form action="{{ route('invoice.show') }}" class="flex gap-2 max-w-md">
-        <input name="code" placeholder="cth: INV-20240101-XXXX" class="card flex-1 px-3 py-2 text-sm">
-        <button class="btn-primary px-5 py-2 text-sm">Cek Transaksi</button>
+    <form action="{{ route('invoice.show') }}" class="flex flex-col sm:flex-row gap-2 sm:max-w-md">
+        <input name="code" placeholder="cth: INV-20240101-XXXX" class="card w-full min-w-0 px-3 py-2 text-sm">
+        <button class="btn-primary w-full sm:w-auto px-5 py-2 text-sm whitespace-nowrap">Cek Transaksi</button>
     </form>
 </div>
 @endsection
