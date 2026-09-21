@@ -85,8 +85,13 @@
         .catalog-tabs {
             display: flex;
             gap: 12px;
+            /* overflow-x: auto membuat sumbu Y ikut terpotong (CSS memaksa
+               auto/hidden kalau salah satu sumbu auto), jadi padding harus
+               menyediakan ruang untuk ring hover 3px + angkat 2px. Dengan
+               padding 2px sebelumnya, bagian atas ring terpotong dan bentuk
+               pill-nya terlihat rata di atas. */
             overflow-x: auto;
-            padding: 2px 0 5px;
+            padding: 6px 0 10px;
             scrollbar-width: none;
         }
         .catalog-tabs::-webkit-scrollbar { display: none; }
@@ -121,7 +126,7 @@
             transform: translateY(-2px);
             box-shadow:
                 inset 0 1px 0 rgba(255, 255, 255, .14),
-                0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent),
+                inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent),
                 0 9px 22px rgba(0, 0, 0, .38);
         }
         .catalog-tabs a:active, .catalog-tabs button:active { transform: translateY(0) scale(.975); }
@@ -147,7 +152,6 @@
             box-shadow:
                 inset 0 1px 0 rgba(255, 255, 255, .5),
                 inset 0 -2px 6px color-mix(in srgb, var(--primary) 50%, #000),
-                0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent),
                 0 12px 28px color-mix(in srgb, var(--primary) 48%, transparent);
         }
         .catalog-more-button {
