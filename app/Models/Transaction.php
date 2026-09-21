@@ -277,9 +277,19 @@ class Transaction extends Model
      * waktu tertentu. Tanpa ini, double-click / retry jaringan membuat dua
      * transaksi yang keduanya benar-benar mengirim kredit ke supplier dan tidak
      * bisa ditarik kembali.
+     *
+     * Jendelanya BERGESER, bukan menempel di batas menit. Versi lama memakai
+     * now()->format('YmdHi') sebagai bagian key, jadi dua klik yang mengapit
+     * pergantian menit menghasilkan key berbeda — dedupe mati tepat saat menit
+     * berganti dan saldo terpotong dua kali. Waktu dibulatkan ke bawah ke
+     * kelipatan jendela supaya dua request berdekatan selalu masuk jendela yang
+     * sama, tanpa titik mati.
      */
     public static function idempotencyKey(array $data, ?User $user = null): string
     {
+        $window = max(1, (int) config('artapedia.idempotency_window_seconds', 120));
+        $bucket = (int) floor(now()->getTimestamp() / $window);
+
         $payload = [
             'product_id' => (int) ($data['product_id'] ?? 0),
             'target' => trim((string) ($data['target_user_id'] ?? '')),
@@ -289,20 +299,70 @@ class Transaction extends Model
             'ipaymu_method' => (string) ($data['ipaymu_method'] ?? ''),
             'ipaymu_channel' => (string) ($data['ipaymu_channel'] ?? ''),
             'buyer' => $user?->id ?? trim((string) ($data['buyer_phone'] ?? '')),
-            'window' => now()->format('YmdHi'),
+            'bucket' => $bucket,
         ];
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES));
     }
 
     /**
-     * Transaksi identik yang masih hidup pada jendela idempotensi yang sama.
-     * Transaksi final (gagal/expired) tidak dianggap duplikat supaya pembeli
-     * tetap bisa mencoba ulang setelah kegagalan.
+     * Kunci idempotensi untuk request yang mungkin masih berada di jendela
+     * sebelumnya. Dipakai saat mencari duplikat: request pada detik terakhir
+     * satu jendela dan detik pertama jendela berikutnya harus tetap dianggap
+     * satu order.
+     *
+     * @return list<string>
      */
-    public static function findDuplicate(string $key): ?self
+    public static function idempotencyKeys(array $data, ?User $user = null): array
     {
-        return static::where('idempotency_key', $key)
+        $window = max(1, (int) config('artapedia.idempotency_window_seconds', 120));
+        $now = now()->getTimestamp();
+
+        return [
+            static::idempotencyKey($data, $user),
+            static::idempotencyKeyAt($data, $user, $now - $window),
+        ];
+    }
+
+    protected static function idempotencyKeyAt(array $data, ?User $user, int $timestamp): string
+    {
+        $window = max(1, (int) config('artapedia.idempotency_window_seconds', 120));
+        $bucket = (int) floor($timestamp / $window);
+
+        $payload = [
+            'product_id' => (int) ($data['product_id'] ?? 0),
+            'target' => trim((string) ($data['target_user_id'] ?? '')),
+            'zone' => trim((string) ($data['target_zone'] ?? '')),
+            'quantity' => max(1, (int) ($data['quantity'] ?? 1)),
+            'gateway' => (string) ($data['gateway_code'] ?? 'balance'),
+            'ipaymu_method' => (string) ($data['ipaymu_method'] ?? ''),
+            'ipaymu_channel' => (string) ($data['ipaymu_channel'] ?? ''),
+            'buyer' => $user?->id ?? trim((string) ($data['buyer_phone'] ?? '')),
+            'bucket' => $bucket,
+        ];
+
+        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Cari duplikat dengan mempertimbangkan jendela sebelumnya.
+     *
+     * Dua request berdekatan bisa jatuh di dua jendela berbeda (yang pertama di
+     * detik terakhir, yang kedua di detik pertama jendela berikutnya). Tanpa
+     * memeriksa jendela sebelumnya, keduanya lolos dedupe dan saldo terpotong
+     * dua kali.
+     *
+     * @param  list<string>  $keys
+     */
+    public static function findAnyDuplicate(array $keys): ?self
+    {
+        $keys = array_values(array_filter($keys));
+
+        if ($keys === []) {
+            return null;
+        }
+
+        return static::whereIn('idempotency_key', $keys)
             ->whereIn('status', [self::STATUS_PENDING, self::STATUS_PAID, self::STATUS_PROCESSING, self::STATUS_SUCCESS])
             ->latest('id')
             ->first();

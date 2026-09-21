@@ -31,8 +31,10 @@ class OrderService
 
         // Jendela idempotensi: request identik yang datang berulang (double
         // click, retry jaringan, tombol di-refresh) mengembalikan transaksi yang
-        // sudah ada alih-alih membuat order kedua ke supplier.
-        if ($existing = Transaction::findDuplicate($idempotencyKey)) {
+        // sudah ada alih-alih membuat order kedua ke supplier. Jendela
+        // sebelumnya juga diperiksa supaya dua klik yang mengapit batas jendela
+        // tidak lolos.
+        if ($existing = Transaction::findAnyDuplicate(Transaction::idempotencyKeys($data, $user))) {
             return $existing;
         }
 

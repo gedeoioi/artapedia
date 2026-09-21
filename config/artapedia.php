@@ -10,6 +10,13 @@ use App\Suppliers\TokoVoucherProvider;
 use App\Suppliers\VipResellerProvider;
 
 return [
+    /*
+     * Jendela idempotensi order (detik). Request checkout yang identik dalam
+     * rentang ini dianggap satu order. Jendelanya bergeser, bukan menempel di
+     * batas menit, supaya tidak ada titik mati saat menit berganti.
+     */
+    'idempotency_window_seconds' => (int) env('ORDER_IDEMPOTENCY_WINDOW', 120),
+
     'initial_admin' => [
         'email' => env('INITIAL_ADMIN_EMAIL', 'admin@artapedia.id'),
         'password' => env('INITIAL_ADMIN_PASSWORD', ''),

@@ -95,6 +95,89 @@ class OrderIdempotencyTest extends TestCase
         $this->assertSame(88500, $user->fresh()->balance);
     }
 
+    /**
+     * Jendela idempotensi tidak boleh bocor saat menit berganti.
+     *
+     * Key idempotensi lama memuat stempel waktu beresolusi MENIT, jadi dua klik
+     * yang jatuh di sisi berbeda pergantian menit dianggap dua order berbeda dan
+     * saldo terpotong dua kali. Ini yang membuat CI gagal secara acak: lokal
+     * lolos, CI tidak, tergantung detik test dijalankan.
+     */
+    public function test_idempotensi_tidak_bocor_saat_menit_berganti(): void
+    {
+        $this->fakeSupplier();
+        $product = $this->seedProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'biasa']);
+
+        $payload = [
+            'product_id' => $product->id,
+            'target_user_id' => '123456789',
+            'gateway_code' => 'balance',
+        ];
+
+        // Klik pertama di detik ke-58, klik kedua 5 detik kemudian (menit baru).
+        $this->travelTo(now()->startOfMinute()->addSeconds(58));
+        app(OrderService::class)->checkout($payload, $user);
+
+        $this->travel(5)->seconds();
+        app(OrderService::class)->checkout($payload, $user);
+
+        $this->assertSame(1, Transaction::count(), 'Klik ganda tidak boleh jadi dua order.');
+        $this->assertSame(88500, $user->fresh()->balance, 'Saldo hanya boleh terpotong sekali.');
+    }
+
+    /**
+     * Kasus terburuk: satu klik tepat di detik terakhir jendela, klik berikutnya
+     * tepat di detik pertama jendela berikutnya (jarak hanya 1 detik).
+     */
+    public function test_idempotensi_aman_pada_jarak_satu_detik(): void
+    {
+        $this->fakeSupplier();
+        $product = $this->seedProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'biasa']);
+
+        $payload = [
+            'product_id' => $product->id,
+            'target_user_id' => '123456789',
+            'gateway_code' => 'balance',
+        ];
+
+        $window = (int) config('artapedia.idempotency_window_seconds', 120);
+
+        // Detik terakhir jendela.
+        $this->travelTo(now()->startOfMinute()->addSeconds(($window - 1) % 60 ?: 59));
+        app(OrderService::class)->checkout($payload, $user);
+
+        // Satu detik kemudian: sudah masuk jendela berikutnya.
+        $this->travel(1)->seconds();
+        app(OrderService::class)->checkout($payload, $user);
+
+        $this->assertSame(1, Transaction::count());
+        $this->assertSame(88500, $user->fresh()->balance);
+    }
+
+    /** Setelah jendela benar-benar lewat, pembeli boleh order lagi. */
+    public function test_order_baru_diizinkan_setelah_jendela_lewat(): void
+    {
+        $this->fakeSupplier();
+        $product = $this->seedProduct();
+        $user = User::factory()->create(['balance' => 100000, 'level' => 'biasa']);
+
+        $payload = [
+            'product_id' => $product->id,
+            'target_user_id' => '123456789',
+            'gateway_code' => 'balance',
+        ];
+
+        app(OrderService::class)->checkout($payload, $user);
+
+        // Lewati dua jendela penuh supaya tidak ada jendela lama yang cocok.
+        $this->travel((int) config('artapedia.idempotency_window_seconds', 120) * 2 + 1)->seconds();
+        app(OrderService::class)->checkout($payload, $user);
+
+        $this->assertSame(2, Transaction::count(), 'Order sah berikutnya tidak boleh diblokir.');
+    }
+
     public function test_supplier_hanya_dipanggil_sekali_untuk_checkout_berulang(): void
     {
         $this->fakeSupplier();
