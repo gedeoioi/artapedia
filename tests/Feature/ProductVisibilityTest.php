@@ -193,6 +193,66 @@ class ProductVisibilityTest extends TestCase
     }
 
     /**
+     * Animasi "Tampilkan Lainnya" harus bertahap, bukan semua kartu sekaligus.
+     *
+     * Diukur di browser: kartu baru mulai pada 0/31/82/132/165 ms, jadi
+     * jeda 45 ms per kartu memang terpakai.
+     */
+    public function test_animasi_kartu_baru_bertahap_dan_aman(): void
+    {
+        foreach (range(1, 21) as $number) {
+            $this->makeProduct([
+                'supplier_code' => 'ANIM-'.$number,
+                'game' => 'Animasi '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $response = $this->get('/')->assertOk();
+
+        // Kartu yang baru muncul memakai kelas + jeda per kartu.
+        $response->assertSee('category-card-muncul')
+            ->assertSee('kartuBaru(', false)
+            ->assertSee('jedaAnimasi(', false)
+            ->assertSee('@keyframes category-card-masuk', false)
+            ->assertSee('animation: category-card-masuk', false);
+
+        // Jeda dihitung dari urutan kartu, bukan nilai tetap.
+        $response->assertSee('(urutan * 45)', false);
+
+        // Animasi harus dihormati saat pengguna mematikan gerakan.
+        $response->assertSee('prefers-reduced-motion', false);
+
+        // Kartu baru hanya ditandai selama animasi berlangsung.
+        $response->assertSee('baru[type] = -1', false);
+
+        // Tombol memakai satu label reaktif — dua span x-show sempat membuat
+        // "Tampilkan Lainnya..." dan "Memuat..." tampil bersamaan.
+        $this->assertStringNotContainsString('<span x-show="!sedangMemuat">', $response->getContent());
+    }
+
+    /**
+     * Jeda animasi harus diberikan lewat objek :style, bukan string.
+     *
+     * Bentuk string mengganti SELURUH atribut style, sehingga display:none
+     * milik x-show terhapus dan semua kartu tersembunyi ikut tampil — satu
+     * klik langsung membuka seluruh daftar.
+     */
+    public function test_jeda_animasi_tidak_menghapus_display_dari_x_show(): void
+    {
+        foreach (range(1, 21) as $number) {
+            $this->makeProduct([
+                'supplier_code' => 'STYLE-'.$number,
+                'game' => 'Gaya '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $content = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString(':style="{ animationDelay:', $content);
+        $this->assertStringNotContainsString(":style=\"'animation-delay: '", $content);
+    }
+
+    /**
      * Tombol harus tahu berapa kategori yang masih tersembunyi, kalau tidak
      * tombolnya tetap tampil setelah semua kategori ditampilkan.
      */

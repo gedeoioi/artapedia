@@ -163,6 +163,7 @@
     activeType: @js($activeType),
     tampil: { game: {{ $visibleCategories }}, pulsa: {{ $visibleCategories }}, data: {{ $visibleCategories }}, voucher: {{ $visibleCategories }} },
     total: @js($totalKategoriPerTipe),
+    baru: { game: -1, pulsa: -1, data: -1, voucher: -1 },
     sedangMemuat: false,
     tampilKategori(type, index) {
         return index < (this.tampil[type] ?? {{ $visibleCategories }});
@@ -170,14 +171,29 @@
     adaLagi(type) {
         return (this.tampil[type] ?? 0) < (this.total[type] ?? 0);
     },
+    kartuBaru(type, index) {
+        const mulai = this.baru[type];
+        if (mulai === undefined || mulai < 0) return false;
+        return index >= mulai && index < mulai + {{ $visibleCategories }};
+    },
+    jedaAnimasi(type, index) {
+        const mulai = this.baru[type];
+        if (mulai === undefined || mulai < 0) return '0ms';
+        const urutan = index - mulai;
+        if (urutan < 0 || urutan >= {{ $visibleCategories }}) return '0ms';
+        return (urutan * 45) + 'ms';
+    },
     tampilkanLainnya(type) {
         if (this.sedangMemuat) return;
         this.sedangMemuat = true;
+        const mulai = this.tampil[type] ?? 0;
         window.setTimeout(() => {
-            this.tampil[type] = (this.tampil[type] ?? 0) + {{ $visibleCategories }};
+            this.baru[type] = mulai;
+            this.tampil[type] = mulai + {{ $visibleCategories }};
             window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
                 this.sedangMemuat = false;
             }));
+            window.setTimeout(() => { this.baru[type] = -1; }, 900);
         }, 180);
     }
 }">
@@ -203,6 +219,8 @@
                         href="{{ route('game.show', $g->game) }}"
                         data-cat-item
                         class="category-card group"
+                        :class="{ 'category-card-muncul': kartuBaru(@js($type), {{ $i }}) }"
+                        :style="{ animationDelay: jedaAnimasi(@js($type), {{ $i }}) }"
                         aria-label="Buka kategori {{ $g->game }}"
                         x-show="tampilKategori(@js($type), {{ $i }})"
                         @if($i >= $visibleCategories) x-cloak @endif
@@ -245,10 +263,8 @@
                     :disabled="sedangMemuat"
                     class="catalog-more-button disabled:opacity-60"
                     aria-label="Tampilkan {{ min($kolomGrid, $sisaKategori) }} kategori lainnya"
-                >
-                    <span x-show="!sedangMemuat">Tampilkan Lainnya...</span>
-                    <span x-show="sedangMemuat" x-cloak>Memuat...</span>
-                </button>
+                    x-text="sedangMemuat ? 'Memuat...' : 'Tampilkan Lainnya...'"
+                >Tampilkan Lainnya...</button>
             </div>
             @else
             <div class="mb-8"></div>
@@ -270,8 +286,20 @@
         transform: translateY(9px) scale(.995);
         pointer-events: none;
     }
+
+    /* Kartu yang baru ditampilkan muncul dengan halus, satu per satu dari kiri
+       ke kanan (jeda diatur lewat animation-delay per kartu). */
+    @keyframes category-card-masuk {
+        from { opacity: 0; transform: translateY(14px) scale(.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .category-card-muncul {
+        animation: category-card-masuk .46s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .category-page-transition { transition: none; }
+        .category-card-muncul { animation: none; }
     }
 </style>
 
