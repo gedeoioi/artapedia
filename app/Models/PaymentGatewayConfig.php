@@ -67,17 +67,52 @@ class PaymentGatewayConfig extends Model
             && isset($this->enabledCheckoutChannels()[$method]['channels'][$channel]);
     }
 
+    /**
+     * Biaya layanan untuk satu transaksi.
+     *
+     * Tarif dipilih dari yang paling spesifik ke paling umum:
+     *   1. tarif grup channel milik gateway ini (channel_settings[grup])
+     *   2. tarif default gateway (fee_flat / fee_percent)
+     *
+     * $method adalah GRUP channel ('qris', 'va', 'ewallet', 'cstore'), bukan
+     * kode channel gateway. Sebelumnya hanya iPaymu yang membaca tarif per
+     * grup, sehingga Tripay selalu memakai tarif default — akibatnya memilih
+     * QRIS atau Virtual Account menghasilkan biaya layanan yang sama persis.
+     */
     public function feeFor(int $amount, ?string $method = null, ?string $channel = null): int
     {
         $flat = (int) $this->fee_flat;
         $percent = (float) $this->fee_percent;
+
         $group = $method !== null ? ($this->channel_settings[$method] ?? null) : null;
 
-        if ($this->code === 'ipaymu' && $channel !== null && is_array($group)) {
-            $flat = array_key_exists('fee_flat', $group) ? (int) $group['fee_flat'] : $flat;
-            $percent = array_key_exists('fee_percent', $group) ? (float) $group['fee_percent'] : $percent;
+        if (is_array($group)) {
+            if (array_key_exists('fee_flat', $group)) {
+                $flat = (int) $group['fee_flat'];
+            }
+
+            if (array_key_exists('fee_percent', $group)) {
+                $percent = (float) $group['fee_percent'];
+            }
         }
 
         return $flat + (int) round($amount * $percent / 100);
+    }
+
+    /**
+     * Apakah tarif per grup channel sudah diatur untuk gateway ini.
+     *
+     * Dipakai untuk membedakan "tarif grup memang nol" dari "belum diatur",
+     * supaya pengingat konfigurasi hanya muncul saat memang perlu.
+     */
+    public function hasChannelRates(): bool
+    {
+        foreach ((array) $this->channel_settings as $group) {
+            if (is_array($group) && (array_key_exists('fee_flat', $group) || array_key_exists('fee_percent', $group))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

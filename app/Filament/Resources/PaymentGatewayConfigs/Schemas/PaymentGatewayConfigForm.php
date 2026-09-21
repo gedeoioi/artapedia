@@ -50,71 +50,72 @@ class PaymentGatewayConfigForm
                     ->required()
                     ->numeric()
                     ->suffix('%')
-                    ->default(0),
+                    ->default(0)
+                    ->helperText('Dipakai kalau tarif grup channel di bawah belum diisi. Isi tarif per grup supaya QRIS dan Virtual Account tidak menghasilkan biaya yang sama.'),
                 CheckboxList::make('channel_settings.qris.channels')
                     ->label('Channel QRIS aktif')
                     ->options(IPaymuGateway::CHECKOUT_CHANNELS['qris']['channels'])
                     ->default(array_keys(IPaymuGateway::CHECKOUT_CHANNELS['qris']['channels']))
                     ->columns(3)
                     ->bulkToggleable()
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu')
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true))
                     ->columnSpanFull(),
                 TextInput::make('channel_settings.qris.fee_flat')
                     ->label('Biaya flat QRIS')
                     ->numeric()->minValue(0)->prefix('Rp')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 TextInput::make('channel_settings.qris.fee_percent')
                     ->label('Biaya persen QRIS')
                     ->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 CheckboxList::make('channel_settings.ewallet.channels')
                     ->label('Channel E-Wallet aktif')
                     ->options(IPaymuGateway::CHECKOUT_CHANNELS['ewallet']['channels'])
                     ->default(array_keys(IPaymuGateway::CHECKOUT_CHANNELS['ewallet']['channels']))
                     ->columns(3)
                     ->bulkToggleable()
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu')
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true))
                     ->columnSpanFull(),
                 TextInput::make('channel_settings.ewallet.fee_flat')
                     ->label('Biaya flat E-Wallet')
                     ->numeric()->minValue(0)->prefix('Rp')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 TextInput::make('channel_settings.ewallet.fee_percent')
                     ->label('Biaya persen E-Wallet')
                     ->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 CheckboxList::make('channel_settings.va.channels')
                     ->label('Bank Virtual Account aktif')
                     ->options(IPaymuGateway::CHECKOUT_CHANNELS['va']['channels'])
                     ->default(array_keys(IPaymuGateway::CHECKOUT_CHANNELS['va']['channels']))
                     ->columns(3)
                     ->bulkToggleable()
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu')
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true))
                     ->columnSpanFull(),
                 TextInput::make('channel_settings.va.fee_flat')
                     ->label('Biaya flat Virtual Account')
                     ->numeric()->minValue(0)->prefix('Rp')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 TextInput::make('channel_settings.va.fee_percent')
                     ->label('Biaya persen Virtual Account')
                     ->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 CheckboxList::make('channel_settings.cstore.channels')
                     ->label('Gerai Retail aktif')
                     ->options(IPaymuGateway::CHECKOUT_CHANNELS['cstore']['channels'])
                     ->default(array_keys(IPaymuGateway::CHECKOUT_CHANNELS['cstore']['channels']))
                     ->columns(3)
                     ->bulkToggleable()
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu')
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true))
                     ->columnSpanFull(),
                 TextInput::make('channel_settings.cstore.fee_flat')
                     ->label('Biaya flat Gerai Retail')
                     ->numeric()->minValue(0)->prefix('Rp')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
                 TextInput::make('channel_settings.cstore.fee_percent')
                     ->label('Biaya persen Gerai Retail')
                     ->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
-                    ->visible(fn ($get): bool => strtolower((string) $get('code')) === 'ipaymu'),
+                    ->visible(fn ($get): bool => in_array(strtolower((string) $get('code')), ['ipaymu', 'tripay'], true)),
             ]);
     }
 }

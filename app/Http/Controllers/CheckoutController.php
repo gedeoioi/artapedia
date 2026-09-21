@@ -70,7 +70,20 @@ class CheckoutController extends Controller
             $config = PaymentGatewayConfig::where('code', 'ipaymu')->where('is_active', true)->firstOrFail();
             [$ipaymuMethod, $ipaymuChannel] = $this->resolveIPaymuChannel($config, $ipaymuMethod, $ipaymuChannel);
         }
-        $quote = $payments->quote($product, $request->user(), $gateway, $quantity, $ipaymuMethod, $ipaymuChannel);
+
+        // Tripay memakai nama field berbeda untuk grup dan kode channel. Tanpa
+        // pemetaan ini, biaya per channel tidak pernah terpakai — QRIS dan
+        // Virtual Account menghasilkan biaya layanan yang sama persis.
+        $feeGroup = $ipaymuMethod;
+        $feeChannel = $ipaymuChannel;
+
+        if ($gateway === 'tripay') {
+            $tripayChannel = $data['tripay_channel'] ?? null;
+            $feeGroup = TripayGateway::groupForChannel($tripayChannel);
+            $feeChannel = $tripayChannel;
+        }
+
+        $quote = $payments->quote($product, $request->user(), $gateway, $quantity, $feeGroup, $feeChannel);
         $checkoutTotal = $quote['total'];
         $minimumAmount = match (true) {
             $gateway === 'ipaymu' => IPaymuGateway::minimumAmountFor($ipaymuMethod, $ipaymuChannel),
